@@ -1,6 +1,4 @@
-{pkgs ? import <nixpkgs> {}}: let
-  getLibFolder = pkg: "${pkg}/lib";
-in
+{pkgs ? import <nixpkgs> {}}:
   pkgs.stdenv.mkDerivation {
     name = "devops-journey-shell";
 

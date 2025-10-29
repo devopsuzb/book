@@ -7,7 +7,7 @@ flake: {
   ...
 }: let
   # Shortcut config
-  cfg = config.services.devops-journey;
+  cfg = config.services.devops.book;
 
   # Packaged server
   server = flake.packages.${pkgs.stdenv.hostPlatform.system}.default;
@@ -28,7 +28,7 @@ flake: {
   nginx = lib.mkIf (cfg.enable && cfg.proxy.enable && cfg.proxy.proxy == "nginx") {
     services.nginx.virtualHosts = lib.debug.traceIf (builtins.isNull cfg.proxy.domain) "proxy.domain can't be null, please specicy it properly!" {
       "${cfg.proxy.domain}" = {
-        addSSL = true;
+        forceSSL = true;
         enableACME = true;
         serverAliases = cfg.proxy.aliases;
         locations."/" = {
@@ -42,16 +42,16 @@ flake: {
   # The systemd service
   service = lib.mkIf cfg.enable {
     users.users.${cfg.user} = {
-      description = "DevOps Journey Website user";
+      description = "DevOps Uzbekistan Website user";
       isSystemUser = true;
       group = cfg.group;
     };
 
     users.groups.${cfg.group} = {};
 
-    systemd.services.devops-journey = {
-      description = "Official website of DevOps Journey";
-      documentation = ["https://github.com/devops-journey"];
+    systemd.services.devops-book = {
+      description = "Guide book of DevOps Uzbekistan";
+      documentation = ["https://github.com/devopsuzb/book"];
 
       environment = {
         PORT = "${toString cfg.port}";
@@ -115,14 +115,14 @@ flake: {
 
   asserts = lib.mkIf cfg.enable {
     warnings = [
-      (lib.mkIf (cfg.proxy.enable && cfg.proxy.domain == null) "services.devops-journey.proxy.domain must be set in order to properly generate certificate!")
+      (lib.mkIf (cfg.proxy.enable && cfg.proxy.domain == null) "services.devops.book.proxy.domain must be set in order to properly generate certificate!")
     ];
   };
 in {
   options = with lib; {
-    services.devops-journey = {
+    services.devops.book = {
       enable = mkEnableOption ''
-        DevOps Journey website.
+        DevOps Uzbekistan's Book website.
       '';
 
       proxy = {
@@ -133,14 +133,14 @@ in {
         domain = mkOption {
           type = with types; nullOr str;
           default = null;
-          example = "devops-journey.uz";
+          example = "devopsuzb.uz";
           description = "Domain to use while adding configurations to web proxy server";
         };
 
         aliases = mkOption {
           type = with types; listOf str;
           default = [];
-          example = ["www.devops-journey.uz"];
+          example = ["www.devopsuzb.uz"];
           description = "List of domain aliases to add to domain";
         };
 
@@ -169,21 +169,21 @@ in {
 
       user = mkOption {
         type = types.str;
-        default = "devops-journey";
+        default = "devopsuzb-book";
         description = "User for running system + accessing keys";
       };
 
       group = mkOption {
         type = types.str;
-        default = "devops-journey";
+        default = "devopsuzb-book";
         description = "Group for running system + accessing keys";
       };
 
       dataDir = mkOption {
         type = types.str;
-        default = "/var/lib/devops-journey/";
+        default = "/var/lib/devops/book/";
         description = ''
-          The path where DevOps Journey Website server keeps data and possibly logs.
+          The path where DevOps Uzbekistan's book server keeps data and possibly logs.
         '';
       };
 
@@ -191,7 +191,7 @@ in {
         type = types.package;
         default = server;
         description = ''
-          Packaged devops-journey.uz website contents for service.
+          Packaged devopsuzb.uz website contents for service.
         '';
       };
     };
