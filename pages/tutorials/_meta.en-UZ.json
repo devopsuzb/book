@@ -1,4 +1,8 @@
 {
   "all": "Hammasi",
+  "article": {
+    "title": "Maqolalar",
+    "display": "hidden"
+  },
   "developing": "DevOps"
 }

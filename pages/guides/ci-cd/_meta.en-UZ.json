@@ -17,7 +17,7 @@
     "description": "Github Actions + Argo CD",
     "href": "/guides/ci-cd/github-actions-argocd-cicd"
   },
-  "start-githubactions": {
+  "github-actions-ci-cd": {
     "title": "Github Actions CI/CD",
     "icon": "▶️",
     "description": "Github Actions bilan CI/CD yozamiz",
