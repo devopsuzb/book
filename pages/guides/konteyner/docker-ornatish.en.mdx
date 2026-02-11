@@ -1,6 +1,529 @@
 ---
-title: "docker ornatish"
+image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-ornatish.png
+description: "Installing Docker on Linux servers"
 ---
 
-> This article has not been translated to English yet.
-> Please read the [Uzbek version](/guides/konteyner/docker-ornatish) or help us translate it on [GitHub](https://github.com/ismoilovdevml/devops-journey).
+import { Callout } from "nextra-theme-docs";
+import { Tabs, TabList, Tab, TabPanel } from 'react-tabs';
+import 'react-tabs/style/react-tabs.css';
+
+# Installing Docker on Linux Servers
+
+![docker installation](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-ornatish.png)
+
+## Introduction
+
+**Docker Engine** is an open-source platform for building and managing containers. It packages applications along with all their dependencies into lightweight, portable containers, ensuring consistent behavior across any server.
+
+In this guide, we will install Docker Engine via the official Docker repository on **Ubuntu**, **Debian**, **Fedora**, and **RHEL** operating systems. We will also cover post-installation configuration, upgrading, and uninstallation.
+
+<Callout type="warning" emoji="">
+**Important note about firewalls**
+
+When Docker exposes container ports, those ports **bypass** `ufw` or `firewalld` rules. This means that even if you run `ufw deny 8080`, port 8080 exposed through Docker will still be accessible from the outside.
+
+Docker is only compatible with `iptables-nft` and `iptables-legacy`. Firewall rules created with `nft` will not work on a system where Docker is installed.
+
+More details: [Docker and ufw](https://docs.docker.com/network/packet-filtering-firewalls/)
+</Callout>
+
+## Installing Docker Engine
+
+<Tabs>
+<TabList>
+<Tab>**Ubuntu**</Tab>
+<Tab>**Debian**</Tab>
+<Tab>**Fedora**</Tab>
+<Tab>**RHEL**</Tab>
+</TabList>
+<TabPanel>
+## Installing Docker Engine on Ubuntu
+
+<Callout type="info" emoji="">
+**OS requirements**
+
+To install Docker Engine, you need a **64-bit** version of one of the following **Ubuntu** releases:
+
+* **Ubuntu Questing 25.10**
+* **Ubuntu Noble 24.04 (LTS)**
+* **Ubuntu Jammy 22.04 (LTS)**
+
+Supported architectures: `x86_64` (`amd64`), `armhf`, `arm64`, `s390x`, `ppc64le` (`ppc64el`)
+</Callout>
+
+<Callout type="info" emoji="">
+Docker is not officially supported on Ubuntu-based distributions such as **Linux Mint** (it may work, but is not guaranteed).
+</Callout>
+
+### Uninstall old versions
+
+Before installing the official version of Docker, you should remove any unofficial Docker packages that may be present on the system, as they can cause conflicts:
+
+```bash
+sudo apt remove $(dpkg --get-selections docker.io docker-compose docker-compose-v2 docker-doc podman-docker containerd runc | cut -f1)
+```
+
+<Callout type="info" emoji="">
+`apt` may report that none of these packages are installed — this is perfectly normal.
+
+Images, containers, and volumes in `/var/lib/docker/` are not automatically removed when Docker is uninstalled.
+</Callout>
+
+### Install using the APT repository
+
+**1->** Add Docker's official GPG key and APT repository:
+
+```bash
+# Add Docker's official GPG key
+sudo apt update
+sudo apt install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add Docker repository to APT sources
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+sudo apt update
+```
+
+<Callout type="info" emoji="">
+**What do these commands do?**
+- GPG key — verifies that downloaded packages genuinely come from Docker
+- APT source — provides the `apt` package manager with Docker's official repository URL
+- `${UBUNTU_CODENAME:-$VERSION_CODENAME}` — automatically detects your system's codename (e.g., `noble`, `jammy`)
+</Callout>
+
+**2->** Install Docker Engine and its components:
+
+```bash
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+```
+
+Where:
+- `docker-ce` — Docker Engine (the core engine)
+- `docker-ce-cli` — Docker CLI (command-line interface)
+- `containerd.io` — container runtime
+- `docker-buildx-plugin` — extended build capabilities
+- `docker-compose-plugin` — the `docker compose` command (for multi-container applications)
+
+**3->** Start Docker and verify it is running:
+
+```bash
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo systemctl status docker
+```
+
+**4->** Verify that the installation was successful:
+
+```bash
+sudo docker run hello-world
+```
+
+This command downloads a test image and runs it in a container. If you see the "Hello from Docker!" message on screen, everything is working correctly.
+
+</TabPanel>
+<TabPanel>
+## Installing Docker Engine on Debian
+
+<Callout type="info" emoji="">
+**OS requirements**
+
+To install Docker Engine, you need one of the following **Debian** versions:
+
+* **Debian Trixie 13 (stable)**
+* **Debian Bookworm 12 (oldstable)**
+* **Debian Bullseye 11 (oldoldstable)**
+
+Supported architectures: `x86_64` (`amd64`), `armhf` (`arm/v7`), `arm64`, `ppc64le` (`ppc64el`)
+</Callout>
+
+### Uninstall old versions
+
+```bash
+sudo apt remove $(dpkg --get-selections docker.io docker-compose docker-doc podman-docker containerd runc | cut -f1)
+```
+
+### Install using the APT repository
+
+**1->** Add Docker's official GPG key and APT repository:
+
+```bash
+# Add Docker's official GPG key
+sudo apt update
+sudo apt install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add Docker repository to APT sources
+sudo tee /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
+Components: stable
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+
+sudo apt update
+```
+
+<Callout type="info" emoji="">
+If you are using a Debian-based distribution such as **Kali Linux**, the `$(. /etc/os-release && echo "$VERSION_CODENAME")` portion may not work correctly. Replace it with the appropriate Debian codename, for example: `bookworm`.
+</Callout>
+
+**2->** Install Docker Engine and its components:
+
+```bash
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+```
+
+**3->** Start Docker:
+
+```bash
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo systemctl status docker
+```
+
+**4->** Verify:
+
+```bash
+sudo docker run hello-world
+```
+
+</TabPanel>
+<TabPanel>
+## Installing Docker Engine on Fedora
+
+<Callout type="info" emoji="">
+**OS requirements**
+
+To install Docker Engine, you need one of the following **Fedora** versions:
+
+* **Fedora 43**
+* **Fedora 42**
+* **Fedora 41**
+</Callout>
+
+### Uninstall old versions
+
+Fedora may have Podman and older Docker packages installed — remove them first:
+
+```bash
+sudo dnf remove docker \
+                  docker-client \
+                  docker-client-latest \
+                  docker-common \
+                  docker-latest \
+                  docker-latest-logrotate \
+                  docker-logrotate \
+                  docker-selinux \
+                  docker-engine-selinux \
+                  docker-engine
+```
+
+### Install using the DNF repository
+
+**1->** Add the Docker repository:
+
+```bash
+sudo dnf config-manager addrepo --from-repofile https://download.docker.com/linux/fedora/docker-ce.repo
+```
+
+**2->** Install Docker Engine and its components:
+
+```bash
+sudo dnf install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+```
+
+If prompted to accept a GPG key, verify that the fingerprint matches `060A 61C5 1B55 8A7F 742B 77AA C52F EB6B 621E 9F35` and accept it.
+
+<Callout type="info" emoji="">
+This command installs Docker but **does not start it**. It also creates the `docker` group but does not add any users to it.
+</Callout>
+
+**3->** Start Docker and enable it to start on boot:
+
+```bash
+sudo systemctl enable --now docker
+```
+
+<Callout type="info" emoji="">
+`enable --now` combines `enable` and `start` in a single command. Docker starts immediately and will also start automatically on system reboot.
+</Callout>
+
+**4->** Verify:
+
+```bash
+sudo docker run hello-world
+```
+
+</TabPanel>
+<TabPanel>
+## Installing Docker Engine on RHEL
+
+<Callout type="info" emoji="">
+**OS requirements**
+
+To install Docker Engine, you need one of the following **RHEL** versions:
+
+* **RHEL 8**
+* **RHEL 9**
+* **RHEL 10**
+</Callout>
+
+### Uninstall old versions
+
+```bash
+sudo dnf remove docker \
+                  docker-client \
+                  docker-client-latest \
+                  docker-common \
+                  docker-latest \
+                  docker-latest-logrotate \
+                  docker-logrotate \
+                  docker-engine \
+                  podman \
+                  runc
+```
+
+### Install using the DNF repository
+
+**1->** Add the Docker repository:
+
+```bash
+sudo dnf -y install dnf-plugins-core
+sudo dnf config-manager --add-repo https://download.docker.com/linux/rhel/docker-ce.repo
+```
+
+**2->** Install Docker Engine and its components:
+
+```bash
+sudo dnf install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
+```
+
+If prompted to accept a GPG key, verify that the fingerprint matches `060A 61C5 1B55 8A7F 742B 77AA C52F EB6B 621E 9F35` and accept it.
+
+**3->** Start Docker:
+
+```bash
+sudo systemctl enable --now docker
+```
+
+**4->** Verify:
+
+```bash
+sudo docker run hello-world
+```
+
+</TabPanel>
+</Tabs>
+
+## Post-installation configuration
+
+After installing Docker, there are several important configurations to complete.
+
+### Running Docker without root
+
+By default, Docker only works with `root` or `sudo`. To run Docker commands as a regular user, add your user to the `docker` group:
+
+```bash
+sudo usermod -aG docker $USER
+```
+
+<Callout type="warning" emoji="">
+For this change to take effect, you need to open a **new terminal session** or log out and log back in. To apply it immediately:
+
+```bash
+newgrp docker
+```
+</Callout>
+
+Then verify that it works without `sudo`:
+
+```bash
+docker run hello-world
+```
+
+### Verifying the Docker installation
+
+Run the DevOps Journey platform image to confirm Docker is working correctly:
+
+```bash
+docker run -d -p 3000:3000 --name devops-journey --restart=always devopsjourneyuz/devops-journey-uz:latest
+```
+
+Open `http://server_ip:3000` in your browser, and you should see the DevOps Journey platform.
+
+<Callout type="info" emoji="">
+If the page does not load, check your firewall:
+
+**ufw** (Ubuntu/Debian):
+```bash
+sudo ufw allow 3000
+sudo ufw reload
+```
+
+**firewalld** (RHEL/Fedora):
+```bash
+sudo firewall-cmd --zone=public --add-port=3000/tcp --permanent
+sudo firewall-cmd --reload
+```
+
+**SELinux** (RHEL/Fedora) — if in `enforcing` mode:
+```bash
+sudo getenforce
+# Temporarily disable (for testing):
+sudo setenforce 0
+```
+</Callout>
+
+### Configuring a proxy for Docker
+
+<Callout type="info" emoji="">
+Only perform this step if your server accesses the internet through a proxy.
+</Callout>
+
+If your organization's servers operate behind a proxy, you need to configure proxy settings for Docker as well:
+
+```bash
+sudo mkdir -p /etc/systemd/system/docker.service.d
+sudo nano /etc/systemd/system/docker.service.d/http-proxy.conf
+```
+
+File contents:
+
+```ini filename="http-proxy.conf"
+[Service]
+Environment="HTTP_PROXY=http://myproxy:port"
+Environment="HTTPS_PROXY=http://myproxy:port"
+Environment="NO_PROXY=localhost,127.0.0.1"
+```
+
+Apply the changes:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+Verify:
+
+```bash
+docker info | grep -i proxy
+```
+
+## Upgrading Docker Engine
+
+### Via APT (Ubuntu/Debian)
+
+If you installed Docker using the APT repository, upgrading is straightforward:
+
+```bash
+sudo apt update
+sudo apt upgrade docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+### Via DNF (Fedora/RHEL)
+
+```bash
+sudo dnf upgrade docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+### Via the convenience script
+
+Docker also provides a quick installation script. This is recommended **only for testing and development** environments:
+
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sudo sh get-docker.sh
+```
+
+<Callout type="warning" emoji="">
+**Do not use this script in production!** It does not allow customization of parameters and may result in unexpected major version upgrades.
+
+To preview what the script will do:
+```bash
+sudo sh ./get-docker.sh --dry-run
+```
+</Callout>
+
+To install pre-release (beta) versions:
+
+```bash
+curl -fsSL https://test.docker.com -o test-docker.sh
+sudo sh test-docker.sh
+```
+
+## Uninstalling Docker Engine
+
+<Tabs>
+<TabList>
+<Tab>**Ubuntu/Debian**</Tab>
+<Tab>**Fedora/RHEL**</Tab>
+</TabList>
+<TabPanel>
+
+**1->** Remove Docker packages:
+
+```bash
+sudo apt purge docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-ce-rootless-extras
+```
+
+**2->** Remove images, containers, and volumes:
+
+```bash
+sudo rm -rf /var/lib/docker
+sudo rm -rf /var/lib/containerd
+```
+
+**3->** Remove the repository source and GPG key:
+
+```bash
+sudo rm /etc/apt/sources.list.d/docker.sources
+sudo rm /etc/apt/keyrings/docker.asc
+```
+
+</TabPanel>
+<TabPanel>
+
+**1->** Remove Docker packages:
+
+```bash
+sudo dnf remove docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin docker-ce-rootless-extras
+```
+
+**2->** Remove images, containers, and volumes:
+
+```bash
+sudo rm -rf /var/lib/docker
+sudo rm -rf /var/lib/containerd
+```
+
+</TabPanel>
+</Tabs>
+
+## Additional information
+
+<Callout type="info" emoji="">
+
+**Sources used:** [docs.docker.com](https://docs.docker.com/engine/install/)
+
+**Date:** 2023.11.19(November 19, 2023)
+
+**Last updated:** 2026.02.11(February 11, 2026)
+
+**Author: Otabek Ismoilov**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>
