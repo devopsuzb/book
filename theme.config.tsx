@@ -12,10 +12,14 @@ const github = 'https://github.com/ismoilovdevml/devops-journey';
 
 const TITLE_WITH_TRANSLATIONS = {
   'en-UZ': 'DevOps Journey',
+  'en': 'DevOps Journey',
+  'ru': 'DevOps Journey',
 } as const;
 
 const EDIT_LINK_WITH_TRANSLATIONS = {
   'en-UZ': "GitHub-da o'zgartirish ->",
+  'en': 'Edit this page on GitHub ->',
+  'ru': 'Редактировать на GitHub ->',
 } as const;
 
 import { DocsThemeConfig, useConfig, useTheme } from 'nextra-theme-docs';
@@ -60,7 +64,16 @@ const config: DocsThemeConfig = {
     light: 212,
   },
   footer: {
-    text: `GPL-3.0 Licensed | Hamma huquqlar himoyalangan ${new Date().getFullYear()} ©Uzbek Developers Consortium.`,
+    text() {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      const { locale } = useRouter();
+      const footerTexts: Record<string, string> = {
+        'en-UZ': `GPL-3.0 Licensed | Hamma huquqlar himoyalangan ${new Date().getFullYear()} ©Uzbek Developers Consortium.`,
+        'en': `GPL-3.0 Licensed | All rights reserved ${new Date().getFullYear()} ©Uzbek Developers Consortium.`,
+        'ru': `GPL-3.0 Лицензия | Все права защищены ${new Date().getFullYear()} ©Uzbek Developers Consortium.`,
+      };
+      return <>{footerTexts[locale as string] || footerTexts['en-UZ']}</>;
+    },
   },
   navbar: {
     extraContent: <GithubSponsors />,
@@ -84,10 +97,18 @@ const config: DocsThemeConfig = {
 
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const { theme } = useTheme();
+
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const { locale } = useRouter();
     const title = frontMatter?.title || 'DevOps Journey';
+    const defaultDescriptions: Record<string, string> = {
+      'en-UZ': "DevOps bo'yicha bepul ta'lim platformasi bo'lgan DevOps Journey-ga xush kelibsiz",
+      'en': "Welcome to DevOps Journey - a free educational platform for DevOps",
+      'ru': "Добро пожаловать в DevOps Journey - бесплатная образовательная платформа по DevOps",
+    };
     const description =
       frontMatter?.description ||
-      "DevOps bo'yicha bepul ta'lim platformasi bo'lgan DevOps Journey-ga xush kelibsiz";
+      defaultDescriptions[locale as string] || defaultDescriptions['en-UZ'];
     const image = frontMatter?.type
       ? `https://devops-journey.uz/api/og?title=${frontMatter?.ogImageText}&category=Developing`
       : frontMatter?.image || '/banner.png';
@@ -127,7 +148,7 @@ const config: DocsThemeConfig = {
         <meta name="theme-color" content="#ffffff" />
         <meta name="msapplication-TileColor" content="#00a300" />
         <link rel="manifest" href={`${folder}/site.webmanifest`} />
-        <meta httpEquiv="Content-Language" content="en" />
+        <meta httpEquiv="Content-Language" content={locale || 'en'} />
         <meta name="title" content={composedTitle} />
         <meta name="description" content={description} />
 
@@ -185,7 +206,11 @@ const config: DocsThemeConfig = {
       );
     },
   },
-  i18n: [{ locale: 'en-UZ', text: 'O\'zbek' }],
+  i18n: [
+    { locale: 'en-UZ', text: "O'zbek" },
+    { locale: 'en', text: 'English' },
+    { locale: 'ru', text: 'Русский' },
+  ],
   gitTimestamp: ({ timestamp }) => (
     <>Last updated on {timestamp.toLocaleDateString()}</>
   ),

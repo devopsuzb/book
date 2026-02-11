@@ -1,0 +1,23 @@
+---
+showFooter: false
+---
+
+import Card, { Cards } from '@components/core/Card';
+import guides from './database/_meta.en.json';
+
+# Database
+
+Community-contributed documentation and guides for working with Databases.
+
+<Cards
+  num={3}
+  children={Object.keys(guides).map((key, i) => (
+    <Card
+      key={i}
+      title={guides[key].title}
+      description={guides[key].description}
+      icon={guides[key].icon}
+      href={guides[key].href}
+    />
+  ))}
+/>

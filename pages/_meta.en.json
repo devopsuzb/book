@@ -1,0 +1,8 @@
+{
+  "index": { "title": "Home", "type": "page" },
+  "guides": { "title": "Documentation", "type": "page" },
+  "tutorials": { "title": "Articles", "type": "page" },
+  "consultation": { "title": "Consultation", "type": "page" },
+  "404": { "type": "page", "theme": { "timestamp": false } },
+  "500": { "type": "page", "theme": { "timestamp": false, "layout": "full" } }
+}

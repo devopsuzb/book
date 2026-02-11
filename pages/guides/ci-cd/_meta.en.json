@@ -1,0 +1,74 @@
+{
+  "jenkins-ornatish": {
+    "title": "Installing Jenkins",
+    "icon": "▶️",
+    "description": "Installing Jenkins(CI/CD) on Linux Servers",
+    "href": "/guides/ci-cd/jenkins-ornatish"
+  },
+  "jenkins-docker-ci-cd": {
+    "title": "Jenkins with Docker CI/CD",
+    "icon": "▶️",
+    "description": "Building and deploying Docker images",
+    "href": "/guides/ci-cd/jenkins-docker-ci-cd"
+  },
+  "github-actions-argocd-cicd": {
+    "title": "Kubernetes CI/CD",
+    "icon": "▶️",
+    "description": "Github Actions + Argo CD",
+    "href": "/guides/ci-cd/github-actions-argocd-cicd"
+  },
+  "github-actions-ci-cd": {
+    "title": "Github Actions CI/CD",
+    "icon": "▶️",
+    "description": "CI/CD with Github Actions",
+    "href": "/guides/ci-cd/github-actions-ci-cd"
+  },
+  "start-gitlabci": {
+    "title": "Gitlab CI",
+    "icon": "▶️",
+    "description": "Docker CI/CD with Gitlab CI",
+    "href": "/guides/ci-cd/start-gitlabci"
+  },
+  "gitlab-server": {
+    "title": "Gitlab Server Setup",
+    "icon": "▶️",
+    "description": "Installing Gitlab",
+    "href": "/guides/ci-cd/gitlab-server"
+  },
+  "gitlab-ci-release-integrations": {
+    "title": "Gitlab CI Release && Integrations",
+    "icon": "▶️",
+    "description": "Release && Integrations",
+    "href": "/guides/ci-cd/gitlab-ci-release-integrations"
+  },
+  "android-github-actions": {
+    "title": "Android CI/CD",
+    "icon": "▶️",
+    "description": "Android CI/CD with Github Actions",
+    "href": "/guides/ci-cd/android-github-actions"
+  },
+  "flutter-github-action": {
+    "title": "Flutter CI/CD",
+    "icon": "▶️",
+    "description": "Github Actions + Discord (Android, iOS)",
+    "href": "/guides/ci-cd/flutter-github-action"
+  },
+  "java-spring-boot-deployment": {
+    "title": "Spring Boot Deployment",
+    "icon": "▶️",
+    "description": "With Gitlab CI and Github Actions",
+    "href": "/guides/ci-cd/java-spring-boot-deployment"
+  },
+  "nexus": {
+    "title": "Sonatype Nexus",
+    "icon": "▶️",
+    "description": "Solution for packages and CI/CD",
+    "href": "/guides/ci-cd/nexus"
+  },
+  "dotnet-deployment": {
+    "title": ".NET Core Deployment",
+    "icon": "▶️",
+    "description": "With Gitlab CI and Github Actions",
+    "href": "/guides/ci-cd/dotnet-deployment"
+  }
+}

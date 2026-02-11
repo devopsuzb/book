@@ -1,0 +1,56 @@
+{
+  "postgresql-kirish": {
+    "title": "Введение в PostgreSQL",
+    "icon": "▶️",
+    "description": "Общая информация о PostgreSQL",
+    "href": "/guides/database/postgresql-kirish"
+  },
+  "start-mysql": {
+    "title": "MySQL",
+    "icon": "▶️",
+    "description": "Введение в MySQL",
+    "href": "/guides/database/start-mysql"
+  },
+  "start-mongodb": {
+    "title": "MongoDB",
+    "icon": "▶️",
+    "description": "Что такое MongoDB и зачем она нужна?",
+    "href": "/guides/database/start-mongodb"
+  },
+  "postgresql-ornatish": {
+    "title": "Установка PostgreSQL",
+    "icon": "▶️",
+    "description": "Установка PostgreSQL на Linux серверы",
+    "href": "/guides/database/postgresql-ornatish"
+  },
+  "install-mongodb": {
+    "title": "Установка и настройка MongoDB",
+    "icon": "▶️",
+    "description": "Установка MongoDB на Ubuntu 20.04",
+    "href": "/guides/database/install-mongodb"
+  },
+  "postgres-cluster-sozlash": {
+    "title": "Настройка PostgreSQL Cluster",
+    "icon": "▶️",
+    "description": "Создание HA PostgreSQL кластера с Patroni и HAProxy",
+    "href": "/guides/database/postgres-cluster-sozlash"
+  },
+  "postgres-monitoring": {
+    "title": "PostgreSQL Мониторинг",
+    "icon": "▶️",
+    "description": "Мониторинг с Prometheus/Grafana и postgres_exporter",
+    "href": "/guides/database/postgres-monitoring"
+  },
+  "postgres-monitoring-pmm": {
+    "title": "PostgreSQL Мониторинг с PMM",
+    "icon": "▶️",
+    "description": "Percona PMM",
+    "href": "/guides/database/postgres-monitoring-pmm"
+  },
+  "postgresql-bilan-ishlash": {
+    "title": "Работа с SQL запросами",
+    "icon": "▶️",
+    "description": "Работа с SQL запросами в PostgreSQL",
+    "href": "/guides/database/postgresql-bilan-ishlash"
+  }
+}

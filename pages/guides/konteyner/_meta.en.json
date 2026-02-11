@@ -1,0 +1,44 @@
+{
+  "dockerga-kirish": {
+    "title": "Introduction to Docker",
+    "icon": "▶️",
+    "description": "Getting started with Docker",
+    "href": "/guides/konteyner/dockerga-kirish"
+  },
+  "docker-ornatish": {
+    "title": "Installing Docker on Linux",
+    "icon": "▶️",
+    "description": "Installing Docker on Linux servers",
+    "href": "/guides/konteyner/docker-ornatish"
+  },
+  "docker-asoslari": {
+    "title": "Mastering Docker",
+    "icon": "▶️",
+    "description": "Mastering Docker: Complete guide to commands",
+    "href": "/guides/konteyner/docker-asoslari"
+  },
+  "harbor-setup": {
+    "title": "Harbor CR",
+    "icon": "▶️",
+    "description": "Setting up Container Registry",
+    "href": "/guides/konteyner/harbor-setup"
+  },
+  "docker-registry": {
+    "title": "Docker Registry",
+    "icon": "▶️",
+    "description": "Setting up a private Docker Registry",
+    "href": "/guides/konteyner/docker-registry"
+  },
+  "code-server": {
+    "title": "Code Server",
+    "icon": "▶️",
+    "description": "Running VS Code on a server",
+    "href": "/guides/konteyner/code-server"
+  },
+  "dockerfile-yozish": {
+    "title": "Writing Dockerfiles",
+    "icon": "▶️",
+    "description": "Guide to writing Dockerfiles",
+    "href": "/guides/konteyner/dockerfile-yozish"
+  }
+}

@@ -1,0 +1,23 @@
+---
+showFooter: false
+---
+
+import Card, { Cards } from '@components/core/Card';
+import guides from './konteyner/_meta.en.json';
+
+# Containers
+
+Community-contributed documentation and guides for Containerization.
+
+<Cards
+  num={3}
+  children={Object.keys(guides).map((key, i) => (
+    <Card
+      key={i}
+      title={guides[key].title}
+      description={guides[key].description}
+      icon={guides[key].icon}
+      href={guides[key].href}
+    />
+  ))}
+/>

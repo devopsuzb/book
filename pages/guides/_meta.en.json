@@ -1,0 +1,10 @@
+{
+  "overview": "Home",
+  "ci-cd": "▶️ CI/CD",
+  "konteyner": "▶️ Containers",
+  "k8s": "▶️ Kubernetes(k8s)",
+  "database": "▶️ Database",
+  "web-server": "▶️ Web Servers",
+  "cloud": "▶️ Cloud",
+  "monitoring": "▶️ Monitoring"
+}

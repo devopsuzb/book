@@ -1,0 +1,31 @@
+---
+description: "Вся документация"
+showFooter: false
+---
+
+import Card, { Cards } from '@components/core/Tutorial/Card';
+import developingGuides from './article/_meta.ru.json';
+
+## Вся документация
+
+Сборник всех статей, написанных сообществом.
+
+<Cards
+  num={1}
+  children={Object.keys(developingGuides)
+    .reverse()
+    .map(
+      (key, i) => (
+        <Card
+          key={i}
+          title={developingGuides[key].longTitle}
+          level={developingGuides[key].level}
+          category={developingGuides[key].category}
+          author={developingGuides[key].author}
+          createdAt={developingGuides[key].createdAt}
+          minutesRead={developingGuides[key].minutesRead}
+          href={developingGuides[key].href}
+        />
+      ),
+    )}
+/>

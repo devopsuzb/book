@@ -13,7 +13,7 @@ const withNextra = require('nextra')({
 const config = {
   output: 'standalone',
   i18n: {
-    locales: ['en-UZ'],
+    locales: ['en-UZ', 'en', 'ru'],
     defaultLocale: 'en-UZ',
   },
   reactStrictMode: true,

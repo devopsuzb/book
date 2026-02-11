@@ -1,0 +1,56 @@
+{
+  "postgresql-kirish": {
+    "title": "Introduction to PostgreSQL",
+    "icon": "▶️",
+    "description": "General information about PostgreSQL",
+    "href": "/guides/database/postgresql-kirish"
+  },
+  "start-mysql": {
+    "title": "MySQL",
+    "icon": "▶️",
+    "description": "Introduction to MySQL",
+    "href": "/guides/database/start-mysql"
+  },
+  "start-mongodb": {
+    "title": "MongoDB",
+    "icon": "▶️",
+    "description": "What is MongoDB and why use it?",
+    "href": "/guides/database/start-mongodb"
+  },
+  "postgresql-ornatish": {
+    "title": "Installing PostgreSQL",
+    "icon": "▶️",
+    "description": "Installing PostgreSQL on Linux servers",
+    "href": "/guides/database/postgresql-ornatish"
+  },
+  "install-mongodb": {
+    "title": "Installing and configuring MongoDB",
+    "icon": "▶️",
+    "description": "Installing MongoDB on Ubuntu 20.04",
+    "href": "/guides/database/install-mongodb"
+  },
+  "postgres-cluster-sozlash": {
+    "title": "PostgreSQL Cluster Setup",
+    "icon": "▶️",
+    "description": "Creating HA PostgreSQL Cluster with Patroni and HAProxy",
+    "href": "/guides/database/postgres-cluster-sozlash"
+  },
+  "postgres-monitoring": {
+    "title": "PostgreSQL Monitoring",
+    "icon": "▶️",
+    "description": "Monitoring with Prometheus/Grafana and postgres_exporter",
+    "href": "/guides/database/postgres-monitoring"
+  },
+  "postgres-monitoring-pmm": {
+    "title": "PostgreSQL Monitoring with PMM",
+    "icon": "▶️",
+    "description": "Percona PMM",
+    "href": "/guides/database/postgres-monitoring-pmm"
+  },
+  "postgresql-bilan-ishlash": {
+    "title": "Working with SQL Queries",
+    "icon": "▶️",
+    "description": "Working with SQL queries in PostgreSQL",
+    "href": "/guides/database/postgresql-bilan-ishlash"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "overview": "Главная",
+  "ci-cd": "▶️ CI/CD",
+  "konteyner": "▶️ Контейнеры",
+  "k8s": "▶️ Kubernetes(k8s)",
+  "database": "▶️ Базы данных",
+  "web-server": "▶️ Веб серверы",
+  "cloud": "▶️ Облако",
+  "monitoring": "▶️ Мониторинг"
+}

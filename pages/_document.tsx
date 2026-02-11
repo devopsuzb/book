@@ -11,7 +11,7 @@ import * as React from 'react';
 class Document extends NextDocument {
   render() {
     return (
-      <Html lang="en">
+      <Html lang={this.props.locale || 'en'}>
         <Head>
           <style id="stitches" />
           {/* Global Site Tag (gtag.js) - Google Analytics */}

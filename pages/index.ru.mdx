@@ -1,0 +1,217 @@
+---
+title: 'Главная'
+showFooter: false
+---
+
+import Link from '@components/core/Link';
+import { Tabs, Tab } from 'nextra-theme-docs';
+import Card, { Cards } from '@components/core/Card';
+
+# Изучаем DevOps вместе
+
+Добро пожаловать на **DevOps Journey** — бесплатную образовательную платформу по DevOps! Ознакомьтесь с нашей коллекцией уроков, руководств и документации для всех уровней подготовки. Учитесь развертывать от малых систем до крупномасштабной инфраструктуры вместе с нами. Давайте формировать будущее технологий вместе.
+
+Присоединяйтесь к сообществу [Telegram
+community](https://t.me/devopsuzb)
+
+<div className="mt-8">
+  <Tabs items={['CI/CD', 'Контейнеры', 'Kubernetes', 'Базы данных', 'Веб серверы', 'Облако', 'Мониторинг']}>
+    <Tab>
+      <div className="mb-8">
+        Начните свой путь в DevOps **CI/CD** вместе с нами!
+      </div>
+      <div className="mb-4 text-xl font-bold">Руководства</div>
+      <Cards num={3}>
+        <Card
+          title="Jenkins CI/CD"
+          description="Изучите эффективный CI/CD с Jenkins"
+          icon="▶️"
+          href="/guides/ci-cd/jenkins-docker-ci-cd"
+        />
+        <Card
+          title="Kubernetes CI/CD"
+          description="Github Actions + ArgoCD | GitOps"
+          icon="▶️"
+          href="/guides/ci-cd/github-actions-argocd-cicd"
+        />
+        <Card
+          title="Github Actions"
+          description="CI/CD с Github Actions"
+          icon="▶️"
+          href="/guides/ci-cd/github-actions-ci-cd"
+        />
+      </Cards>
+      <div className="text-right mt-4">
+        <Link href="/guides/ci-cd">Смотреть все -></Link>
+      </div>
+    </Tab>
+    <Tab>
+      <div className="mb-8">
+        Погрузитесь глубже в **Контейнеризацию** — одну из ключевых частей DevOps
+      </div>
+      <div className="mb-4 text-xl font-bold">Руководства</div>
+      <Cards num={3}>
+        <Card
+          title="Введение в Docker"
+          description="Знакомство с Docker"
+          icon="▶️"
+          href="/guides/konteyner/dockerga-kirish"
+        />
+        <Card
+          title="Установка Docker"
+          description="Установка и настройка Docker — первый шаг"
+          icon="▶️"
+          href="/guides/konteyner/docker-ornatish"
+        />
+        <Card
+          title="Написание Dockerfile"
+          description="Руководство по написанию Dockerfile"
+          icon="▶️"
+          href="/guides/konteyner/dockerfile-yozish"
+        />
+      </Cards>
+      <div className="text-right mt-4">
+        <Link href="/guides/konteyner">Смотреть все -></Link>
+      </div>
+    </Tab>
+    <Tab>
+      <div className="mb-8">
+        Применяйте **Kubernetes (k8s)** для эффективной оркестрации крупных проектов
+      </div>
+      <div className="mb-4 text-xl font-bold">Руководства</div>
+      <Cards num={3}>
+        <Card
+          title="Введение в Kubernetes"
+          description="Первые шаги с Kubernetes"
+          icon="▶️"
+          href="/guides/k8s/k8s-kirish"
+        />
+        <Card
+          title="Архитектура Kubernetes"
+          description="Изучение архитектуры Kubernetes"
+          icon="▶️"
+          href="/guides/k8s/k8s-architecture"
+        />
+        <Card
+          title="Объекты Kubernetes"
+          description="Нативные объекты K8s"
+          icon="▶️"
+          href="/guides/k8s/k8s-objects"
+        />
+      </Cards>
+      <div className="text-right mt-4">
+        <Link href="/guides/k8s">Смотреть все -></Link>
+      </div>
+    </Tab>
+    <Tab>
+      <div className="mb-8">
+        Работа с базами данных
+      </div>
+      <div className="mb-4 text-xl font-bold">Руководства</div>
+      <Cards num={3}>
+        <Card
+          title="PostgreSQL"
+          description="Работа с PostgreSQL"
+          icon="▶️"
+          href="/guides/database/postgresql-kirish"
+        />
+        <Card
+          title="MySQL"
+          description="Работа с MySQL"
+          icon="▶️"
+          href="/guides/database/start-mysql"
+        />
+        <Card
+          title="MongoDB"
+          description="Что такое MongoDB и зачем она нужна?"
+          icon="▶️"
+          href="/guides/database/start-mongodb"
+        />
+      </Cards>
+      <div className="text-right mt-4">
+        <Link href="/guides/database">Смотреть все -></Link>
+      </div>
+    </Tab>
+    <Tab>
+      <div className="mb-8">
+        Начните своё путешествие с **Веб серверами**!
+      </div>
+      <div className="mb-4 text-xl font-bold">Руководства</div>
+      <Cards num={3}>
+        <Card
+          title="Load Balancing"
+          description="Введение в Load Balancing, концепции и основы"
+          icon="▶️"
+          href="/guides/web-server/load-balancing"
+        />
+        <Card
+          title="NGINX Load Balancing"
+          description="HTTP и TCP/UDP Load Balancing с NGINX"
+          icon="▶️"
+          href="/guides/web-server/nginx-load-balancing"
+        />
+        <Card
+          title="HAProxy Load Balancing"
+          description="HTTP/TCP load balancing и мониторинг с HAProxy"
+          icon="▶️"
+          href="/guides/web-server/haproxy-load-balancing"
+        />
+      </Cards>
+      <div className="text-right mt-4">
+        <Link href="/guides/web-server">Смотреть все -></Link>
+      </div>
+    </Tab>
+    <Tab>
+      <div className="mb-8">
+        Начните своё путешествие с **Облаком**!
+      </div>
+      <div className="mb-4 text-xl font-bold">Руководства</div>
+      <Cards num={3}>
+        <Card
+          title="Настройка Azure Network"
+          description="Настройка виртуальной сети и подсетей Azure"
+          icon="▶️"
+          href="/guides/cloud/azure-network-sozlash"
+        />
+        <Card
+          title="Настройка GCP Network"
+          description="Настройка виртуальной сети и подсетей GCP"
+          icon="▶️"
+          href="/guides/cloud/gcp-network-sozlash"
+        />
+      </Cards>
+      <div className="text-right mt-4">
+        <Link href="/guides/cloud">Смотреть все -></Link>
+      </div>
+    </Tab>
+    <Tab>
+      <div className="mb-8">
+        Начните наблюдаемость с **Мониторингом**!
+      </div>
+      <div className="mb-4 text-xl font-bold">Руководства</div>
+      <Cards num={3}>
+        <Card
+          title="Мониторинг серверов"
+          description="Grafana stack"
+          icon="▶️"
+          href="/guides/monitoring/gnp-monitoring"
+        />
+        <Card
+          title="Введение в ELK Stack"
+          description="ELK Stack: Архитектура и компоненты"
+          icon="▶️"
+          href="/guides/monitoring/elk-stack"
+        />
+        <Card
+          title="Настройка ELK Stack Cluster"
+          description="ELK кластер"
+          icon="▶️"
+          href="/guides/monitoring/elk-setup"
+        />
+      </Cards>
+      <div className="text-right mt-4">
+        <Link href="/guides/monitoring">Смотреть все -></Link>
+      </div>
+    </Tab>
+  </Tabs>
+</div>

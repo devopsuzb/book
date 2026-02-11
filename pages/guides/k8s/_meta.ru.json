@@ -1,0 +1,68 @@
+{
+  "k8s-kirish": {
+    "title": "Введение в Kubernetes",
+    "icon": "▶️",
+    "description": "Первые шаги с Kubernetes",
+    "href": "/guides/k8s/k8s-kirish"
+  },
+  "k8s-architecture": {
+    "title": "Архитектура Kubernetes",
+    "icon": "▶️",
+    "description": "Компоненты Kubernetes",
+    "href": "/guides/k8s/k8s-architecture"
+  },
+  "k8s-objects": {
+    "title": "Объекты Kubernetes",
+    "icon": "▶️",
+    "description": "Нативные объекты K8s",
+    "href": "/guides/k8s/k8s-objects"
+  },
+  "k8s-cluster-setup": {
+    "title": "Настройка Kubernetes Cluster",
+    "icon": "▶️",
+    "description": "Настройка кластера с kubeadm",
+    "href": "/guides/k8s/k8s-cluster-setup"
+  },
+  "kubespray-setup": {
+    "title": "K8s Cluster с Kubespray",
+    "icon": "▶️",
+    "description": "Production кластер K8s",
+    "href": "/guides/k8s/kubespray-setup"
+  },
+  "k8s-cert-manager": {
+    "title": "Cert-Manager для Kubernetes",
+    "icon": "▶️",
+    "description": "Установка и настройка Cert-Manager",
+    "href": "/guides/k8s/k8s-cert-manager"
+  },
+  "argo-cd-install": {
+    "title": "Установка и настройка Argo CD",
+    "icon": "▶️",
+    "description": "Введение в GitOps",
+    "href": "/guides/k8s/argo-cd-install"
+  },
+  "kubernetes-monitoring": {
+    "title": "Kubernetes Мониторинг",
+    "icon": "▶️",
+    "description": "Prometheus, Grafana",
+    "href": "/guides/k8s/kubernetes-monitoring"
+  },
+  "k8s-klasterlarni-loyihalash": {
+    "title": "Проектирование Kubernetes кластеров",
+    "icon": "▶️",
+    "description": "Архитектура кластера",
+    "href": "/guides/k8s/k8s-klasterlarni-loyihalash"
+  },
+  "troubleshoot-k8s-pods": {
+    "title": "Troubleshoot Kubernetes Pods",
+    "icon": "▶️",
+    "description": "Для начинающих",
+    "href": "/guides/k8s/troubleshoot-k8s-pods"
+  },
+  "ha-rke2-setup": {
+    "title": "HA RKE2 Cluster",
+    "icon": "▶️",
+    "description": "Настройка RKE2 кластера",
+    "href": "/guides/k8s/ha-rke2-setup"
+  }
+}

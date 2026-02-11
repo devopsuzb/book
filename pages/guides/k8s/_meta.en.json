@@ -1,0 +1,68 @@
+{
+  "k8s-kirish": {
+    "title": "Introduction to Kubernetes",
+    "icon": "▶️",
+    "description": "First steps with Kubernetes",
+    "href": "/guides/k8s/k8s-kirish"
+  },
+  "k8s-architecture": {
+    "title": "Kubernetes Architecture",
+    "icon": "▶️",
+    "description": "Kubernetes components",
+    "href": "/guides/k8s/k8s-architecture"
+  },
+  "k8s-objects": {
+    "title": "Kubernetes Objects",
+    "icon": "▶️",
+    "description": "K8s native objects",
+    "href": "/guides/k8s/k8s-objects"
+  },
+  "k8s-cluster-setup": {
+    "title": "Kubernetes Cluster Setup",
+    "icon": "▶️",
+    "description": "Setting up Kubernetes cluster with kubeadm",
+    "href": "/guides/k8s/k8s-cluster-setup"
+  },
+  "kubespray-setup": {
+    "title": "K8s Cluster with Kubespray",
+    "icon": "▶️",
+    "description": "Production K8s cluster setup",
+    "href": "/guides/k8s/kubespray-setup"
+  },
+  "k8s-cert-manager": {
+    "title": "Cert-Manager for Kubernetes",
+    "icon": "▶️",
+    "description": "Installing and configuring Cert-Manager",
+    "href": "/guides/k8s/k8s-cert-manager"
+  },
+  "argo-cd-install": {
+    "title": "Argo CD Installation and Setup",
+    "icon": "▶️",
+    "description": "Introduction to GitOps",
+    "href": "/guides/k8s/argo-cd-install"
+  },
+  "kubernetes-monitoring": {
+    "title": "Kubernetes Monitoring",
+    "icon": "▶️",
+    "description": "Prometheus, Grafana",
+    "href": "/guides/k8s/kubernetes-monitoring"
+  },
+  "k8s-klasterlarni-loyihalash": {
+    "title": "Designing Kubernetes Clusters",
+    "icon": "▶️",
+    "description": "Cluster architecture",
+    "href": "/guides/k8s/k8s-klasterlarni-loyihalash"
+  },
+  "troubleshoot-k8s-pods": {
+    "title": "Troubleshoot Kubernetes Pods",
+    "icon": "▶️",
+    "description": "For beginners",
+    "href": "/guides/k8s/troubleshoot-k8s-pods"
+  },
+  "ha-rke2-setup": {
+    "title": "HA RKE2 Cluster",
+    "icon": "▶️",
+    "description": "Setting up RKE2 cluster",
+    "href": "/guides/k8s/ha-rke2-setup"
+  }
+}

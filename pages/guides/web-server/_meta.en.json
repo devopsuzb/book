@@ -1,0 +1,26 @@
+{
+  "load-balancing": {
+    "title": "Load Balancing",
+    "icon": "▶️",
+    "description": "Introduction to Load Balancing",
+    "href": "/guides/web-server/load-balancing"
+  },
+  "nginx-load-balancing": {
+    "title": "NGINX Load Balancing",
+    "icon": "▶️",
+    "description": "HTTP and TCP/UDP Load Balancing with NGINX",
+    "href": "/guides/web-server/nginx-load-balancing"
+  },
+  "haproxy-load-balancing": {
+    "title": "HAProxy Load Balancing",
+    "icon": "▶️",
+    "description": "HTTP/TCP load balancing and monitoring with HAProxy",
+    "href": "/guides/web-server/haproxy-load-balancing"
+  },
+  "dinamik-subdomenlar-sozlash": {
+    "title": "Dynamic Subdomain Setup",
+    "icon": "▶️",
+    "description": "Working with subdomains",
+    "href": "/guides/web-server/dinamik-subdomenlar-sozlash"
+  }
+}

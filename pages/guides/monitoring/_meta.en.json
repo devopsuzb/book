@@ -1,0 +1,32 @@
+{
+  "elk-stack": {
+    "title": "Introduction to ELK Stack",
+    "icon": "▶️",
+    "description": "ELK Stack Introduction, Architecture and Components",
+    "href": "/guides/monitoring/elk-stack"
+  },
+  "elk-setup": {
+    "title": "ELK Stack Cluster Setup",
+    "icon": "▶️",
+    "description": "ELK cluster",
+    "href": "/guides/monitoring/elk-setup"
+  },
+  "apm-server-sozlash": {
+    "title": "APM Server Setup",
+    "icon": "▶️",
+    "description": "Application monitoring",
+    "href": "/guides/monitoring/apm-server-sozlash"
+  },
+  "gnp-monitoring": {
+    "title": "Server Monitoring",
+    "icon": "▶️",
+    "description": "Grafana Stack",
+    "href": "/guides/monitoring/gnp-monitoring"
+  },
+  "loki-architecture": {
+    "title": "Grafana Loki Architecture",
+    "icon": "▶️",
+    "description": "Grafana Stack",
+    "href": "/guides/monitoring/loki-architecture"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "index": { "title": "Главная", "type": "page" },
+  "guides": { "title": "Документация", "type": "page" },
+  "tutorials": { "title": "Статьи", "type": "page" },
+  "consultation": { "title": "Консультация", "type": "page" },
+  "404": { "type": "page", "theme": { "timestamp": false } },
+  "500": { "type": "page", "theme": { "timestamp": false, "layout": "full" } }
+}

@@ -1,0 +1,31 @@
+---
+description: "All Documentation"
+showFooter: false
+---
+
+import Card, { Cards } from '@components/core/Tutorial/Card';
+import developingGuides from './article/_meta.en.json';
+
+## All Documentation
+
+A collection of all articles written by the community.
+
+<Cards
+  num={1}
+  children={Object.keys(developingGuides)
+    .reverse()
+    .map(
+      (key, i) => (
+        <Card
+          key={i}
+          title={developingGuides[key].longTitle}
+          level={developingGuides[key].level}
+          category={developingGuides[key].category}
+          author={developingGuides[key].author}
+          createdAt={developingGuides[key].createdAt}
+          minutesRead={developingGuides[key].minutesRead}
+          href={developingGuides[key].href}
+        />
+      ),
+    )}
+/>

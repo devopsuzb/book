@@ -1,0 +1,26 @@
+{
+  "load-balancing": {
+    "title": "Load Balancing",
+    "icon": "▶️",
+    "description": "Введение в Load Balancing",
+    "href": "/guides/web-server/load-balancing"
+  },
+  "nginx-load-balancing": {
+    "title": "NGINX Load Balancing",
+    "icon": "▶️",
+    "description": "HTTP и TCP/UDP Load Balancing с NGINX",
+    "href": "/guides/web-server/nginx-load-balancing"
+  },
+  "haproxy-load-balancing": {
+    "title": "HAProxy Load Balancing",
+    "icon": "▶️",
+    "description": "HTTP/TCP load balancing и мониторинг с HAProxy",
+    "href": "/guides/web-server/haproxy-load-balancing"
+  },
+  "dinamik-subdomenlar-sozlash": {
+    "title": "Настройка динамических субдоменов",
+    "icon": "▶️",
+    "description": "Работа с субдоменами",
+    "href": "/guides/web-server/dinamik-subdomenlar-sozlash"
+  }
+}
