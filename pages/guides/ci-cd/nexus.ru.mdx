@@ -1,6 +1,1106 @@
 ---
-title: "nexus"
+image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/banner.png
+description: "Nexus Repository: Установка и Интеграция"
 ---
 
-> Эта статья ещё не переведена на русский язык.
-> Пожалуйста, прочитайте [версию на узбекском](/guides/ci-cd/nexus) или помогите нам с переводом на [GitHub](https://github.com/ismoilovdevml/devops-journey).
+import { Callout } from "nextra-theme-docs";
+import { Tabs, TabList, Tab, TabPanel } from 'react-tabs';
+import 'react-tabs/style/react-tabs.css';
+
+# Sonatype Nexus Repository Manager
+
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/banner.png)
+
+## Введение
+
+Представьте: ваша команда каждый день при сборке проекта заново скачивает сотни пакетов из **Maven Central**, **NuGet Gallery** или **Docker Hub**. Каждая сборка отправляет запросы в интернет, тратит время, нагружает сеть. А если интернет работает медленно или внешний репозиторий временно недоступен — весь CI/CD пайплайн встаёт.
+
+Именно эту проблему решает **Sonatype Nexus Repository Manager**.
+
+**Nexus** — это централизованный менеджер артефактов, который выполняет следующие задачи:
+
+- **Кеширование внешних пакетов (Proxy)** — сохраняет на локальном сервере пакеты, загруженные из внешних репозиториев: Maven Central, NuGet, PyPI, Docker Hub и других. При повторном запросе того же пакета он берётся из Nexus, а не из интернета.
+- **Хранение внутренних пакетов (Hosted)** — позволяет безопасно хранить собственные библиотеки и артефакты компании.
+- **Объединение нескольких репозиториев (Group)** — объединяет Proxy и Hosted репозитории под одним URL. Вашим проектам достаточно знать только один адрес.
+
+Nexus поддерживает **Java (Maven, Gradle)**, **.NET (NuGet)**, **Python (PyPI)**, **Docker**, **Node.js (NPM)**, **Go**, **Helm**, **Cargo** и множество других технологий.
+
+<Callout type="info" emoji="">
+Nexus доступен в двух версиях: **Nexus OSS** (open source, бесплатный) и **Nexus Pro** (платный, с дополнительными возможностями). Данное руководство ориентировано на работу с **Nexus OSS** — в большинстве случаев его функциональности вполне достаточно.
+</Callout>
+
+**Краткая история:** Nexus был создан в 2007 году компанией **Sonatype Inc.** Изначально он был рассчитан только на Maven, однако сегодня превратился в универсальное решение, поддерживающее практически все популярные менеджеры пакетов.
+
+В этом руководстве мы установим Nexus с помощью **Docker**, привяжем к нему **домен**, разберёмся с типами репозиториев и в завершение интегрируем проекты на **Maven** и **NuGet** с Nexus в рамках CI/CD пайплайнов.
+
+## Установка Nexus
+
+Nexus будем запускать через Docker. Рассмотрим два варианта установки: **ручной** и **автоматизированный** с помощью **Ansible**.
+
+<Callout type="info" emoji="">
+**Минимальные требования к серверу**
+
+| ОС            | RAM            | CPU           | Диск         | Статический IP |
+| ------------- | -------------- | ------------- |------------- | ---------- |
+| Ubuntu 20.04+ или Rocky Linux 8+ | 8 ГБ          | 4 ядра | 80 ГБ         | Да   |
+
+Nexus активно работает с метаданными, поэтому объём **RAM и дискового пространства** критически важен. На 4 ГБ RAM он запустится, но в реальной эксплуатации будет заметно тормозить.
+</Callout>
+
+Если Docker ещё не установлен, сначала установите его — [**Руководство по установке Docker**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+
+<Tabs>
+<TabList>
+<Tab>Manual</Tab>
+<Tab>Ansible</Tab>
+</TabList>
+<TabPanel>
+### Ручная установка
+
+**1->** Nexus хранит свои данные (репозитории, конфигурации, кешированные пакеты) в каталоге `/nexus-data`. Если Docker-контейнер будет удалён или перезапущен, данные внутри него будут потеряны. Поэтому мы монтируем этот каталог на **хост-сервер**:
+
+```bash
+sudo mkdir -p /mnt/nexus/nexus-data
+sudo chown -R 200 /mnt/nexus/nexus-data
+```
+
+<Callout type="info" emoji="">
+**Почему `chown 200`?** Внутри контейнера Nexus работает под пользователем `nexus` с `UID 200`. Если владелец каталога не соответствует этому UID, Nexus не сможет запуститься из-за отсутствия прав на запись.
+</Callout>
+
+**2->** Запускаем Nexus через Docker:
+
+```bash
+docker run -d \
+  -p 8081:8081 \
+  --name nexus \
+  --restart=always \
+  -v /mnt/nexus/nexus-data:/nexus-data \
+  sonatype/nexus3
+```
+
+Здесь:
+- `-p 8081:8081` — порт для веб-интерфейса Nexus
+- `--restart=always` — автоматический перезапуск Nexus при рестарте сервера или Docker
+- `-v /mnt/nexus/nexus-data:/nexus-data` — данные сохраняются на хост-сервере
+
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/1.png)
+
+**3->** При первом запуске Nexus автоматически генерирует пароль для `admin`. Чтобы его получить:
+
+```bash
+docker exec -it nexus cat /nexus-data/admin.password
+```
+
+<Callout type="warning" emoji="">
+Этот пароль предназначен только для первого входа! Nexus потребует его сменить. Сохраните пароль в надёжном месте.
+</Callout>
+
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/2.png)
+</TabPanel>
+<TabPanel>
+### Установка через Ansible
+
+Если вам нужно развернуть Nexus на нескольких серверах или вы хотите управлять инфраструктурой как кодом, Ansible — оптимальное решение.
+
+**1->** Скачиваем готовые Ansible-плейбуки:
+
+```bash
+git clone https://github.com/ismoilovdevml/infra-as-code.git
+```
+
+**2->** Переходим в каталог с плейбуком для Nexus:
+
+```bash
+cd infra-as-code/Ansible/nexus
+```
+
+Структура каталога:
+```bash
+├── ansible.cfg
+├── cleanup_nexus_docker.yml
+├── install_nexus.yml
+├── inventory.ini
+└── vars.yml
+```
+
+В файле `vars.yml` содержатся все основные настройки — версия образа Nexus, каталог данных, имя контейнера, порт и другие параметры:
+
+```yaml filename="vars.yml"
+---
+nexus_image: "sonatype/nexus3:latest"
+nexus_data_dir: "/mnt/nexus/nexus-data"
+nexus_container_name: "nexus"
+nexus_port: 8081
+nexus_admin_password_file: "/nexus-data/admin.password"
+nexus_parent_dir: "/mnt/nexus"
+```
+
+**3->** В файле `inventory.ini` указываем целевые серверы. Для подключения по SSH-ключу:
+
+```ini filename="inventory.ini"
+[nexus_servers]
+nexus-server ansible_host=159.89.94.148 ansible_user=root
+```
+
+Если хотите подключаться по паролю:
+
+```ini filename="inventory.ini"
+[nexus_servers]
+nexus-server ansible_host=159.89.94.148 ansible_user=root ansible_password=your_password
+```
+
+**4->** Устанавливаем Ansible-коллекции, необходимые для плейбука:
+
+```bash
+ansible-galaxy collection install community.general -f
+ansible-galaxy collection install community.docker -f
+```
+
+**5->** Запускаем плейбук установки Nexus:
+
+```bash
+ansible-playbook -i inventory.ini install_nexus.yml
+```
+
+Если подключение по паролю, может потребоваться отключить проверку SSH host key:
+
+```bash
+export ANSIBLE_HOST_KEY_CHECKING=False
+ansible-playbook -i inventory.ini install_nexus.yml
+```
+
+После успешного выполнения плейбук выведет пароль `admin` на экран:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/11.png)
+
+</TabPanel>
+</Tabs>
+
+### Первый вход
+
+После установки Nexus откройте в браузере `http://server_ip:8081`.
+
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/3.png)
+
+Нажмите кнопку **Sign in** в правом верхнем углу:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/4.png)
+
+Войдите с логином `admin` и паролем, полученным на предыдущем шаге:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/5.png)
+
+Nexus потребует сменить пароль по умолчанию — задайте новый надёжный пароль:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/6.png)
+
+На следующем шаге настройте анонимный доступ. Если доступ должен быть только для аутентифицированных пользователей, выберите «Disable anonymous access»:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/7.png)
+
+Поздравляем! Nexus готов к работе:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/8.png)
+
+## Привязка домена к Nexus
+
+В production-среде Nexus следует использовать не по `IP:порт`, а через домен с HTTPS. Это важно как для безопасности, так и для удобства — особенно чтобы credentials в CI/CD пайплайнах не передавались в открытом виде.
+
+Мы настроим **NGINX** в качестве reverse proxy и получим бесплатный SSL-сертификат от **Let's Encrypt**.
+
+<Tabs>
+<TabList>
+<Tab>Debian Based</Tab>
+<Tab>Red Hat Based</Tab>
+</TabList>
+<TabPanel>
+
+**1->** Устанавливаем NGINX и Certbot:
+
+```bash
+sudo apt update
+sudo apt install nginx certbot python3-certbot-nginx -y
+```
+
+**2->** Создайте **A-запись** у вашего DNS-провайдера — направьте домен на IP-адрес сервера. Например, привязка субдомена `nexus.helm.uz` к серверу:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/40.png)
+
+**3->** Создаём конфигурационный файл NGINX:
+
+```bash
+sudo nano /etc/nginx/sites-available/nexus.helm.uz
+```
+
+Запишите следующую конфигурацию:
+
+```nginx filename="/etc/nginx/sites-available/nexus.helm.uz"
+server {
+    listen 80;
+    client_max_body_size 100M;
+    server_name nexus.helm.uz;
+    location / {
+        proxy_pass http://localhost:8081;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+<Callout type="info" emoji="">
+**`client_max_body_size 100M`** — задаёт максимальный размер файлов, загружаемых через NGINX. Для загрузки крупных артефактов в Nexus это значение может потребоваться увеличить. Если возникает ошибка `413 Request Entity Too Large`, увеличьте этот параметр.
+</Callout>
+
+**4->** Для активации конфигурации создаём символическую ссылку в `sites-enabled`:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/nexus.helm.uz /etc/nginx/sites-enabled/
+```
+
+**5->** Перезапускаем NGINX:
+```bash
+sudo systemctl restart nginx
+```
+
+**6->** Получаем SSL-сертификат от Let's Encrypt:
+
+```bash
+sudo certbot
+```
+
+Certbot запросит ваш email и предложит принять **Terms of Service** — нажмите `y`:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/12.png)
+
+Затем выберите нужный домен из списка:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/13.png)
+
+После получения сертификата перезапустите NGINX:
+```bash
+sudo systemctl restart nginx
+```
+</TabPanel>
+<TabPanel>
+
+**1->** Устанавливаем NGINX и Certbot:
+```bash
+sudo yum install epel-release -y
+sudo yum install nginx certbot python3-certbot-nginx -y
+```
+
+**2->** Создайте **A-запись** у вашего DNS-провайдера — направьте домен на IP-адрес сервера:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/40.png)
+
+**3->** Создаём конфигурационный файл NGINX:
+
+```bash
+sudo nano /etc/nginx/conf.d/nexus.helm.uz.conf
+```
+
+Запишите следующую конфигурацию:
+
+```nginx filename="/etc/nginx/conf.d/nexus.helm.uz.conf"
+server {
+    listen 80;
+    client_max_body_size 100M;
+    server_name nexus.helm.uz;
+    location / {
+        proxy_pass http://localhost:8081;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+**4->** Перезапускаем NGINX:
+```bash
+sudo systemctl restart nginx
+```
+
+**5->** Получаем SSL-сертификат от Let's Encrypt:
+
+```bash
+sudo certbot
+```
+
+Certbot запросит ваш email и предложит принять **Terms of Service** — нажмите `y`:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/12.png)
+
+Выберите нужный домен из списка:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/13.png)
+
+**6->** После получения сертификата перезапустите NGINX:
+```bash
+sudo systemctl restart nginx
+```
+
+</TabPanel>
+</Tabs>
+
+Теперь, открыв в браузере **https://nexus.helm.uz**, вы увидите, что Nexus работает по HTTPS:
+
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/14.png)
+
+## Знакомство с Nexus
+
+Давайте разберёмся с основными концепциями и интерфейсом Nexus.
+
+### Поддерживаемые технологии
+
+Nexus поддерживает практически все популярные менеджеры пакетов:
+
+**APT, Cargo, Bower, CocoaPods, Composer, Conan, Conda, Docker, Git LFS, Go, Helm, Hugging Face, Maven, npm, NuGet, p2, PyPI, R, Raw, RubyGems, Yum (RPM)**
+
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/37.png)
+
+<Callout type="info" emoji="">
+Помимо Nexus, компания **Sonatype** также предлагает продукты: **Repository Firewall** (блокировка вредоносных пакетов), **Lifecycle** (контроль безопасности open source) и **SBOM** (отслеживание состава программного обеспечения).
+</Callout>
+
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/38.png)
+
+### Знакомство с интерфейсом
+
+При входе в Nexus открывается главная страница:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/8.png)
+
+**Server Administration and Configuration** — здесь находятся все настройки Nexus:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/15.png)
+
+**Blob Stores** — физическое хранилище файлов Nexus. По умолчанию существует один blob store с именем `default`. В крупных организациях рекомендуется создавать отдельные blob store для каждого типа репозитория:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/16.png)
+
+**Repositories** — здесь можно просматривать все репозитории. По умолчанию Nexus поставляется с готовыми репозиториями для Maven и NuGet:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/17.png)
+
+### Настройка прокси
+
+Если в вашей компании интернет работает через прокси, необходимо настроить прокси и для Nexus. Перейдите в **Settings -> System -> HTTP**:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/18.png)
+
+Для **HTTP Proxy** отметьте `Enable HTTP Proxy` и укажите адрес и порт прокси-сервера:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/19.png)
+
+Для **HTTPS Proxy** — аналогично. Если прокси требует аутентификацию, отметьте `Enable HTTPS Proxy Authentication` и введите логин с паролем:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/20.png)
+
+**No Proxy Hosts** — здесь указываются локальные адреса, для которых проксирование не требуется (например, внутренние сервисы):
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/21.png)
+
+## Работа с репозиториями
+
+Ключевое понятие в Nexus — **типы репозиториев**. Их правильное понимание критически важно для эффективного использования Nexus.
+
+### Proxy Repository — "Умный кеш"
+
+**Proxy**-репозиторий кеширует внешние (remote) репозитории на локальном сервере.
+
+**Аналогия из жизни:** Представьте, что вы каждый день ходите в магазин за хлебом. Однажды у подъезда открывается мини-маркет — и теперь вам не нужно идти далеко, вы покупаете хлеб прямо рядом с домом. Proxy-репозиторий работает точно так же:
+
+1. Ваш проект запрашивает пакет `spring-boot-starter`
+2. Nexus сначала ищет его **в своём кеше**
+3. Если не находит — **скачивает из Maven Central** и сохраняет в кеш
+4. При следующем запросе того же пакета — **отдаёт из кеша, не обращаясь в интернет**
+
+**Результат:** Сборка ускоряется, интернет-трафик снижается, а при недоступности внешнего репозитория проект всё равно собирается.
+
+В Nexus по умолчанию есть proxy-репозиторий **maven-central** — он получает пакеты с **https://repo1.maven.org/maven2/**:
+
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/22.png)
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/23.png)
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/24.png)
+
+### Hosted Repository — "Внутреннее хранилище"
+
+**Hosted**-репозиторий предназначен для хранения собственных пакетов компании. Он не связан с внешним миром и работает исключительно внутри вашей организации.
+
+**Когда он нужен?**
+- В компании разработана общая библиотека (shared library), и все команды должны её использовать
+- Необходимо централизованно хранить `SNAPSHOT` или `RELEASE` версии проекта
+- Для загрузки артефактов командами `mvn deploy` или `dotnet nuget push`
+
+По умолчанию в Nexus уже созданы hosted-репозитории **maven-releases** и **maven-snapshots**.
+
+### Group Repository — "Единая точка входа"
+
+**Group**-репозиторий объединяет несколько репозиториев под одним URL.
+
+**Аналогия из жизни:** В торговом центре 50 магазинов, но вы заходите через одну дверь. Group-репозиторий устроен так же — ваш проект знает только один URL, а за ним работает сразу несколько репозиториев.
+
+Например, group-репозиторий **maven-public** включает в себя:
+- **maven-central** (proxy) — внешние пакеты
+- **maven-releases** (hosted) — релизные пакеты компании
+- **maven-snapshots** (hosted) — snapshot-пакеты компании
+
+Вашему проекту достаточно указать URL `maven-public` — всё остальное Nexus разрешит самостоятельно.
+
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/25.png)
+
+Репозитории внутри **maven-public**:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/26.png)
+
+Аналогично **nuget-group** объединяет репозитории **nuget-hosted** и **nuget.org-proxy**:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/27.png)
+
+**nuget.org-proxy** кеширует NuGet-пакеты с внешнего адреса **https://api.nuget.org/v3/index.json**:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/28.png)
+
+<Callout type="info" emoji="">
+**Итого:** По умолчанию в Nexus есть репозитории только для **Maven** и **NuGet**. Для **Docker, PyPI, Go, Cargo, Helm** и других технологий репозитории необходимо создавать самостоятельно — через Settings -> Repositories -> Create Repository.
+</Callout>
+
+## Интеграция с Nexus
+
+Переходим к самой интересной части — подключению Nexus к реальным проектам и CI/CD пайплайнам. Рассмотрим интеграцию для **Java (Maven)** и **.NET (NuGet)**.
+
+**Что даёт интеграция?**
+- **Ускорение сборки** — пакеты берутся из локального Nexus, нет ожидания интернета
+- **Стабильность** — сборка работает даже при недоступности внешнего репозитория
+- **Безопасность** — все пакеты проходят через Nexus, что упрощает контроль
+- **Экономия трафика** — каждый пакет скачивается из интернета только один раз
+
+### Java Maven
+
+На нашей платформе в практикуме **[Развёртывание Java Spring Boot: GitLab CI и GitHub Actions](https://devops-journey.uz/guides/ci-cd/java-spring-boot-deployment)** мы рассматривали запуск Spring Boot Maven-проекта через CI/CD. Теперь добавим к этому проекту интеграцию с Nexus.
+
+<Callout type="info" emoji="">
+**Проекты, используемые в этом разделе:**
+* **Github:** **https://github.com/devops-journey-uz/waifulist**
+* **Gitlab:** **https://gitlab.com/ismoilovdev/waifulist**
+</Callout>
+
+#### Шаг 1: Добавление репозитория в `pom.xml`
+
+Добавьте в `pom.xml` вашего проекта следующую конфигурацию:
+
+```xml /nexus.helm.uz/ filename="pom.xml"
+<repositories>
+    <repository>
+        <id>nexus</id>
+        <url>https://nexus.helm.uz/repository/maven-public/</url>
+        <releases>
+            <enabled>true</enabled>
+        </releases>
+        <snapshots>
+            <enabled>true</enabled>
+        </snapshots>
+    </repository>
+</repositories>
+
+<pluginRepositories>
+    <pluginRepository>
+        <id>nexus</id>
+        <url>https://nexus.helm.uz/repository/maven-public/</url>
+        <releases>
+            <enabled>true</enabled>
+        </releases>
+        <snapshots>
+            <enabled>true</enabled>
+        </snapshots>
+    </pluginRepository>
+</pluginRepositories>
+```
+
+Здесь два раздела:
+- **`<repositories>`** — указывает Maven, откуда загружать зависимости. Через group-репозиторий `maven-public` доступны как внешние пакеты (Maven Central), так и внутренние.
+- **`<pluginRepositories>`** — обеспечивает загрузку Maven-плагинов также через Nexus. Это важно, поскольку плагины Maven (compiler, surefire, jar) тоже скачиваются из внешних репозиториев.
+
+Значение `<id>` (`nexus`) должно **совпадать** с ID сервера в `settings.xml` из следующего шага — Maven сопоставляет аутентификацию по ID.
+
+#### Шаг 2: Создание `settings.xml`
+
+`settings.xml` — глобальный конфигурационный файл Maven. Здесь задаются аутентификация, зеркала и настройки профилей:
+
+```xml /nexus.helm.uz/ filename="settings.xml" {5-11, 13-20, 22-38, 40-42}
+<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
+
+    <servers>
+        <server>
+            <id>nexus</id>
+            <username>${env.NEXUS_USER}</username>
+            <password>${env.NEXUS_PASSWORD}</password>
+        </server>
+    </servers>
+
+    <mirrors>
+        <mirror>
+            <id>nexus</id>
+            <mirrorOf>*</mirrorOf>
+            <url>https://nexus.helm.uz/repository/maven-public/</url>
+            <layout>default</layout>
+        </mirror>
+    </mirrors>
+
+    <profiles>
+        <profile>
+            <id>nexus</id>
+            <repositories>
+                <repository>
+                    <id>nexus</id>
+                    <url>https://nexus.helm.uz/repository/maven-public/</url>
+                    <releases>
+                        <enabled>true</enabled>
+                    </releases>
+                    <snapshots>
+                        <enabled>true</enabled>
+                    </snapshots>
+                </repository>
+            </repositories>
+        </profile>
+    </profiles>
+
+    <activeProfiles>
+        <activeProfile>nexus</activeProfile>
+    </activeProfiles>
+</settings>
+```
+
+Разберём каждый раздел:
+
+**`<servers>`** — учётные данные для доступа к Nexus. `${env.NEXUS_USER}` и `${env.NEXUS_PASSWORD}` берутся из переменных окружения — это безопасный подход для CI/CD, при котором пароли не хранятся в коде.
+
+**`<mirrors>`** — `<mirrorOf>*</mirrorOf>` означает «использовать Nexus как зеркало для всех репозиториев». То есть вместо прямых обращений к Maven Central или другим внешним репозиториям **все запросы идут через Nexus**.
+
+**`<profiles>` и `<activeProfiles>`** — создаётся и активируется профиль `nexus`. Это гарантирует, что Maven будет использовать репозиторий Nexus при выполнении любой команды `mvn`.
+
+#### Шаг 3: Настройка CI/CD переменных окружения
+
+Добавьте `NEXUS_USER` и `NEXUS_PASSWORD` в вашу CI/CD платформу:
+
+**Gitlab** — **Settings -> CI/CD -> Variables**:
+
+`NEXUS_USER` — имя пользователя Nexus:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/32.png)
+
+`NEXUS_PASSWORD` — пароль Nexus:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/33.png)
+
+**Github** — **Settings -> Secrets -> New repository secret**:
+
+`NEXUS_USER`:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/34.png)
+
+`NEXUS_PASSWORD`:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/35.png)
+
+<Callout type="warning" emoji="">
+**Вопрос безопасности:** Рекомендуется создать в Nexus отдельного пользователя с правами «только чтение». Не используйте пароль `admin` в CI/CD — если credentials утекут, злоумышленник получит полный контроль над Nexus.
+</Callout>
+
+#### Шаг 4: Обновление Dockerfile
+
+Чтобы Maven в процессе Docker-сборки знал о `settings.xml`, добавьте в Dockerfile следующую строку:
+
+```bash
+COPY settings.xml /root/.m2/settings.xml
+```
+
+Полный Dockerfile:
+
+```bash filename="Dockerfile" {3}
+FROM maven:3.9.5-eclipse-temurin-17-alpine AS builder
+WORKDIR /app
+COPY settings.xml /root/.m2/settings.xml
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+COPY src ./src
+RUN mvn package -DskipTests -B
+
+FROM eclipse-temurin:17-alpine
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+WORKDIR /app
+COPY --from=builder /app/target/*.jar app.jar
+RUN chown -R appuser:appgroup /app
+USER appuser
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/actuator/health || exit 1
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+<Callout type="info" emoji="">
+**`mvn dependency:go-offline -B`** — эта команда предварительно скачивает все зависимости. Благодаря кешированию Docker-слоёв, если `pom.xml` не изменился, этот шаг будет пропущен при последующих сборках, что значительно ускоряет процесс.
+</Callout>
+
+#### Шаг 5: Обновление CI/CD пайплайна
+
+В CI/CD пайплайне необходимо заменить placeholder-ы в `settings.xml` на реальные значения. Для этого используем команду `sed`.
+
+**Gitlab CI** — добавьте в секцию `before_script`:
+
+```yaml filename=".gitlab-ci.yml"
+  before_script:
+  - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  - sed -i "s|\${env.NEXUS_USER}|${NEXUS_USER}|g" settings.xml
+  - sed -i "s|\${env.NEXUS_PASSWORD}|${NEXUS_PASSWORD}|g" settings.xml
+```
+
+Полный `.gitlab-ci.yml`:
+
+```yaml filename=".gitlab-ci.yml" {26-29}
+stages:
+  - build_and_push
+  - deploy
+
+variables:
+  IMAGE_NAME: waifulist
+  CONTAINER_NAME: waifulist
+  PORT: "8080:8080"
+  REPO_NAME: $CI_PROJECT_PATH
+  REGISTRY: "registry.gitlab.com"
+  SSH_HOST: $SERVER_IP
+  SSH_USER: $SERVER_USERNAME
+  SSH_KEY: $SSH_PRIVATE_KEY
+  SPRING_PROFILES_ACTIVE: dev
+  DEV_DATABASE_URL: $DEV_DATABASE_URL
+  DEV_DATABASE_USERNAME: $DEV_DATABASE_USERNAME
+  DEV_DATABASE_PASSWORD: $DEV_DATABASE_PASSWORD
+
+build_and_push:
+  stage: build_and_push
+  image: docker:stable
+
+  services:
+    - docker:dind
+
+  before_script:
+  - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  - sed -i "s|\${env.NEXUS_USER}|${NEXUS_USER}|g" settings.xml
+  - sed -i "s|\${env.NEXUS_PASSWORD}|${NEXUS_PASSWORD}|g" settings.xml
+
+  script:
+    - docker build -t "$REGISTRY/$REPO_NAME/$IMAGE_NAME:$CI_COMMIT_SHA" .
+    - docker push "$REGISTRY/$REPO_NAME/$IMAGE_NAME:$CI_COMMIT_SHA"
+
+deploy:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --update --no-cache openssh-client
+
+  script:
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "echo "$CI_JOB_TOKEN" | docker login -u gitlab-ci-token --password-stdin $CI_REGISTRY"
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "docker pull $REGISTRY/$REPO_NAME/$IMAGE_NAME:$CI_COMMIT_SHA"
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "docker stop $CONTAINER_NAME || true"
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "docker rm $CONTAINER_NAME || true"
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no "$SSH_USER@$SSH_HOST" "docker run -d --name $CONTAINER_NAME --restart=always -p $PORT -e SPRING_PROFILES_ACTIVE=$SPRING_PROFILES_ACTIVE -e DEV_DATABASE_URL=$DEV_DATABASE_URL -e DEV_DATABASE_USERNAME=$DEV_DATABASE_USERNAME -e DEV_DATABASE_PASSWORD=$DEV_DATABASE_PASSWORD $REGISTRY/$REPO_NAME/$IMAGE_NAME:$CI_COMMIT_SHA"
+```
+
+**Github Actions** — добавьте новый step:
+
+```yaml filename=".github/workflows/main.yml"
+- name: Replace Nexus Credentials in settings.xml
+  run: |
+    sed -i "s|\${env.NEXUS_USER}|${{ secrets.NEXUS_USER }}|g" settings.xml
+    sed -i "s|\${env.NEXUS_PASSWORD}|${{ secrets.NEXUS_PASSWORD }}|g" settings.xml
+```
+
+Полный `.github/workflows/main.yml`:
+
+```yaml filename=".github/workflows/main.yml" {32-35}
+name: Github Actions CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  REPO_NAME: ${{ github.repository }}
+  CONTAINER_NAME: waifulist
+  REGISTRY: ghcr.io
+  SSH_HOST: ${{ secrets.SERVER_IP }}
+  SSH_USER: ${{ secrets.SERVER_USERNAME }}
+  SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  PORT: 8080:8080
+  SPRING_PROFILES_ACTIVE: dev
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+    permissions:
+        contents: read
+        packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Replace Nexus Credentials in settings.xml
+        run: |
+          sed -i "s|\${env.NEXUS_USER}|${{ secrets.NEXUS_USER }}|g" settings.xml
+          sed -i "s|\${env.NEXUS_PASSWORD}|${{ secrets.NEXUS_PASSWORD }}|g" settings.xml
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: "${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}"
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_NAME }}:buildcache,mode=max
+
+  deploy:
+    needs: build_and_push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Executing remote SSH commands to deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: "${{ env.SSH_HOST }}"
+          username: "${{ env.SSH_USER }}"
+          key: "${{ env.SSH_KEY }}"
+          script: |
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login -u ${{ github.actor }} --password-stdin ${{ env.REGISTRY }}
+            docker pull "${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}"
+            docker stop "${{ env.CONTAINER_NAME }}" || true
+            docker rm "${{ env.CONTAINER_NAME }}" || true
+            docker run -d --name ${{ env.CONTAINER_NAME }} --restart=always -p ${{ env.PORT }} \
+            -e SPRING_PROFILES_ACTIVE=${{ env.SPRING_PROFILES_ACTIVE }} \
+            -e DEV_DATABASE_URL=${{ secrets.DEV_DATABASE_URL }} \
+            -e DEV_DATABASE_USERNAME=${{ secrets.DEV_DATABASE_USERNAME }} \
+            -e DEV_DATABASE_PASSWORD=${{ secrets.DEV_DATABASE_PASSWORD }} \
+            ${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}
+```
+
+#### Шаг 6: Проверка результата
+
+После запуска CI/CD пайплайна в логах вы увидите, что все пакеты загружаются через **nexus.helm.uz**:
+
+**Результат Gitlab CI:**
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/31.png)
+
+**Результат Github Actions:**
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/36.png)
+
+Кешированные пакеты можно увидеть и в веб-интерфейсе Nexus:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/30.png)
+
+Локальные пакеты, сохранённые в репозитории **maven-central**:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/29.png)
+
+<Callout type="info" emoji="">
+**Обратите внимание:** Первая сборка может занять больше времени, чем обычно, — поскольку Nexus при первом обращении скачивает все пакеты из интернета и сохраняет их в кеш. Все последующие сборки будут **значительно быстрее**, так как всё берётся из локального кеша.
+</Callout>
+
+### .NET NuGet
+
+В проектах на **.NET** используется менеджер пакетов NuGet. Логика интеграции с Nexus аналогична Maven — отличия только в конфигурационных файлах.
+
+В этом разделе мы возьмём .NET Core-приложение из практикума **[GitHub Actions CI/CD](https://devops-journey.uz/guides/ci-cd/github-actions-ci-cd)** и добавим к нему интеграцию с Nexus.
+
+<Callout type="info" emoji="">
+**Проекты, используемые в этом разделе:**
+* **Github:** **https://github.com/devops-journey-uz/devops-journey-github-actions**
+* **Gitlab:** **https://gitlab.com/ismoilovdev/github-actions-dotnet**
+</Callout>
+
+#### Шаг 1: Создание `NuGet.Config`
+
+Создайте файл `NuGet.Config` в корневом каталоге проекта:
+
+```bash filename="NuGet.Config"
+<configuration>
+  <packageSources>
+    <clear />
+    <add key="Nexus" value="https://nexus.helm.uz/repository/nuget-group/index.json" />
+  </packageSources>
+  <packageSourceCredentials>
+    <Nexus>
+      <add key="Username" value="__NEXUS_USER__" />
+      <add key="ClearTextPassword" value="__NEXUS_PASSWORD__" />
+    </Nexus>
+  </packageSourceCredentials>
+</configuration>
+```
+
+Что здесь происходит:
+- **`<clear />`** — отключает стандартные источники NuGet (nuget.org). Теперь пакеты загружаются **исключительно** через Nexus.
+- **`nuget-group`** — аналогично `maven-public` в Maven, это group-репозиторий, объединяющий `nuget-hosted` и `nuget.org-proxy`.
+- **`__NEXUS_USER__`** и **`__NEXUS_PASSWORD__`** — это placeholder-ы. В CI/CD пайплайне они будут заменены реальными значениями.
+
+#### Шаг 2: Настройка CI/CD переменных окружения
+
+Аналогично шагу 3 из раздела Maven — добавьте `NEXUS_USER` и `NEXUS_PASSWORD` в вашу CI/CD платформу:
+
+**Gitlab** — **Settings -> CI/CD -> Variables**:
+
+`NEXUS_USER`:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/32.png)
+
+`NEXUS_PASSWORD`:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/33.png)
+
+**Github** — **Settings -> Secrets -> New repository secret**:
+
+`NEXUS_USER`:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/34.png)
+
+`NEXUS_PASSWORD`:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/35.png)
+
+#### Шаг 3: Обновление Dockerfile
+
+Чтобы .NET SDK в процессе сборки использовал `NuGet.Config`, добавьте в Dockerfile:
+
+```bash
+COPY NuGet.Config /root/.nuget/NuGet/NuGet.Config
+```
+
+Полный Dockerfile:
+
+```bash filename="Dockerfile" {4}
+FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build-env
+WORKDIR /app
+
+COPY NuGet.Config /root/.nuget/NuGet/NuGet.Config
+COPY . .
+WORKDIR "/app/GitHub.Actions.API"
+RUN dotnet publish "GitHub.Actions.API.csproj" -o /app/build -c Release
+
+FROM mcr.microsoft.com/dotnet/aspnet:7.0
+WORKDIR /app
+ENV ASPNETCORE_ENVIRONMENT=Development
+ENV TZ="Asia/Tashkent"
+COPY --from=build-env /app/build .
+ENTRYPOINT ["dotnet", "GitHub.Actions.API.dll", "--urls=http://0.0.0.0:4001"]
+```
+
+#### Шаг 4: Обновление CI/CD пайплайна
+
+**Gitlab CI** — добавьте замену placeholder-ов в секцию `before_script`:
+
+```yaml filename=".gitlab-ci.yml"
+before_script:
+  - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  - sed -i 's|__NEXUS_USER__|'"$NEXUS_USER"'|g' NuGet.Config
+  - sed -i 's|__NEXUS_PASSWORD__|'"$NEXUS_PASSWORD"'|g' NuGet.Config
+```
+
+Полный `.gitlab-ci.yml`:
+
+```yaml filename=".gitlab-ci.yml" {25-28}
+stages:
+  - build_and_push
+  - deploy
+
+variables:
+  API_IMAGE_NAME: github-api
+  API_CONTAINER_NAME: github-api
+  UI_IMAGE_NAME: github-ui
+  UI_CONTAINER_NAME: github-ui
+  UI_PORT: "4000:4000"
+  API_PORT: "4001:4001"
+  REPO_NAME: $CI_PROJECT_PATH
+  REGISTRY: "registry.gitlab.com"
+  SSH_HOST: $SERVER_IP
+  SSH_USER: $SERVER_USERNAME
+  SSH_KEY: $SSH_PRIVATE_KEY
+
+build_and_push:
+  stage: build_and_push
+  image: docker:stable
+
+  services:
+    - docker:dind
+
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - sed -i 's|__NEXUS_USER__|'"$NEXUS_USER"'|g' NuGet.Config
+    - sed -i 's|__NEXUS_PASSWORD__|'"$NEXUS_PASSWORD"'|g' NuGet.Config
+
+  script:
+    - docker build -t $REGISTRY/$REPO_NAME/$API_IMAGE_NAME:$CI_COMMIT_SHA -f ./API.Dockerfile .
+    - docker push $REGISTRY/$REPO_NAME/$API_IMAGE_NAME:$CI_COMMIT_SHA
+    - docker build -t $REGISTRY/$REPO_NAME/$UI_IMAGE_NAME:$CI_COMMIT_SHA -f ./UI.Dockerfile .
+    - docker push $REGISTRY/$REPO_NAME/$UI_IMAGE_NAME:$CI_COMMIT_SHA
+
+deploy:
+  stage: deploy
+  image: alpine:latest
+
+  before_script:
+    - apk add --update --no-cache openssh-client
+
+  script:
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "echo "$CI_JOB_TOKEN" | docker login -u gitlab-ci-token --password-stdin $CI_REGISTRY"
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "docker pull $REGISTRY/$REPO_NAME/$API_IMAGE_NAME:$CI_COMMIT_SHA"
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "docker pull $REGISTRY/$REPO_NAME/$UI_IMAGE_NAME:$CI_COMMIT_SHA"
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "docker stop $UI_CONTAINER_NAME || true"
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "docker stop $API_CONTAINER_NAME || true"
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "docker rm $UI_CONTAINER_NAME || true"
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "docker rm $API_CONTAINER_NAME || true"
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "docker run -d --name $API_CONTAINER_NAME --restart=always -p $API_PORT $REGISTRY/$REPO_NAME/$API_IMAGE_NAME:$CI_COMMIT_SHA"
+    - ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no $SSH_USER@$SSH_HOST "docker run -d --name $UI_CONTAINER_NAME --restart=always -p $UI_PORT $REGISTRY/$REPO_NAME/$UI_IMAGE_NAME:$CI_COMMIT_SHA"
+```
+
+**Github Actions** — добавьте новый step:
+
+```yaml filename=".github/workflows/ci-cd.yml"
+- name: Replace Nexus Credentials in NuGet.Config
+  run: |
+    sed -i "s|__NEXUS_USER__|${{ secrets.NEXUS_USER }}|g" NuGet.Config
+    sed -i "s|__NEXUS_PASSWORD__|${{ secrets.NEXUS_PASSWORD }}|g" NuGet.Config
+```
+
+Полный `.github/workflows/ci-cd.yml`:
+
+```yaml filename=".github/workflows/ci-cd.yml" {43-46}
+name: Docker CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  API_IMAGE_NAME: github-api
+  API_CONTAINER_NAME: github-api
+  UI_IMAGE_NAME: github-ui
+  UI_CONTAINER_NAME: github-ui
+  UI_PORT: 4000:4000
+  API_PORT: 4001:4001
+
+  REPO_NAME: ${{ github.repository }}
+  REGISTRY: ghcr.io
+  SSH_HOST: ${{ secrets.SERVER_IP }}
+  SSH_USER: ${{ secrets.SERVER_USERNAME }}
+  SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Replace Nexus Credentials in NuGet.Config
+        run: |
+          sed -i "s|__NEXUS_USER__|${{ secrets.NEXUS_USER }}|g" NuGet.Config
+          sed -i "s|__NEXUS_PASSWORD__|${{ secrets.NEXUS_PASSWORD }}|g" NuGet.Config
+
+      - name: Build and push API Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./API.Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME}}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_NAME}}/${{ env.API_IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_NAME}}/${{ env.API_IMAGE_NAME }}:buildcache,mode=max
+
+      - name: Build and push UI Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./UI.Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.REPO_NAME}}/${{ env.UI_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_NAME}}/${{ env.UI_IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_NAME}}/${{ env.UI_IMAGE_NAME }}:buildcache,mode=max
+
+  deploy:
+    needs: build_and_push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Executing remote SSH commands to deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: "${{ env.SSH_HOST }}"
+          username: "${{ env.SSH_USER }}"
+          key: "${{ env.SSH_KEY }}"
+          script: |
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login -u ${{ github.actor }} --password-stdin ${{ env.REGISTRY }}
+            docker pull "${{ env.REGISTRY }}/${{ env.REPO_NAME}}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}"
+            docker pull "${{ env.REGISTRY }}/${{ env.REPO_NAME}}/${{ env.UI_IMAGE_NAME }}:${{ github.sha }}"
+            docker stop "${{ env.UI_CONTAINER_NAME }}" || true
+            docker stop "${{ env.API_CONTAINER_NAME }}" || true
+            docker rm "${{ env.UI_CONTAINER_NAME }}" || true
+            docker rm "${{ env.API_CONTAINER_NAME }}" || true
+            docker run -d --name "${{ env.API_CONTAINER_NAME }}" --restart=always -p "${{ env.API_PORT }}" "${{ env.REGISTRY }}/${{ env.REPO_NAME}}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}"
+            docker run -d --name "${{ env.UI_CONTAINER_NAME }}" --restart=always -p "${{ env.UI_PORT }}" "${{ env.REGISTRY }}/${{ env.REPO_NAME}}/${{ env.UI_IMAGE_NAME }}:${{ github.sha }}"
+```
+
+#### Шаг 5: Проверка результата
+
+После успешного завершения Github Actions:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/41.png)
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/42.png)
+
+Кешированные NuGet-пакеты видны в интерфейсе Nexus:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/30.png)
+
+Пакеты внутри репозитория **nuget-group**:
+![nexus](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/ci-cd/nexus/39.png)
+
+## Заключение
+
+В этом руководстве мы:
+1. **Установили Nexus** с помощью Docker (ручным способом и через Ansible)
+2. **Привязали домен и HTTPS** (NGINX + Let's Encrypt)
+3. **Разобрались с типами репозиториев** (**Proxy, Hosted, Group**)
+4. **Интегрировали проекты Maven и NuGet** с Nexus
+5. **Настроили использование Nexus** в пайплайнах **Gitlab CI** и **Github Actions**
+
+В качестве следующего шага вы можете создать в Nexus репозитории для **Docker, PyPI, Go, Cargo, Helm** и других технологий и подключить к ним свои проекты — логика та же, отличается лишь формат конфигурации.
+
+## Дополнительные ресурсы
+<Callout type="info" emoji="">
+
+Дополнительные ресурсы
+ * [**Развёртывание Java Spring Boot: GitLab CI и GitHub Actions**](https://devops-journey.uz/guides/ci-cd/java-spring-boot-deployment)
+ * [**Установка и настройка GitLab Server**](https://devops-journey.uz/guides/ci-cd/gitlab-server)
+ * [**GitLab CI | Релизы и интеграции**](https://devops-journey.uz/guides/ci-cd/gitlab-ci-release-integrations)
+ * [**Flutter CI/CD с GitHub Actions**](https://devops-journey.uz/guides/ci-cd/flutter-github-action)
+ * [**GitHub Actions CI/CD**](https://devops-journey.uz/guides/ci-cd/github-actions-ci-cd)
+ * [**Установка Jenkins на Linux-серверы**](https://devops-journey.uz/guides/ci-cd/jenkins-ornatish)
+ * [**От кода до сервера: Docker CI/CD с Jenkins и интеграция с Discord**](https://devops-journey.uz/guides/ci-cd/jenkins-docker-ci-cd)
+ * [**Kubernetes CI/CD | GitHub Actions + Argo CD | GitOps**](https://devops-journey.uz/guides/ci-cd/github-actions-argocd-cicd)
+
+**Дата:** 2025.02.08 (8 февраля 2025)
+
+**Последнее обновление:** 2026.02.11 (11 февраля 2026)
+
+**Автор: Otabek Ismoilov**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>
