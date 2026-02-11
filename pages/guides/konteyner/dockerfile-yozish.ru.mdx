@@ -1,6 +1,720 @@
 ---
-title: "dockerfile yozish"
+image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/dockerfile-yozish.png
+description: "Руководство по написанию Dockerfile"
 ---
 
-> Эта статья ещё не переведена на русский язык.
-> Пожалуйста, прочитайте [версию на узбекском](/guides/konteyner/dockerfile-yozish) или помогите нам с переводом на [GitHub](https://github.com/ismoilovdevml/devops-journey).
+import { Callout } from "nextra-theme-docs";
+
+# Руководство по написанию Dockerfile
+
+![dockerfile](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/dockerfile-yozish.png)
+
+## Введение
+
+**Dockerfile** — это файл с инструкциями для создания Docker-образа. Простыми словами, это «рецепт для развёртывания приложения на сервере» — только выполняет его не человек, а сам Docker.
+
+Почему важно уметь писать Dockerfile?
+
+- **Воспроизводимая среда** — образ, собранный из Dockerfile, работает одинаково на любом сервере. Классическая проблема «у меня на компьютере работает» исчезает.
+- **Контроль версий** — Dockerfile хранится вместе с кодом в Git. Можно отследить, кто, когда и что изменил.
+- **Автоматизация** — в CI/CD-пайплайнах Docker-образы автоматически собираются и деплоятся.
+
+В данном руководстве мы рассмотрим все основные инструкции Dockerfile, multi-stage сборку, кэширование слоёв, лучшие практики безопасности и готовые примеры для продакшена.
+
+## Инструкции Dockerfile
+
+### FROM — Выбор базового образа
+
+Каждый Dockerfile начинается с `FROM`. Эта инструкция указывает, на основе какого базового образа будет строиться ваш образ.
+
+```dockerfile
+FROM <image>[:<tag>] [@<digest>]
+```
+
+Примеры:
+
+```dockerfile
+# Последняя версия (не рекомендуется — неоднозначно)
+FROM node
+
+# Конкретная версия (рекомендуется)
+FROM node:20-alpine
+
+# По digest (самый точный вариант — на основе хеша содержимого образа)
+FROM node@sha256:a1b2c3d4...
+```
+
+<Callout type="warning" emoji="">
+**Важные правила для продакшена:**
+
+- **Никогда не используйте тег `latest`** — образ, который работает сегодня, может измениться на другую версию завтра, и ваш проект сломается.
+- **Отдавайте предпочтение Alpine-вариантам** — разница между `node:20-alpine` (50 МБ) и `node:20` (350 МБ) колоссальная. Меньший образ = быстрая сборка, меньше уязвимостей.
+- **Указывайте точную версию** — используйте теги вроде `python:3.12-slim`, `golang:1.22-alpine`.
+</Callout>
+
+### LABEL — Метаданные образа
+
+Инструкция `LABEL` добавляет метаданные к образу. Она заменяет устаревшую инструкцию `MAINTAINER`.
+
+```dockerfile
+FROM node:20-alpine
+
+LABEL maintainer="Otabek Ismoilov <ismoilovdev@gmail.com>"
+LABEL version="1.0"
+LABEL description="DevOps Journey API service"
+```
+
+<Callout type="info" emoji="">
+Посмотреть метки образа: `docker inspect --format='{{json .Config.Labels}}' image_name`
+</Callout>
+
+### WORKDIR — Рабочая директория
+
+`WORKDIR` задаёт рабочую директорию внутри контейнера. Все последующие инструкции `RUN`, `COPY`, `CMD` и другие будут выполняться в этой директории.
+
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+
+# Теперь команды COPY и RUN работают в директории /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+```
+
+<Callout type="info" emoji="">
+**Используйте `WORKDIR /app`, а не `RUN cd /app`.** Причина: `RUN cd /app` действует только в рамках одной инструкции `RUN` — следующая инструкция вернётся в корневую директорию. `WORKDIR` же применяется ко всем последующим инструкциям.
+
+Если директория не существует, Docker создаст её автоматически.
+</Callout>
+
+### COPY и ADD — Копирование файлов
+
+**`COPY`** — копирует файлы с хост-машины в образ. Просто и понятно.
+
+```dockerfile
+# Скопировать один файл
+COPY package.json /app/
+
+# Скопировать все файлы
+COPY . /app/
+
+# Скопировать несколько файлов
+COPY package.json package-lock.json /app/
+```
+
+**`ADD`** — работает так же, как `COPY`, но имеет дополнительные возможности:
+- Загрузка файлов по URL
+- Автоматическая распаковка архивов `.tar.gz`
+
+```dockerfile
+# Автоматически распакует архив
+ADD app.tar.gz /app/
+
+# Загрузит файл по URL
+ADD https://example.com/config.json /app/
+```
+
+<Callout type="warning" emoji="">
+**Правило:** Если не нужна распаковка архивов или загрузка по URL — **всегда используйте `COPY`**. «Скрытые» возможности `ADD` могут привести к неожиданным результатам. В большинстве случаев `COPY` достаточно и безопаснее.
+</Callout>
+
+### RUN — Выполнение команд
+
+Инструкция `RUN` выполняет команды во время сборки образа — установка пакетов, подготовка файлов, компиляция и прочее.
+
+```dockerfile
+FROM ubuntu:24.04
+
+# Плохая практика — каждый RUN создаёт отдельный слой
+RUN apt-get update
+RUN apt-get install -y curl
+RUN apt-get install -y git
+RUN apt-get clean
+
+# Хорошая практика — один слой, образ меньше
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+<Callout type="info" emoji="">
+**Зачем объединять команды?**
+
+Каждая инструкция (`RUN`, `COPY`, `ADD`) в Dockerfile добавляет новый **слой** к образу. Больше слоёв = больше размер образа. Поэтому:
+
+1. Объединяйте связанные команды через `&&`
+2. Очищайте кэш с помощью `apt-get clean` и `rm -rf /var/lib/apt/lists/*`
+3. Удаляйте ненужные файлы в том же слое (удаление в следующем слое не уменьшит размер образа!)
+</Callout>
+
+### ENV — Переменные окружения
+
+`ENV` задаёт переменные окружения внутри контейнера. Эти значения доступны как во время сборки, так и при работе контейнера.
+
+```dockerfile
+FROM node:20-alpine
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Значения ENV можно использовать в последующих инструкциях
+EXPOSE $PORT
+CMD ["node", "server.js"]
+```
+
+<Callout type="info" emoji="">
+Значения, заданные через `ENV`, можно переопределить при запуске контейнера: `docker run -e PORT=4000`.
+</Callout>
+
+### ARG — Переменные времени сборки
+
+`ARG` определяет переменные, доступные **только во время сборки**. При запуске контейнера они недоступны.
+
+```dockerfile
+# ARG со значением по умолчанию
+ARG NODE_VERSION=20
+
+FROM node:${NODE_VERSION}-alpine
+
+ARG APP_VERSION=1.0.0
+LABEL version="${APP_VERSION}"
+```
+
+Переопределение ARG при сборке:
+
+```bash
+docker build --build-arg NODE_VERSION=18 --build-arg APP_VERSION=2.0.0 -t myapp .
+```
+
+<Callout type="warning" emoji="">
+**Разница между ARG и ENV:**
+- `ARG` — работает только во время сборки, не виден внутри контейнера
+- `ENV` — работает и во время сборки, и внутри работающего контейнера
+
+**Никогда не передавайте секреты (пароли, токены) через `ARG`!** Они будут видны в истории сборки (`docker history`).
+</Callout>
+
+### CMD и ENTRYPOINT — Запуск контейнера
+
+Эти две инструкции определяют, какая команда выполняется при запуске контейнера.
+
+**`CMD`** — команда по умолчанию. Переопределяется, если при `docker run` передана другая команда.
+
+```dockerfile
+FROM python:3.12-slim
+CMD ["python", "app.py"]
+```
+
+```bash
+# Выполняется CMD — python app.py
+docker run myapp
+
+# CMD переопределяется — запускается bash
+docker run myapp bash
+```
+
+**`ENTRYPOINT`** — основная команда. Не переопределяется, к ней только добавляются аргументы.
+
+```dockerfile
+FROM python:3.12-slim
+ENTRYPOINT ["python", "app.py"]
+```
+
+```bash
+# Выполняется ENTRYPOINT — python app.py
+docker run myapp
+
+# Добавляется аргумент — python app.py --debug
+docker run myapp --debug
+```
+
+**`ENTRYPOINT` + `CMD` вместе** — самая мощная комбинация:
+
+```dockerfile
+FROM nginx:alpine
+
+# ENTRYPOINT — основная команда (не меняется)
+ENTRYPOINT ["nginx", "-g", "daemon off;"]
+
+# CMD — аргументы по умолчанию (можно переопределить)
+CMD ["-c", "/etc/nginx/nginx.conf"]
+```
+
+```bash
+# С конфигом по умолчанию: nginx -g "daemon off;" -c /etc/nginx/nginx.conf
+docker run mynginx
+
+# С другим конфигом: nginx -g "daemon off;" -c /custom/nginx.conf
+docker run mynginx -c /custom/nginx.conf
+```
+
+<Callout type="info" emoji="">
+**Когда что использовать?**
+- **Только `CMD`** — для простых приложений, когда нужно запускать различные команды внутри контейнера
+- **`ENTRYPOINT` + `CMD`** — для продакшен-сервисов. ENTRYPOINT запускает основное приложение, CMD задаёт параметры по умолчанию
+- **Только `ENTRYPOINT`** — когда контейнер должен выполнять строго одну конкретную программу
+</Callout>
+
+### EXPOSE — Документация портов
+
+`EXPOSE` сообщает Docker, какие порты слушает контейнер. Однако эта инструкция **не открывает порт** — она служит исключительно документацией.
+
+```dockerfile
+FROM node:20-alpine
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+Чтобы фактически открыть порт, используйте `docker run -p`:
+
+```bash
+# Привязать порт 3000 контейнера к порту 8080 хоста
+docker run -p 8080:3000 myapp
+
+# Открыть все порты, указанные в EXPOSE
+docker run -P myapp
+```
+
+### VOLUME — Постоянные данные
+
+`VOLUME` создаёт точку монтирования для хранения постоянных (persistent) данных внутри контейнера. Данные в томе сохраняются даже после удаления контейнера.
+
+```dockerfile
+FROM postgres:16-alpine
+
+# Файлы базы данных PostgreSQL хранятся здесь
+VOLUME /var/lib/postgresql/data
+```
+
+Подключение тома при запуске:
+
+```bash
+# Монтирование директории хоста
+docker run -v /host/data:/var/lib/postgresql/data postgres
+
+# Именованный том Docker
+docker run -v pgdata:/var/lib/postgresql/data postgres
+```
+
+<Callout type="info" emoji="">
+**Когда использовать VOLUME?**
+- Базы данных (PostgreSQL, MySQL, MongoDB)
+- Файлы логов
+- Загружаемые файлы
+- Данные, разделяемые между контейнерами
+</Callout>
+
+### USER — Безопасный пользователь
+
+Инструкция `USER` указывает, от имени какого пользователя будут выполняться команды внутри контейнера.
+
+```dockerfile
+FROM node:20-alpine
+
+WORKDIR /app
+COPY --chown=node:node . .
+RUN npm ci --only=production
+
+# Переключение с root на пользователя node
+USER node
+
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+<Callout type="warning" emoji="">
+**Никогда не запускайте контейнеры от `root` в продакшене!**
+
+Если в контейнере обнаружится уязвимость, контейнер с root-правами может дать злоумышленнику доступ и к хост-серверу. Всегда переключайтесь на непривилегированного пользователя с помощью инструкции `USER`.
+</Callout>
+
+### HEALTHCHECK — Проверка здоровья контейнера
+
+`HEALTHCHECK` указывает Docker, как проверять, что приложение внутри контейнера работает корректно.
+
+```dockerfile
+FROM node:20-alpine
+
+WORKDIR /app
+COPY . .
+RUN npm ci --only=production
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --spider --quiet http://localhost:3000/health || exit 1
+
+CMD ["node", "server.js"]
+```
+
+Параметры:
+- `--interval=30s` — проверка каждые 30 секунд
+- `--timeout=5s` — неудача, если ответ не получен в течение 5 секунд
+- `--start-period=10s` — 10 секунд ожидания для запуска приложения
+- `--retries=3` — после 3 неудачных попыток подряд контейнер помечается как `unhealthy`
+
+```bash
+# Просмотр состояния здоровья контейнера
+docker ps
+# В столбце STATUS: healthy, unhealthy или starting
+```
+
+<Callout type="info" emoji="">
+**Зачем нужен HEALTHCHECK?**
+
+Контейнер может «работать», но приложение внутри него — выдавать ошибки или зависнуть. С помощью HEALTHCHECK Docker (и оркестраторы — Kubernetes, Docker Swarm) обнаруживает проблему и перезапускает контейнер.
+</Callout>
+
+## .dockerignore — Исключение ненужных файлов
+
+Файл `.dockerignore` указывает, какие файлы не должны попадать в контекст сборки Docker. Работает аналогично `.gitignore`.
+
+```bash filename=".dockerignore"
+# Система контроля версий
+.git
+.gitignore
+
+# Зависимости (будут переустановлены внутри образа)
+node_modules
+vendor
+__pycache__
+
+# Файлы IDE и ОС
+.vscode
+.idea
+*.swp
+.DS_Store
+Thumbs.db
+
+# Файлы Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Секретные файлы
+.env
+.env.local
+*.pem
+*.key
+
+# Тесты и документация
+tests
+docs
+README.md
+LICENSE
+```
+
+<Callout type="warning" emoji="">
+**Последствия отсутствия `.dockerignore`:**
+
+1. `node_modules` (сотни МБ) каждый раз копируется в контекст сборки — сборка замедляется
+2. Директория `.git` (вся история) попадает в образ — размер увеличивается
+3. Файл `.env` (пароли, токены) попадает в образ — **угроза безопасности!**
+4. Любое изменение файла инвалидирует кэш Docker — сборка начинается заново
+</Callout>
+
+## Multi-stage сборка
+
+Multi-stage сборка — важнейшая техника написания профессиональных Dockerfile. Она позволяет создавать **несколько этапов (stage)** в одном Dockerfile. В итоге финальный образ содержит только необходимые файлы.
+
+**Проблема:** Для компиляции Go-приложения нужен компилятор Go (1 ГБ+). Но для запуска скомпилированного бинарника компилятор не нужен. При использовании одного этапа ненужный компилятор остаётся в финальном образе.
+
+**Решение:** Multi-stage сборка.
+
+```dockerfile
+# ===== ЭТАП 1: Сборка =====
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server .
+
+# ===== ЭТАП 2: Продакшен =====
+FROM alpine:3.19
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /app/server .
+
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["./server"]
+```
+
+**Результат:** Образ сборки ~1 ГБ, финальный образ ~15 МБ!
+
+<Callout type="info" emoji="">
+**Преимущества multi-stage сборки:**
+- **Меньший размер образа** — в финальном образе только бинарник и среда выполнения
+- **Безопасность** — исходный код, инструменты сборки и тестовые файлы не попадают в финальный образ
+- **Скорость** — меньший образ быстрее скачивается и деплоится
+</Callout>
+
+## Кэширование слоёв — Ускорение сборки
+
+Docker кэширует каждую инструкцию как отдельный **слой**. Если инструкция не изменилась, Docker берёт её из кэша, не выполняя заново. Правильное использование этого механизма ускоряет сборку **в несколько раз**.
+
+**Плохой порядок** — при изменении кода все зависимости устанавливаются заново:
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+
+# При изменении любого файла npm install запустится заново
+COPY . .
+RUN npm install
+
+CMD ["node", "server.js"]
+```
+
+**Хороший порядок** — файлы зависимостей копируются отдельно:
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+
+# Шаг 1: Копирование только файлов зависимостей
+COPY package.json package-lock.json ./
+RUN npm ci --only=production
+
+# Шаг 2: Копирование кода приложения
+COPY . .
+
+CMD ["node", "server.js"]
+```
+
+<Callout type="info" emoji="">
+**Почему это быстрее?**
+
+`package.json` меняется редко, а код приложения — часто. При таком порядке:
+- При изменении кода — сборка продолжается с шага `COPY . .`
+- `npm ci` берётся из кэша (занимает секунды)
+- При изменении зависимостей — `npm ci` выполняется заново
+
+**Главное правило:** То, что меняется **реже**, размещайте **в начале** Dockerfile, а то, что меняется **чаще**, — **в конце**.
+</Callout>
+
+## Готовые Dockerfile для продакшена
+
+### Node.js (Express/NestJS)
+
+```dockerfile
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# --- Продакшен ---
+FROM node:20-alpine
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
+COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+COPY --from=builder --chown=appuser:appgroup /app/package.json ./
+
+USER appuser
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --spider --quiet http://localhost:3000/health || exit 1
+
+CMD ["node", "dist/main.js"]
+```
+
+### Python (FastAPI/Django)
+
+```dockerfile
+FROM python:3.12-slim AS builder
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# --- Продакшен ---
+FROM python:3.12-slim
+
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+
+WORKDIR /app
+COPY --from=builder /install /usr/local
+COPY --chown=appuser:appgroup . .
+
+USER appuser
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### Go (Gin/Fiber)
+
+```dockerfile
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server .
+
+# --- Продакшен ---
+FROM alpine:3.19
+
+RUN apk --no-cache add ca-certificates \
+    && addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /app/server .
+
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["./server"]
+```
+
+### Java Spring Boot (Maven)
+
+```dockerfile
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
+
+WORKDIR /app
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+COPY src ./src
+RUN mvn package -DskipTests -B
+
+# --- Продакшен ---
+FROM eclipse-temurin:21-jre-alpine
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /app/target/*.jar app.jar
+
+RUN chown -R appuser:appgroup /app
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/actuator/health || exit 1
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+### .NET (ASP.NET Core)
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS builder
+
+WORKDIR /app
+COPY *.csproj .
+RUN dotnet restore
+
+COPY . .
+RUN dotnet publish -c Release -o /app/publish
+
+# --- Продакшен ---
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /app/publish .
+
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["dotnet", "MyApp.dll"]
+```
+
+### Rust
+
+```dockerfile
+FROM rust:1.77-alpine AS builder
+
+RUN apk add --no-cache musl-dev
+WORKDIR /app
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src
+
+COPY src ./src
+RUN cargo build --release
+
+# --- Продакшен ---
+FROM alpine:3.19
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /app/target/release/myapp .
+
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["./myapp"]
+```
+
+## Лучшие практики — Итоги
+
+| Правило | Плохо | Хорошо |
+|---------|-------|--------|
+| Базовый образ | `FROM node` | `FROM node:20-alpine` |
+| Кэширование слоёв | `COPY . .` затем `RUN npm install` | `COPY package*.json .` затем `RUN npm ci` |
+| Пользователь | root (по умолчанию) | `USER appuser` |
+| Сборка | Одноэтапная | Multi-stage сборка |
+| Здоровье | Нет HEALTHCHECK | `HEALTHCHECK --interval=30s ...` |
+| Размер | Кэш не очищен | `rm -rf /var/lib/apt/lists/*` |
+| Секреты | `.env` в образе | `.dockerignore` + runtime env |
+| Инструкции | Много строк `RUN` | Объединены через `&&` |
+
+Дополнительные примеры Dockerfile можно найти в репозитории **[devops-tools](https://github.com/ismoilovdevml/devops-tools/tree/master/Docker)**.
+
+## Дополнительные ресурсы
+
+<Callout type="info" emoji="">
+
+Дополнительные ресурсы
+ * [**Официальная документация Docker по Dockerfile**](https://docs.docker.com/reference/dockerfile/)
+ * [**Официальные лучшие практики Docker**](https://docs.docker.com/build/building/best-practices/)
+ * [**Установка Docker на серверы Linux**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+ * [**Docker Compose**](https://devops-journey.uz/guides/konteyner/docker-compose)
+
+**Дата:** 25.11.2023 (25 ноября 2023 г.)
+
+**Последнее обновление:** 11.02.2026 (11 февраля 2026 г.)
+
+**Автор: Отабек Исмоилов**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>

@@ -9,408 +9,712 @@ import { Callout } from "nextra-theme-docs";
 
 ![dockerfile](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/dockerfile-yozish.png)
 
+## Kirish
 
-Docker samaradorligining markazida **Dockerfile** yotadi - Docker imagelarini yaratish uchun ishlatiladigan asosiy skript. Ushbu fayllar takrorlanadigan va portativ konteynerli muhitni yaratish uchun zarur bo'lgan ko'rsatmalar va bog'liqliklarni qamrab oladi. O'rnatish jarayonini soddalashtirish va turli muhitlarda izchillikni ta'minlashga intilayotgan dasturchilar va DevOps muhandislari uchun samarali Dockerfilelarni qanday yaratishni tushunish juda muhimdir.
+**Dockerfile** — bu Docker image yaratish uchun yoziladigan instruksiyalar fayli. Uni oddiy qilib aytganda, "serverga dastur o'rnatish uchun qo'llanma" deb tushunish mumkin — faqat bu qo'llanmani odam emas, Docker o'zi bajaradi.
 
-Ushbu qo'llanma Dockerfilelar qanday yozishni uni elementlarini ko'rib chiqamiz.
+Nima uchun Dockerfile yoza bilish muhim?
 
-### FROM
+- **Takrorlanuvchi muhit** — Dockerfile orqali yaratilgan image har qanday serverda bir xil ishlaydi. "Mening kompyuterimda ishladi" muammosi yo'qoladi.
+- **Versiya nazorati** — Dockerfile kodingiz bilan birga Git'da saqlanadi. Kim qachon nima o'zgartirganini kuzatish mumkin.
+- **Avtomatlashtirish** — CI/CD pipeline'larda Docker image avtomatik build va deploy qilinadi.
 
-Dockerfiledagi `FROM` instructioni sizning imagengiz asosida quriladigan asosiy imageni belgilash uchun ishlatiladi. Bu yangi konteyner imegaseni yaratish uchun boshlang'ich nuqtadir. Docker imageni yaratishni boshlaganingizda, odatda uni ma'lum muhit yoki funksiyalar to'plamini ta'minlaydigan mavjud imagega asoslashni xohlaysiz. `FROM` instructioni ushbu asosiy imageni belgilaydi.
+Ushbu qo'llanmada biz Dockerfile'ning barcha asosiy instruksiyalarini, multi-stage build, layer caching, xavfsizlik amaliyotlari va production-ready namunalarni ko'rib chiqamiz.
 
-```bash /FROM/ {1}
+## Dockerfile instruksiyalari
+
+### FROM — Asosiy image tanlash
+
+Har bir Dockerfile `FROM` bilan boshlanadi. Bu instruksiya imagengiz qaysi asosiy imagega asoslanishini belgilaydi.
+
+```dockerfile
 FROM <image>[:<tag>] [@<digest>]
-#Node.js namunalar
+```
+
+Misollar:
+
+```dockerfile
+# Eng oxirgi versiya (tavsiya etilmaydi — noaniq)
 FROM node
-FROM node:18
-FROM node@sha256:XXXXXX
+
+# Aniq versiya (tavsiya etiladi)
+FROM node:20-alpine
+
+# Digest orqali (eng aniq — image content hash bo'yicha)
+FROM node@sha256:a1b2c3d4...
 ```
 
-**image** - bu yangi imagengizga asoslanmoqchi bo'lgan imagening nomi.
+<Callout type="warning" emoji="">
+**Production uchun muhim qoidalar:**
 
-**tag** (ixtiyoriy) imagening muayyan versiyasi yoki variantini bildiradi. Agar belgilanmagan bo'lsa, u default bo'yicha `latest` bo'ladi.
+- **Hech qachon `latest` tag ishlatmang** — bugun ishlayotgan image ertaga boshqa versiyaga o'zgarib, loyihangiz buzilishi mumkin.
+- **Alpine variantlarni afzal ko'ring** — `node:20-alpine` (50MB) va `node:20` (350MB) orasida katta farq bor. Kichik image = tezroq build, kamroq xavfsizlik zaifliklari.
+- **Aniq versiya belgilang** — `python:3.12-slim`, `golang:1.22-alpine` kabi.
+</Callout>
 
-**@digest** (ixtiyoriy) sizga imageni uning content hashi (digest) bo'yicha belgilash imkonini beradi va bu imagega aniq mos kelishini ta'minlaydi.
+### LABEL — Image metadata
 
-### MAINTAINER, LABEL
+`LABEL` instruksiyasi image haqidagi ma'lumotlarni (metadata) qo'shish uchun ishlatiladi. Eskirgan `MAINTAINER` o'rniga `LABEL` ishlatiladi.
 
-Dockerfile-dagi `MAINTAINER` instructioni qurilayotgan imagening muallifi yoki maintainerini ko'rsatish uchun ishlatilgan. Biroq, bu instruction iamge haqidagi metamaʼlumotlar, jumladan, texnik maʼlumotlar bilan taʼminlash uchun `LABEL` dan foydalanish foydasiga eskirgan.
+```dockerfile
+FROM node:20-alpine
 
-Maintainerni ko'rsatish uchun `LABEL` dan qanday foydalanish mumkinligiga misol:
-
-```bash /MAINTAINER/ /LABEL/ {2,4}
-FROM node:18
-MAINTAINER Otabek Ismoilov
-# LABEL bilan
-LABEL maintainer="Otabek Ismoilov ismoilovdev@gmail.com"
+LABEL maintainer="Otabek Ismoilov <ismoilovdev@gmail.com>"
+LABEL version="1.0"
+LABEL description="DevOps Journey API service"
 ```
 
-### RUN
+<Callout type="info" emoji="">
+Image labellarini ko'rish uchun: `docker inspect --format='{{json .Config.Labels}}' image_name`
+</Callout>
 
-Docker faylidagi `RUN` buyrug'i Docker imagedagi buyruqlarni bajarish uchun ishlatiladi. Ushbu buyruqlar odatda paketlarni o'rnatish, tizimni yangilash, fayllarni yuklab olish yoki konteyner ichidagi muhitni tayyorlash uchun zarur bo'lgan boshqa vazifalar uchun ishlatiladi.
+### WORKDIR — Ishchi papka
 
-`RUN` qanday ishlatilishiga misol:
+`WORKDIR` konteyner ichidagi ishchi papkani belgilaydi. Bundan keyingi barcha `RUN`, `COPY`, `CMD` va boshqa instruksiyalar shu papkada bajariladi.
 
-```bash /RUN/ {4-7}
-FROM ubuntu:latest
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
 
-# Konteynerni yangilash va konteynerga zip, git, unzip o'rnatish
+# Endi COPY, RUN buyruqlari /app papkasida ishlaydi
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+```
+
+<Callout type="info" emoji="">
+**`RUN cd /app` emas, `WORKDIR /app` ishlatiladi.** Sababi: `RUN cd /app` faqat o'sha bitta `RUN` instruksiyasi ichida ishlaydi, keyingi instruksiyada yana root papkaga qaytadi. `WORKDIR` esa barcha keyingi instruksiyalar uchun amal qiladi.
+
+Agar papka mavjud bo'lmasa, Docker uni avtomatik yaratadi.
+</Callout>
+
+### COPY va ADD — Fayllarni ko'chirish
+
+**`COPY`** — host mashinadagi fayllarni image ichiga ko'chiradi. Oddiy va tushunarli.
+
+```dockerfile
+# Bitta fayl ko'chirish
+COPY package.json /app/
+
+# Barcha fayllarni ko'chirish
+COPY . /app/
+
+# Bir nechta fayl ko'chirish
+COPY package.json package-lock.json /app/
+```
+
+**`ADD`** — `COPY` bilan bir xil, lekin qo'shimcha imkoniyatlari bor:
+- URL'dan fayl yuklab olish
+- `.tar.gz` arxivlarni avtomatik ochish
+
+```dockerfile
+# Arxivni avtomatik ochib ko'chiradi
+ADD app.tar.gz /app/
+
+# URL'dan yuklab oladi
+ADD https://example.com/config.json /app/
+```
+
+<Callout type="warning" emoji="">
+**Qoida:** Agar arxiv ochish yoki URL'dan yuklash kerak bo'lmasa — **doimo `COPY` ishlatiladi**. `ADD` ning "yashirin" funksiyalari kutilmagan natijalar berishi mumkin. Ko'pchilik hollarda `COPY` yetarli va xavfsizroq.
+</Callout>
+
+### RUN — Buyruq bajarish
+
+`RUN` instruksiyasi image build jarayonida buyruqlarni bajaradi — paket o'rnatish, fayllarni tayyorlash, kompilyatsiya qilish va boshqalar.
+
+```dockerfile
+FROM ubuntu:24.04
+
+# Yomon usul — har bir RUN alohida layer yaratadi
+RUN apt-get update
+RUN apt-get install -y curl
+RUN apt-get install -y git
+RUN apt-get clean
+
+# Yaxshi usul — bitta layer, kichikroq image
 RUN apt-get update && apt-get install -y \
-    zip \
+    curl \
     git \
-    unzip
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 ```
 
-Javascript applicationlar uchun misol
+<Callout type="info" emoji="">
+**Nima uchun buyruqlarni birlashtirish kerak?**
 
-```bash /RUN/ {3-4}
-FROM node:18
+Dockerfile'dagi har bir instruksiya (`RUN`, `COPY`, `ADD`) image'ga yangi **layer** qo'shadi. Ko'p layer = katta image hajmi. Shuning uchun:
 
-RUN npm install
-RUN npm build
-```
-### WORKDIR
+1. O'zaro bog'liq buyruqlarni `&&` bilan birlashtiring
+2. `apt-get clean` va `rm -rf /var/lib/apt/lists/*` bilan keshni tozalang
+3. Keraksiz fayllarni o'sha layer ichida o'chiring (keyingi layerda o'chirish hajmni kamaytirmaydi!)
+</Callout>
 
-Dockerfiledagi `WORKDIR` ko'rsatmasi(instructioni) Dockerfiledagi har qanday keyingi ko'rsatmalar uchun ishchi jildni o'rnatish uchun ishlatiladi. Bu buyruqlar bajariladigan konteyner ichidagi joriy jildni o'zgartiradi.
+### ENV — Environment variable
 
-`WORKDIR` ga misol:
+`ENV` konteyner ichidagi muhit o'zgaruvchilarini belgilaydi. Bu qiymatlar build jarayonida ham, konteyner ishlayotganda ham mavjud bo'ladi.
 
-```bash /WORKDIR/ {2}
-FROM python:3.9-slim
-WORKDIR /usr/src/app
-```
-`WORKDIR /usr/src/app` Bu qator konteyner ichidagi ishchi jildni `/usr/src/app` ga o'rnatadi. Dockerfile-dagi keyingi buyruqlar, agar bekor qilinmasa, ushbu ko'rsatilgan jildda bajariladi.
-
-Ishchi jildi o'rnatish, ayniqsa, fayllarda ishlaydigan yoki yo'llarga(path) murojaat qilish kerak bo'lgan buyruqlar har safar to'liq yo'lni ko'rsatmasdan doimiy ishlashini ta'minlash uchun foydalidir. Shuni ta'kidlash kerakki, `WORKDIR`-dan foydalanish, agar asosiy imageda mavjud bo'lmasa, jild yaratmaydi. Agar ko'rsatilgan jildg imageda mavjud bo'lmasa, Docker uni buyruq talab qilganda yoki `COPY` instructioni yordamida ushbu jildga fayllar ko'chirilganda yaratadi.
-
-
-### COPY
-
-Dockerfiledagi `COPY` buyrug'i fayllar yoki jildlarni host mashinasidan qurilayotgan Docker imagesiga nusxalash uchun ishlatiladi.
-
-`COPY` qanday ishlatilishiga misol:
-
-```bash /COPY/ {4}
-FROM ubuntu:latest
-RUN mkdir /myapp
-
-COPY app-files /myapp
-```
-
-app-files jildidagi fayllarni host mashinasidan image ichidagi `/myapp` jildiga ko'chiradi.
-
-Python applicationlari uchun real namuna
-
-```bash /COPY/ {3}
-FROM python:3.9-slim
-WORKDIR /usr/src/app
-COPY . /usr/src/app
-RUN pip install --no-cache-dir -r requirements.txt
-```
-`WORKDIR` konteyner ichidagi ishni jildni `/usr/src/app` ga o'rnatadi. `COPY` Joriy jilddagi barcha fayllarni Docker imagedagi `/usr/src/app` jildiga ko'chiradi.
-
-### ENV
-
-Dockerfiledagi `ENV` buyrug'i konteyner ichidagi muhit o'zgaruvchilarini(environment variable) o'rnatish uchun ishlatiladi. Ushbu o'zgaruvchilar key-value juftliklari bo'lib, ularga konteyner ichida ishlaydigan har qanday jarayon orqali kirish mumkin.
-
-`ENV` insturctionlaridan foydalanishni ko'rsatadigan oddiy Dockerfile misoli:
-
-```bash /ENV/ {3-4}
-FROM node:14
+```dockerfile
+FROM node:20-alpine
 
 ENV NODE_ENV=production
 ENV PORT=3000
-```
-Real mysql database uchun `ENV` ishlatilishi
 
-```bash /ENV/ {3-6}
-FROM mysql:latest
-
-ENV MYSQL_ROOT_PASSWORD=my-secret-pw
-ENV MYSQL_DATABASE=mydb
-ENV MYSQL_USER=user
-ENV MYSQL_PASSWORD=password
+# ENV qiymatlari keyingi instruksiyalarda ishlatilishi mumkin
+EXPOSE $PORT
+CMD ["node", "server.js"]
 ```
 
-### ADD
+<Callout type="info" emoji="">
+`ENV` bilan belgilangan qiymatlar konteyner ishlayotganda `docker run -e PORT=4000` orqali override qilinishi mumkin.
+</Callout>
 
-Dockerfile-dagi `ADD` insturctioni fayllarni, jildlarni yoki masofaviy URL-larni yaratish kontekstidan yaratilayotgan Docker imagening fayl tizimiga nusxalash uchun ishlatiladi. Bu sizga Docker build kontekstidan (Dockerfile joylashgan jild) local fayllar yoki jildlarni imagega qo'shish imkonini beradi.
+### ARG — Build-time o'zgaruvchilar
 
-`ADD` insturctioni sintaksisi quyidagicha:
+`ARG` faqat **build jarayonida** mavjud bo'lgan o'zgaruvchilarni belgilaydi. Konteyner ishlayotganda ular mavjud bo'lmaydi.
 
-```bash /ADD/ {3}
-FROM node:14
+```dockerfile
+# Default qiymat bilan ARG
+ARG NODE_VERSION=20
 
-ADD myapp /usr/src/app
+FROM node:${NODE_VERSION}-alpine
+
+ARG APP_VERSION=1.0.0
+LABEL version="${APP_VERSION}"
 ```
-Bu yerda Docker build kontekstidan `myapp` nomli local jildni image ichidagi `/usr/src/app` jildiga qo'shiladi.
 
-Masofaviy fayl qo'shsih quyidagicha
+Build qilishda ARG qiymatini o'zgartirish:
 
-```bash /ADD/ {3}
-FROM python:3.9
-
-ADD https://example.com/file.txt /app/file.txt
+```bash
+docker build --build-arg NODE_VERSION=18 --build-arg APP_VERSION=2.0.0 -t myapp .
 ```
-`ADD` insturctioni, shuningdek, masofaviy(remote) URL-manzillardan fayllarni olib, ularni imagega qo'shishi mumkin. Ushbu misolda fayl (file.txt) `https://example.com/file.txt` dan yuklab olinadi va imagening `/app` jildiga joylashtiriladi.
 
-### CMD
+<Callout type="warning" emoji="">
+**ARG va ENV farqi:**
+- `ARG` — faqat build vaqtida ishlaydi, konteyner ichida ko'rinmaydi
+- `ENV` — build vaqtida ham, konteyner ichida ham ishlaydi
 
-`CMD`  insturctioni ushbu Docker imagega asoslangan konteyner ishga tushirilganda bajarilishi kerak bo'lgan buyruqni belgilash uchun ishlatiladi. U konteyner ishga tushganda ishga tushirish uchun standart buyruqni belgilaydi, garchi uni konteynerni ishga tushirishda buyruq berish orqali bekor qilish mumkin.
+**Hech qachon `ARG` orqali maxfiy ma'lumotlar (parol, token) bermang!** Build tarixida (`docker history`) ko'rinib qoladi.
+</Callout>
 
-CMD insturctioni sintaksisi quyidagicha:
+### CMD va ENTRYPOINT — Konteyner ishga tushishi
 
-```bash /CMD/ {3}
-FROM python:3.9
+Bu ikki instruksiya konteyner ishga tushganda qaysi buyruq bajarilishini belgilaydi.
 
+**`CMD`** — default buyruq. `docker run` da boshqa buyruq berilsa, override bo'ladi.
+
+```dockerfile
+FROM python:3.12-slim
 CMD ["python", "app.py"]
 ```
-Ushbu misolda, ushbu imagega asoslangan konteyner ishga tushirilganda, u standart buyruq sifatida Python skripti `app.py` ni ishga tushiradi.
 
-Web Serverni ishga tushirishga misol
+```bash
+# CMD ishlaydi — python app.py
+docker run myapp
 
-```bash {3}
-FROM nginx:latest
-
-CMD ["nginx", "-g", "daemon off;"]
+# CMD override bo'ladi — bash ochiladi
+docker run myapp bash
 ```
-Bu yerda CMD instructioni Nginx veb-serverini konteyner ichida ishga tushirish buyrug'ini belgilaydi.
 
-### ENTRYPOINT
+**`ENTRYPOINT`** — asosiy buyruq. Override bo'lmaydi, faqat argumentlar qo'shiladi.
 
-`ENTRYPOINT` instructioni Docker imagedan konteyner ishga tushirilganda bajariladigan asosiy buyruqni o'rnatadi. Runtimeda buyruq berish orqali bekor qilinishi mumkin bo'lgan `CMD` instructionidan farqli o'laroq, `ENTRYPOINT` konteynerning bajarilishi(execute) uchun belgilangan boshlanish nuqtasini ta'minlaydi, ammo konteyner ishga tushirilganda u hali ham qo'shimcha argumentlar yoki buyruqlar bilan to'ldirilishi mumkin.
-
-`ENTRYPOINT` instructioni sintaksisi `CMD` ga o'xshaydi:
-
-```bash /ENTRYPOINT/ {3}
-FROM python:3.9
-
+```dockerfile
+FROM python:3.12-slim
 ENTRYPOINT ["python", "app.py"]
 ```
-Bunday holda, `ENTRYPOINT` instructioni konteyner ishga tushirilganda Python skripti `app.py` ni asosiy buyruq sifatida bajarishi(execute) kerakligini bildiradi.
 
-`CMD` bilan birga ishlatilishi
+```bash
+# ENTRYPOINT ishlaydi — python app.py
+docker run myapp
 
-```bash /ENTRYPOINT/ /CMD/ {3-4}
-FROM nginx:latest
+# Argument qo'shiladi — python app.py --debug
+docker run myapp --debug
+```
 
+**`ENTRYPOINT` + `CMD` birgalikda** — eng kuchli kombinatsiya:
+
+```dockerfile
+FROM nginx:alpine
+
+# ENTRYPOINT — asosiy buyruq (o'zgarmaydi)
 ENTRYPOINT ["nginx", "-g", "daemon off;"]
+
+# CMD — default argumentlar (override mumkin)
 CMD ["-c", "/etc/nginx/nginx.conf"]
 ```
 
-Ushbu Dockerfile Nginx serverini standart sozlamalar bilan ishga tushirish uchun `ENTRYPOINT`-dan foydalanadi va foydalaniladigan konfiguratsiya faylini belgilash uchun `CMD`-dan foydalanadi (nginx.conf). Konteyner ishga tushganda, ENTRYPOINT standart sozlamalar bilan Nginx-ni ishga tushiradi va CMD konfiguratsiya fayli argumentini taqdim etish orqali uni to'ldiradi.
+```bash
+# Default config bilan: nginx -g "daemon off;" -c /etc/nginx/nginx.conf
+docker run mynginx
 
-`ENTRYPOINT` konteynerning asosiy ishlashini aniqlash va izchil bajarilish muhitini ta'minlash uchun foydalidir. U ko'pincha ma'lum bir boshlang'ich nuqtasi yoki ishga tushirish jarayonini talab qiladigan uzoq muddatli servicelar yoki ilovalar uchun qo'llaniladi. Bundan tashqari, u foydalanuvchilarga runtimeda qo'shimcha argumentlar yoki buyruqlar taqdim etish imkonini beradi va uning funksiyalarini kengaytiradi.
-
-### EXPOSE
-
-`EXPOSE` insturctioni Dockerga konteyner runtimeda ma'lum tarmoq portlarini tinglashi(listen) haqida xabar berish uchun ishlatiladi. Biroq, u portlarni publish qilmaydi yoki ochmaydi. U foydalanuvchilar uchun konteyner qaysi portlarni tinglamoqchi(listen) ekanligini tushunish uchun documentatsiya sifatida xizmat qiladi.
-
-`EXPOSE` insturctionining sintaksisi oddiy:
-
-```bash /EXPOSE/ {4}
-FROM nginx:latest
-
-# HTTP trafigi uchun 80 portini ochadi(expose)
-EXPOSE 80
+# Boshqa config bilan: nginx -g "daemon off;" -c /custom/nginx.conf
+docker run mynginx -c /custom/nginx.conf
 ```
 
-Bunday holda, `EXPOSE` insturctioni Dockerga konteyner kiruvchi trafik uchun `80`-portni tinglashini(listen) aytadi. Biroq, bu insturctionning o'zi portni host machinega publish qilmaydi yoki uni mapda ko'rsatmaydi. Portlarni konteynerdan hostga map qilish yoki publish qilish uchun konteynerni `docker run -p` buyru'gidan foydalanishingiz kerak.
+<Callout type="info" emoji="">
+**Qachon qaysi birini ishlatish kerak?**
+- **Faqat `CMD`** — oddiy ilovalar uchun, konteyner ichida turli buyruqlar bajarish kerak bo'lganda
+- **`ENTRYPOINT` + `CMD`** — production servislari uchun. ENTRYPOINT asosiy dasturni ishga tushiradi, CMD default parametrlar beradi
+- **Faqat `ENTRYPOINT`** — konteyner faqat bitta aniq dasturni bajarishi kerak bo'lganda
+</Callout>
 
-Masalan, konteynerning `80`-portini host-mashinadagi `8080`-portga map qilish uchun siz konteynerni quyidagicha ishga tushirasiz:
+### EXPOSE — Port dokumentatsiyasi
 
-```bash /-p/
-docker run -p 8080:80 my_image
-```
+`EXPOSE` Docker'ga konteyner qaysi portlarni tinglashini bildiradi. Lekin bu **portni ochmaydi** — faqat dokumentatsiya sifatida xizmat qiladi.
 
-Bu buyruq Docker-ga `80`-portni konteynerdan hostdagi `8080`-portga publish qilishni aytadi, bu esa konteyner ichida ishlaydigan servicelarga tashqi kirish imkonini beradi.
-
-`EXPOSE` konteyner qaysi portlardan foydalanishni kutayotganini bildirish uchun ko'proq qo'llanma xususiyatidir. Bu foydalanuvchilarga runtimeda konteynerning tarmoq harakatiga bevosita ta'sir qilmasdan mo'ljallangan tarmoq aloqa portlarini tushunishga yordam beradi. Haqiqiy port ulanishi va tarmoq konfiguratsiyasi konteyner tegishli port mapping bilan `docker run` buyrug'i yordamida ishga tushirilganda amalga oshiriladi.
-
-Misol uchun Node.js dasturiga namuna Dockerfile
-
-```bash /EXPOSE/ {15}
-FROM node:14
-
-WORKDIR /usr/src/app
-
-# package.json va package-lock.json fayllaridan nusxa oladi
-COPY package*.json ./
-
-# Dependencilarniu o'rnatadi
-RUN npm install
-
-# Ilova fayllarini nusxalaydi
-COPY . .
-
-# Node.js ilovasi uchun 3000 portini ochadi
+```dockerfile
+FROM node:20-alpine
 EXPOSE 3000
-
-# Node.js ilovasini ishga tushirish buyrug'i
-CMD ["npm", "start"]
-```
-Ushbu Node.js misolida `EXPOSE` insturctioni konteyner ichidagi Node.js ilovasi `3000`-portda tinglashini(listen) bildiradi. Bu ko'plab Node.js ilovalari uchun umumiy senariy bo'lishi mumkin, chunki ular odatda ushbu portdan default bo'yicha foydalanadilar.
-
-### VOLUME
-
-`VOLUME` instructioni Docker konteynerida mount point yaratish uchun ishlatiladi va konteyner tomonidan yaratilgan ma'lumotlarni doimiy ravishda saqlash yoki konteyner va host mashinasi o'rtasida ma'lumotlarni almashish uchun ishlatiladi.
-
-`VOLUME` instructioni sintaksisiga misol:
-
-```bash /VOLUME/ {5}
-# Use a base image
-FROM ubuntu:latest
-
-# Ma'lumotlarni saqlash uchun volume yaratish
-VOLUME /app/data
+CMD ["node", "server.js"]
 ```
 
-Ushbu misolda `VOLUME` insturctioni konteyner ichidagi `/app/data` da moint pointni yaratadi. Konteynerni ishga tushirish paytida ushbu jildga yozilgan har qanday ma'lumotlar konteynerning yoziladigan qatlamidan(writable layer) tashqarida saqlanadi, bu esa konteyner to'xtatilgandan yoki o'chirilgandan keyin ham doimiy(persistent) va mavjud bo'ladi.
-
-`VOLUME` dan foydalanish bo'yicha bir nechta asosiy fikrlarga e'tibor qaratish muhim:
-
-* **Persisting Data(Doimiy ma'lumotlar):** Belgilangan volume mountga yozilgan har qanday ma'lumotlar, hatto konteyner o'chirib tashlangan bo'lsa ham saqlanib qoladi. Bu ma'lumotlarni konteyner instancelarida almashish va qayta ishlatish imkonini beradi.
-
-* **Runtimeda Volume Mount:** Konteynerni ishga tushirganda, Docker'dagi `-v` yoki `--volume` flagi yoki `--mount` flagi local jild yoki nomlangan jildni Dockerfile'da `VOLUME` yordamida yaratilgan jildga yo'naltirish uchun ishlatiladi.
-
-Masalan:
+Haqiqatda portni ochish uchun `docker run -p` ishlatiladi:
 
 ```bash
-docker run -v /host/path:/app/data my_image
+# Konteynerning 3000-portini hostning 8080-portiga ulash
+docker run -p 8080:3000 myapp
+
+# Barcha EXPOSE qilingan portlarni ochish
+docker run -P myapp
 ```
 
-Bu buyruq host mashinasidagi `/host/path` jildini konteyner ichidagi `/app/data` jildiga moslashtiradi.
+### VOLUME — Doimiy ma'lumotlar
 
-* **Specialized Data Containers(Ixtisoslashgan ma'lumotlar konteynerlari):** volumelarni konteynerlar o'rtasida ham taqsimlash(share) mumkin. Nomlangan volumeni yaratish bir nechta konteynerlarga bir xil ma'lumotlarni almashish imkonini beradi.
+`VOLUME` konteyner ichida doimiy (persistent) ma'lumotlarni saqlash uchun mount point yaratadi. Konteyner o'chirilsa ham, volume'dagi ma'lumotlar saqlanib qoladi.
 
-Misol uchun:
+```dockerfile
+FROM postgres:16-alpine
+
+# Postgres ma'lumotlar bazasi fayllari shu yerda saqlanadi
+VOLUME /var/lib/postgresql/data
+```
+
+Runtime'da volume ulash:
 
 ```bash
-docker run --name container1 -v shared_data:/app/data my_image
-docker run --name container2 --volumes-from container1 another_image
+# Host papkasini ulash
+docker run -v /host/data:/var/lib/postgresql/data postgres
+
+# Docker named volume
+docker run -v pgdata:/var/lib/postgresql/data postgres
 ```
 
-Bu yerda `container2` `container1` volumidan foydalanadi.
+<Callout type="info" emoji="">
+**Qachon VOLUME ishlatiladi?**
+- Ma'lumotlar bazalari (PostgreSQL, MySQL, MongoDB)
+- Log fayllar
+- Upload fayllar
+- Konteynerlar o'rtasida almashiladigan ma'lumotlar
+</Callout>
 
-Dockerfiledagi `VOLUME` birinchi navbatda Docker uchun ko'rsatma bo'lib xizmat qiladi, bu konteyner ichidagi ma'lum bir jild doimiy ma'lumotlarni(persistent data) saqlash yoki konteynerlar yoki host mashinasi bilan ma'lumotlarni almashish uchun mo'ljallanganligini ko'rsatadi. Bu Docker konteynerlarida stateful datalarni boshqarishning asosiy jihati.
+### USER — Xavfsiz foydalanuvchi
 
-### USER
+`USER` instruksiyasi konteyner ichida qaysi foydalanuvchi nomidan buyruqlar bajarilishini belgilaydi.
 
-`USER` insturctioni Docker faylida keyingi buyruqlarni bajarayotganda Docker konteyneri qaysi foydalanuvchiga(user) ishlashi kerakligini belgilash uchun ishlatiladi. U foydalanuvchini username nomi yoki UID (Foydalanuvchi identifikatori) bo'yicha sozlash imkonini beradi.
+```dockerfile
+FROM node:20-alpine
 
-`USER` instructioni sintaksisi quyidagicha:
+WORKDIR /app
+COPY --chown=node:node . .
+RUN npm ci --only=production
 
-```bash
-USER <username yoki UID>
-```
-`<username yoki UID>` asosiy imagedagi mavjud foydalanuvchining yoki Dockerfile-da yaratilgan foydalanuvchining usernamesi yoki UID bo'lishi mumkin.
-Docker faylida USER instructionian foydalanishni ko'rsatadigan bir nechta misollar:
-
-```bash /USER/ {5}
-FROM ubuntu:latest
-
-# Yangi foydalanuvchi "appuser" yaratadi va o'sha foydalanuvchiga o'tadi
-RUN useradd -ms /bin/bash appuser
-USER appuser
-
-WORKDIR /home/appuser
-
-COPY . .
-CMD ["./start.sh"]
-```
-Ushbu misolda, `useradd` yordamida `appuser` nomli yangi foydalanuvchi yaratilgan va `USER` insturctioni Dockerfile faylidagi keyingi buyruqlar uchun `appuser`ni standart foydalanuvchi sifatida belgilaydi. Bu cheklangan imtiyozlar bilan dasturni ishga tushirish uchun foydalidir.
-
-UID dan foyalanishga misol
-
-```bash /USER/ {7}
-FROM node:14
-WORKDIR /usr/src/app
-
-COPY . .
-
-RUN chown -R node:node /usr/src/app
+# Root'dan node foydalanuvchisiga o'tish
 USER node
-CMD ["npm", "start"]
-```
-`USER` instructioni Node.js asosiy imagesida mavjud bo'lmagan `root` foydalanuvchisi bo'lgan node foydalanuvchisiga o'tadi. Foydalanuvchilarni almashtirishdan oldin, dastur ishlayotgan vaqtda o'z fayllariga kirishini ta'minlash uchun dastur jildining egaligi node foydalanuvchisiga o'zgartiriladi.
 
-`USER` instructionidan foydalanish xavfsizlik maqsadlari uchun juda muhim, chunki `root` bo'lmagan foydalanuvchilar bilan konteynerlarni ishga tushirish konteynerlashtirilgan ilova ichidagi xavfsizlik zaifliklarining potentsial ta'sirini kamaytiradi. Ammo shuni yodda tutingki, Dockerfile'dagi ba'zi operatsiyalar `root` huquqlarini talab qilishi mumkin, shuning uchun Dockerfile'da foydalanuvchini belgilashda xavfsizlikning eng yaxshi amaliyotlari bilan operatsion talablarni muvozanatlash juda muhimdir.
-
-### Namunalar
-
-Quyida bir nechta dasturlar uchun yozilgan Dockerfilelar
-
-#### JavaScript (Node.js)
-
-```bash
-FROM node:18
-
-WORKDIR /usr/src/app
-COPY package*.json ./
-
-RUN npm install
-
-COPY . .
 EXPOSE 3000
-CMD ["npm", "start"]
+CMD ["node", "server.js"]
 ```
-#### Python
 
-```bash
-FROM python:3.9
-WORKDIR /usr/src/app
+<Callout type="warning" emoji="">
+**Hech qachon production'da konteynerlarni `root` sifatida ishlatmang!**
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+Agar konteynerda xavfsizlik zaifligi topilsa, root huquqli konteyner buzg'unchiga host serverga ham kirish imkonini berishi mumkin. Doimo `USER` instruksiyasi orqali root'siz foydalanuvchiga o'ting.
+</Callout>
+
+### HEALTHCHECK — Konteyner sog'lig'ini tekshirish
+
+`HEALTHCHECK` Docker'ga konteyner ichidagi ilova to'g'ri ishlayotganini tekshirish usulini beradi.
+
+```dockerfile
+FROM node:20-alpine
+
+WORKDIR /app
 COPY . .
+RUN npm ci --only=production
 
-EXPOSE 5000
-CMD ["python", "app.py"]
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --spider --quiet http://localhost:3000/health || exit 1
+
+CMD ["node", "server.js"]
 ```
 
-#### Rust
+Parametrlar:
+- `--interval=30s` — har 30 soniyada tekshiradi
+- `--timeout=5s` — 5 soniya ichida javob kelmasa, muvaffaqiyatsiz
+- `--start-period=10s` — ilova ishga tushishi uchun 10 soniya kutadi
+- `--retries=3` — 3 marta muvaffaqiyatsiz bo'lsa, konteyner `unhealthy` deb belgilanadi
 
 ```bash
-FROM rust:latest
-WORKDIR /usr/src/app
+# Konteyner sog'lig'ini ko'rish
+docker ps
+# STATUS ustunida: healthy, unhealthy yoki starting
+```
+
+<Callout type="info" emoji="">
+**HEALTHCHECK nima uchun kerak?**
+
+Konteyner "ishlab turgan" bo'lishi mumkin, lekin ichidagi ilova xato berishi yoki to'xtab qolishi mumkin. HEALTHCHECK orqali Docker (va orchestratorlar — Kubernetes, Docker Swarm) muammo borligini aniqlaydi va konteyneringizni qayta ishga tushiradi.
+</Callout>
+
+## .dockerignore — Keraksiz fayllarni chiqarib tashlash
+
+`.dockerignore` fayli Docker build kontekstiga kirmasligi kerak bo'lgan fayllarni belgilaydi. Bu `.gitignore` bilan bir xil ishlaydi.
+
+```bash filename=".dockerignore"
+# Version control
+.git
+.gitignore
+
+# Dependencies (image ichida qayta o'rnatiladi)
+node_modules
+vendor
+__pycache__
+
+# IDE va OS fayllari
+.vscode
+.idea
+*.swp
+.DS_Store
+Thumbs.db
+
+# Docker fayllari
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Maxfiy fayllar
+.env
+.env.local
+*.pem
+*.key
+
+# Test va dokumentatsiya
+tests
+docs
+README.md
+LICENSE
+```
+
+<Callout type="warning" emoji="">
+**`.dockerignore` ishlatmaslik oqibatlari:**
+
+1. `node_modules` (yuzlab MB) har safar build kontekstga ko'chiriladi — build sekinlashadi
+2. `.git` papkasi (butun tarix) imagega kirib ketadi — hajm oshadi
+3. `.env` fayli (parollar, tokenlar) imagega kirib ketadi — **xavfsizlik muammosi!**
+4. Har qanday fayl o'zgarganda Docker keshi bekor bo'ladi — build qayta boshlanadi
+</Callout>
+
+## Multi-stage Build
+
+Multi-stage build — professional Dockerfile yozishning eng muhim texnikasi. U bitta Dockerfile ichida **bir nechta bosqich (stage)** yaratish imkonini beradi. Natijada yakuniy image faqat kerakli fayllarni o'z ichiga oladi.
+
+**Muammo:** Go dasturini kompilyatsiya qilish uchun Go compiler (1GB+) kerak. Lekin tayyor binary faylni ishga tushirish uchun compiler kerak emas. Agar bitta stage ishlatilsa, yakuniy imageda keraksiz compiler qoladi.
+
+**Yechim:** Multi-stage build.
+
+```dockerfile
+# ===== 1-BOSQICH: Build =====
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
 COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server .
 
-CMD ["cargo", "run"]
+# ===== 2-BOSQICH: Production =====
+FROM alpine:3.19
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /app/server .
+
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["./server"]
 ```
 
-#### .NET(C#)
-```bash
-# Use a base image
-FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
+**Natija:** Build image ~1GB, yakuniy image ~15MB!
+
+<Callout type="info" emoji="">
+**Multi-stage build afzalliklari:**
+- **Kichik image hajmi** — yakuniy imageda faqat binary va runtime bor
+- **Xavfsizlik** — source code, build toollar, test fayllar yakuniy imagega kirmaydi
+- **Tezlik** — kichik image tezroq pull va deploy qilinadi
+</Callout>
+
+## Layer Caching — Build tezligini oshirish
+
+Docker har bir instruksiyani alohida **layer** sifatida keshlaydi. Agar instruksiya o'zgarmagan bo'lsa, Docker keshdan oladi va qayta bajarmaydi. Buni to'g'ri ishlatish build tezligini **bir necha marta** oshiradi.
+
+**Yomon tartib** — kod o'zgarganda barcha dependency'lar qayta o'rnatiladi:
+
+```dockerfile
+FROM node:20-alpine
 WORKDIR /app
 
+# Barcha fayllar o'zgarsa, npm install ham qayta ishlaydi
+COPY . .
+RUN npm install
+
+CMD ["node", "server.js"]
+```
+
+**Yaxshi tartib** — dependency fayllar alohida ko'chiriladi:
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+
+# 1-qadam: Faqat dependency fayllarni ko'chirish
+COPY package.json package-lock.json ./
+RUN npm ci --only=production
+
+# 2-qadam: Ilova kodini ko'chirish
+COPY . .
+
+CMD ["node", "server.js"]
+```
+
+<Callout type="info" emoji="">
+**Nima uchun bu tezroq?**
+
+`package.json` kamdan-kam o'zgaradi, lekin ilova kodi tez-tez o'zgaradi. Yuqoridagi tartibda:
+- Kod o'zgarganda — faqat `COPY . .` qadamidan boshlab qayta build bo'ladi
+- `npm ci` keshdan olinadi (sekundlar)
+- Dependency o'zgarganda — `npm ci` qayta ishlaydi
+
+**Asosiy qoida:** Kamroq o'zgaradigan narsalarni Dockerfile'ning **yuqori qismida**, tez o'zgaradiganlarni **pastda** joylashtiring.
+</Callout>
+
+## Production-ready Dockerfile namunalari
+
+### Node.js (Express/NestJS)
+
+```dockerfile
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# --- Production ---
+FROM node:20-alpine
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
+COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+COPY --from=builder --chown=appuser:appgroup /app/package.json ./
+
+USER appuser
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --spider --quiet http://localhost:3000/health || exit 1
+
+CMD ["node", "dist/main.js"]
+```
+
+### Python (FastAPI/Django)
+
+```dockerfile
+FROM python:3.12-slim AS builder
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# --- Production ---
+FROM python:3.12-slim
+
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+
+WORKDIR /app
+COPY --from=builder /install /usr/local
+COPY --chown=appuser:appgroup . .
+
+USER appuser
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### Go (Gin/Fiber)
+
+```dockerfile
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server .
+
+# --- Production ---
+FROM alpine:3.19
+
+RUN apk --no-cache add ca-certificates \
+    && addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /app/server .
+
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["./server"]
+```
+
+### Java Spring Boot (Maven)
+
+```dockerfile
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
+
+WORKDIR /app
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+COPY src ./src
+RUN mvn package -DskipTests -B
+
+# --- Production ---
+FROM eclipse-temurin:21-jre-alpine
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /app/target/*.jar app.jar
+
+RUN chown -R appuser:appgroup /app
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/actuator/health || exit 1
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+### .NET (ASP.NET Core)
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS builder
+
+WORKDIR /app
 COPY *.csproj .
 RUN dotnet restore
 
 COPY . .
-RUN dotnet publish -c Release -o out
+RUN dotnet publish -c Release -o /app/publish
 
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS runtime
+# --- Production ---
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
 WORKDIR /app
-COPY --from=build /app/out .
-ENV ASPNETCORE_ENVIRONMENT=Development
-ENV TZ="Asia/Tashkent"
-ENTRYPOINT ["dotnet", "YourApp.dll", "--urls=http://0.0.0.0:4040"]
-```
+COPY --from=builder /app/publish .
 
-#### Go
-
-```bash
-FROM golang:latest
-WORKDIR /go/src/app
-
-COPY . .
-
-RUN go build -o main .
-
+USER appuser
 EXPOSE 8080
 
-CMD ["./main"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["dotnet", "MyApp.dll"]
 ```
 
-Qo'shimcha Dockerfilelar va yaxshiroq loyiha va fremworkga moslab yozilgan Dockerfile namunlarini **[devops-tools](https://github.com/ismoilovdevml/devops-tools/tree/master/Docker)** github repositoriyasidan topsishingiz mumkin
+### Rust
+
+```dockerfile
+FROM rust:1.77-alpine AS builder
+
+RUN apk add --no-cache musl-dev
+WORKDIR /app
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src
+
+COPY src ./src
+RUN cargo build --release
+
+# --- Production ---
+FROM alpine:3.19
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /app/target/release/myapp .
+
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["./myapp"]
+```
+
+## Best Practices — Xulosa
+
+| Qoida | Yomon | Yaxshi |
+|-------|-------|--------|
+| Base image | `FROM node` | `FROM node:20-alpine` |
+| Layer caching | `COPY . .` keyin `RUN npm install` | `COPY package*.json .` keyin `RUN npm ci` |
+| Foydalanuvchi | root (default) | `USER appuser` |
+| Build | Single-stage | Multi-stage build |
+| Sog'lik | HEALTHCHECK yo'q | `HEALTHCHECK --interval=30s ...` |
+| Hajm | Keshni tozalamagan | `rm -rf /var/lib/apt/lists/*` |
+| Maxfiylik | `.env` imageda | `.dockerignore` + runtime env |
+| Instruksiyalar | Ko'p `RUN` qatorlar | `&&` bilan birlashtirilgan |
+
+Qo'shimcha Dockerfile namunalarini **[devops-tools](https://github.com/ismoilovdevml/devops-tools/tree/master/Docker)** repositoriyasidan topishingiz mumkin.
+
+## Qo'shimcha
+
+<Callout type="info" emoji="">
+
+Qo'shimcha Resurslar
+ * [**Docker rasmiy Dockerfile reference**](https://docs.docker.com/reference/dockerfile/)
+ * [**Docker rasmiy best practices**](https://docs.docker.com/build/building/best-practices/)
+ * [**Linux Serverlarga Docker o'rnatish**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+ * [**Docker Compose**](https://devops-journey.uz/guides/konteyner/docker-compose)
+
+**Sana:** 2023.11.25(2023-yil 25-noyabr)
+
+**Oxirgi yangilanish:** 2026.02.11(2026-yil 11-fevral)
+
+**Muallif: Otabek Ismoilov**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>

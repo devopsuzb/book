@@ -1,6 +1,720 @@
 ---
-title: "dockerfile yozish"
+image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/dockerfile-yozish.png
+description: "A Guide to Writing Dockerfiles"
 ---
 
-> This article has not been translated to English yet.
-> Please read the [Uzbek version](/guides/konteyner/dockerfile-yozish) or help us translate it on [GitHub](https://github.com/ismoilovdevml/devops-journey).
+import { Callout } from "nextra-theme-docs";
+
+# A Guide to Writing Dockerfiles
+
+![dockerfile](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/dockerfile-yozish.png)
+
+## Introduction
+
+A **Dockerfile** is an instruction file used to build a Docker image. Think of it as a "recipe for setting up an application on a server" — except instead of a human following the steps, Docker executes them automatically.
+
+Why is knowing how to write Dockerfiles important?
+
+- **Reproducible environments** — An image built from a Dockerfile runs identically on any server. The classic "it works on my machine" problem disappears.
+- **Version control** — The Dockerfile is stored alongside your code in Git. You can track who changed what and when.
+- **Automation** — In CI/CD pipelines, Docker images are automatically built and deployed.
+
+In this guide, we will cover all the essential Dockerfile instructions, multi-stage builds, layer caching, security best practices, and production-ready examples.
+
+## Dockerfile Instructions
+
+### FROM — Selecting a Base Image
+
+Every Dockerfile begins with `FROM`. This instruction specifies which base image your image will be built upon.
+
+```dockerfile
+FROM <image>[:<tag>] [@<digest>]
+```
+
+Examples:
+
+```dockerfile
+# Latest version (not recommended — ambiguous)
+FROM node
+
+# Specific version (recommended)
+FROM node:20-alpine
+
+# By digest (most precise — based on image content hash)
+FROM node@sha256:a1b2c3d4...
+```
+
+<Callout type="warning" emoji="">
+**Important rules for production:**
+
+- **Never use the `latest` tag** — the image that works today might change to a different version tomorrow, breaking your project.
+- **Prefer Alpine variants** — there is a significant difference between `node:20-alpine` (50MB) and `node:20` (350MB). Smaller image = faster builds, fewer security vulnerabilities.
+- **Specify exact versions** — use tags like `python:3.12-slim`, `golang:1.22-alpine`.
+</Callout>
+
+### LABEL — Image Metadata
+
+The `LABEL` instruction adds metadata about the image. It replaces the deprecated `MAINTAINER` instruction.
+
+```dockerfile
+FROM node:20-alpine
+
+LABEL maintainer="Otabek Ismoilov <ismoilovdev@gmail.com>"
+LABEL version="1.0"
+LABEL description="DevOps Journey API service"
+```
+
+<Callout type="info" emoji="">
+To view image labels: `docker inspect --format='{{json .Config.Labels}}' image_name`
+</Callout>
+
+### WORKDIR — Working Directory
+
+`WORKDIR` sets the working directory inside the container. All subsequent `RUN`, `COPY`, `CMD`, and other instructions will be executed within this directory.
+
+```dockerfile
+FROM python:3.12-slim
+WORKDIR /app
+
+# Now COPY and RUN commands operate in the /app directory
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+```
+
+<Callout type="info" emoji="">
+**Use `WORKDIR /app`, not `RUN cd /app`.** The reason: `RUN cd /app` only takes effect within that single `RUN` instruction — the next instruction reverts to the root directory. `WORKDIR` applies to all subsequent instructions.
+
+If the directory does not exist, Docker creates it automatically.
+</Callout>
+
+### COPY and ADD — Copying Files
+
+**`COPY`** — copies files from the host machine into the image. Simple and straightforward.
+
+```dockerfile
+# Copy a single file
+COPY package.json /app/
+
+# Copy all files
+COPY . /app/
+
+# Copy multiple files
+COPY package.json package-lock.json /app/
+```
+
+**`ADD`** — works the same as `COPY`, but with additional capabilities:
+- Downloading files from URLs
+- Automatically extracting `.tar.gz` archives
+
+```dockerfile
+# Automatically extracts the archive
+ADD app.tar.gz /app/
+
+# Downloads from a URL
+ADD https://example.com/config.json /app/
+```
+
+<Callout type="warning" emoji="">
+**Rule of thumb:** If you don't need archive extraction or URL downloading — **always use `COPY`**. The "hidden" capabilities of `ADD` can produce unexpected results. In most cases, `COPY` is sufficient and safer.
+</Callout>
+
+### RUN — Executing Commands
+
+The `RUN` instruction executes commands during the image build process — installing packages, preparing files, compiling code, and more.
+
+```dockerfile
+FROM ubuntu:24.04
+
+# Bad practice — each RUN creates a separate layer
+RUN apt-get update
+RUN apt-get install -y curl
+RUN apt-get install -y git
+RUN apt-get clean
+
+# Good practice — single layer, smaller image
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+<Callout type="info" emoji="">
+**Why combine commands?**
+
+Every instruction (`RUN`, `COPY`, `ADD`) in a Dockerfile adds a new **layer** to the image. More layers = larger image size. Therefore:
+
+1. Combine related commands with `&&`
+2. Clean the cache with `apt-get clean` and `rm -rf /var/lib/apt/lists/*`
+3. Delete unnecessary files within the same layer (deleting them in a subsequent layer does not reduce the image size!)
+</Callout>
+
+### ENV — Environment Variables
+
+`ENV` defines environment variables inside the container. These values are available both during the build process and at runtime.
+
+```dockerfile
+FROM node:20-alpine
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# ENV values can be used in subsequent instructions
+EXPOSE $PORT
+CMD ["node", "server.js"]
+```
+
+<Callout type="info" emoji="">
+Values set with `ENV` can be overridden at runtime using `docker run -e PORT=4000`.
+</Callout>
+
+### ARG — Build-Time Variables
+
+`ARG` defines variables that are only available **during the build process**. They are not accessible when the container is running.
+
+```dockerfile
+# ARG with default value
+ARG NODE_VERSION=20
+
+FROM node:${NODE_VERSION}-alpine
+
+ARG APP_VERSION=1.0.0
+LABEL version="${APP_VERSION}"
+```
+
+Overriding ARG values during build:
+
+```bash
+docker build --build-arg NODE_VERSION=18 --build-arg APP_VERSION=2.0.0 -t myapp .
+```
+
+<Callout type="warning" emoji="">
+**Difference between ARG and ENV:**
+- `ARG` — only works during build time, not visible inside the container
+- `ENV` — works both during build and inside the running container
+
+**Never pass secrets (passwords, tokens) via `ARG`!** They will be visible in the build history (`docker history`).
+</Callout>
+
+### CMD and ENTRYPOINT — Container Startup
+
+These two instructions define which command is executed when the container starts.
+
+**`CMD`** — the default command. It gets overridden if another command is passed to `docker run`.
+
+```dockerfile
+FROM python:3.12-slim
+CMD ["python", "app.py"]
+```
+
+```bash
+# CMD runs — python app.py
+docker run myapp
+
+# CMD is overridden — bash is launched
+docker run myapp bash
+```
+
+**`ENTRYPOINT`** — the main command. It is not overridden; only arguments are appended.
+
+```dockerfile
+FROM python:3.12-slim
+ENTRYPOINT ["python", "app.py"]
+```
+
+```bash
+# ENTRYPOINT runs — python app.py
+docker run myapp
+
+# Argument is appended — python app.py --debug
+docker run myapp --debug
+```
+
+**`ENTRYPOINT` + `CMD` together** — the most powerful combination:
+
+```dockerfile
+FROM nginx:alpine
+
+# ENTRYPOINT — the main command (does not change)
+ENTRYPOINT ["nginx", "-g", "daemon off;"]
+
+# CMD — default arguments (can be overridden)
+CMD ["-c", "/etc/nginx/nginx.conf"]
+```
+
+```bash
+# With default config: nginx -g "daemon off;" -c /etc/nginx/nginx.conf
+docker run mynginx
+
+# With custom config: nginx -g "daemon off;" -c /custom/nginx.conf
+docker run mynginx -c /custom/nginx.conf
+```
+
+<Callout type="info" emoji="">
+**When to use which?**
+- **CMD only** — for simple applications where you need to run various commands inside the container
+- **ENTRYPOINT + CMD** — for production services. ENTRYPOINT launches the main application, CMD provides default parameters
+- **ENTRYPOINT only** — when the container should execute exactly one specific program
+</Callout>
+
+### EXPOSE — Port Documentation
+
+`EXPOSE` tells Docker which ports the container listens on. However, it **does not actually open the port** — it serves purely as documentation.
+
+```dockerfile
+FROM node:20-alpine
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+To actually publish a port, use `docker run -p`:
+
+```bash
+# Map container port 3000 to host port 8080
+docker run -p 8080:3000 myapp
+
+# Publish all EXPOSE'd ports
+docker run -P myapp
+```
+
+### VOLUME — Persistent Data
+
+`VOLUME` creates a mount point for storing persistent data inside the container. The data in the volume survives even if the container is deleted.
+
+```dockerfile
+FROM postgres:16-alpine
+
+# PostgreSQL database files are stored here
+VOLUME /var/lib/postgresql/data
+```
+
+Attaching a volume at runtime:
+
+```bash
+# Mount a host directory
+docker run -v /host/data:/var/lib/postgresql/data postgres
+
+# Docker named volume
+docker run -v pgdata:/var/lib/postgresql/data postgres
+```
+
+<Callout type="info" emoji="">
+**When to use VOLUME?**
+- Databases (PostgreSQL, MySQL, MongoDB)
+- Log files
+- Uploaded files
+- Data shared between containers
+</Callout>
+
+### USER — Secure User Context
+
+The `USER` instruction specifies which user will run the commands inside the container.
+
+```dockerfile
+FROM node:20-alpine
+
+WORKDIR /app
+COPY --chown=node:node . .
+RUN npm ci --only=production
+
+# Switch from root to the node user
+USER node
+
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+<Callout type="warning" emoji="">
+**Never run containers as `root` in production!**
+
+If a security vulnerability is discovered in the container, a root-privileged container could give an attacker access to the host server as well. Always switch to a non-root user using the `USER` instruction.
+</Callout>
+
+### HEALTHCHECK — Container Health Monitoring
+
+`HEALTHCHECK` tells Docker how to verify that the application inside the container is working correctly.
+
+```dockerfile
+FROM node:20-alpine
+
+WORKDIR /app
+COPY . .
+RUN npm ci --only=production
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --spider --quiet http://localhost:3000/health || exit 1
+
+CMD ["node", "server.js"]
+```
+
+Parameters:
+- `--interval=30s` — checks every 30 seconds
+- `--timeout=5s` — fails if no response within 5 seconds
+- `--start-period=10s` — allows 10 seconds for the application to start
+- `--retries=3` — marks the container as `unhealthy` after 3 consecutive failures
+
+```bash
+# View container health
+docker ps
+# STATUS column shows: healthy, unhealthy, or starting
+```
+
+<Callout type="info" emoji="">
+**Why is HEALTHCHECK important?**
+
+A container may be "running" while the application inside it is throwing errors or has frozen. With HEALTHCHECK, Docker (and orchestrators like Kubernetes and Docker Swarm) can detect the problem and restart your container.
+</Callout>
+
+## .dockerignore — Excluding Unnecessary Files
+
+The `.dockerignore` file specifies which files should be excluded from the Docker build context. It works the same way as `.gitignore`.
+
+```bash filename=".dockerignore"
+# Version control
+.git
+.gitignore
+
+# Dependencies (will be reinstalled inside the image)
+node_modules
+vendor
+__pycache__
+
+# IDE and OS files
+.vscode
+.idea
+*.swp
+.DS_Store
+Thumbs.db
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Secret files
+.env
+.env.local
+*.pem
+*.key
+
+# Tests and documentation
+tests
+docs
+README.md
+LICENSE
+```
+
+<Callout type="warning" emoji="">
+**Consequences of not using `.dockerignore`:**
+
+1. `node_modules` (hundreds of MB) is copied into the build context every time — builds become slow
+2. The `.git` directory (entire history) ends up in the image — image size increases
+3. The `.env` file (passwords, tokens) ends up in the image — **security risk!**
+4. Any file change invalidates the Docker cache — builds restart from scratch
+</Callout>
+
+## Multi-stage Build
+
+Multi-stage build is the most important technique for writing professional Dockerfiles. It allows you to create **multiple stages** within a single Dockerfile. The final image contains only the necessary files.
+
+**The problem:** Compiling a Go application requires the Go compiler (1GB+). But running the compiled binary does not require the compiler. If you use a single stage, the unnecessary compiler remains in the final image.
+
+**The solution:** Multi-stage build.
+
+```dockerfile
+# ===== STAGE 1: Build =====
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server .
+
+# ===== STAGE 2: Production =====
+FROM alpine:3.19
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /app/server .
+
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["./server"]
+```
+
+**Result:** Build image ~1GB, final image ~15MB!
+
+<Callout type="info" emoji="">
+**Benefits of multi-stage builds:**
+- **Smaller image size** — the final image contains only the binary and runtime
+- **Security** — source code, build tools, and test files never make it into the final image
+- **Speed** — smaller images are pulled and deployed faster
+</Callout>
+
+## Layer Caching — Speeding Up Builds
+
+Docker caches each instruction as a separate **layer**. If an instruction hasn't changed, Docker reuses the cached layer instead of re-executing it. Using this correctly can speed up builds **several times over**.
+
+**Bad ordering** — changing code causes all dependencies to be reinstalled:
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+
+# If any file changes, npm install runs again
+COPY . .
+RUN npm install
+
+CMD ["node", "server.js"]
+```
+
+**Good ordering** — dependency files are copied separately:
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+
+# Step 1: Copy only dependency files
+COPY package.json package-lock.json ./
+RUN npm ci --only=production
+
+# Step 2: Copy application code
+COPY . .
+
+CMD ["node", "server.js"]
+```
+
+<Callout type="info" emoji="">
+**Why is this faster?**
+
+`package.json` rarely changes, while application code changes frequently. With the ordering above:
+- When code changes — the build resumes from the `COPY . .` step
+- `npm ci` is taken from cache (takes seconds)
+- When dependencies change — `npm ci` runs again
+
+**Key rule:** Place things that change **less frequently** at the **top** of the Dockerfile, and things that change **more frequently** at the **bottom**.
+</Callout>
+
+## Production-Ready Dockerfile Examples
+
+### Node.js (Express/NestJS)
+
+```dockerfile
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+RUN npm run build
+
+# --- Production ---
+FROM node:20-alpine
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
+COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+COPY --from=builder --chown=appuser:appgroup /app/package.json ./
+
+USER appuser
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --spider --quiet http://localhost:3000/health || exit 1
+
+CMD ["node", "dist/main.js"]
+```
+
+### Python (FastAPI/Django)
+
+```dockerfile
+FROM python:3.12-slim AS builder
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# --- Production ---
+FROM python:3.12-slim
+
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
+
+WORKDIR /app
+COPY --from=builder /install /usr/local
+COPY --chown=appuser:appgroup . .
+
+USER appuser
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+### Go (Gin/Fiber)
+
+```dockerfile
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server .
+
+# --- Production ---
+FROM alpine:3.19
+
+RUN apk --no-cache add ca-certificates \
+    && addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /app/server .
+
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["./server"]
+```
+
+### Java Spring Boot (Maven)
+
+```dockerfile
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
+
+WORKDIR /app
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+COPY src ./src
+RUN mvn package -DskipTests -B
+
+# --- Production ---
+FROM eclipse-temurin:21-jre-alpine
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /app/target/*.jar app.jar
+
+RUN chown -R appuser:appgroup /app
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/actuator/health || exit 1
+
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
+
+### .NET (ASP.NET Core)
+
+```dockerfile
+FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS builder
+
+WORKDIR /app
+COPY *.csproj .
+RUN dotnet restore
+
+COPY . .
+RUN dotnet publish -c Release -o /app/publish
+
+# --- Production ---
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /app/publish .
+
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["dotnet", "MyApp.dll"]
+```
+
+### Rust
+
+```dockerfile
+FROM rust:1.77-alpine AS builder
+
+RUN apk add --no-cache musl-dev
+WORKDIR /app
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release && rm -rf src
+
+COPY src ./src
+RUN cargo build --release
+
+# --- Production ---
+FROM alpine:3.19
+
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /app
+COPY --from=builder /app/target/release/myapp .
+
+USER appuser
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD wget --spider --quiet http://localhost:8080/health || exit 1
+
+ENTRYPOINT ["./myapp"]
+```
+
+## Best Practices — Summary
+
+| Rule | Bad | Good |
+|------|-----|------|
+| Base image | `FROM node` | `FROM node:20-alpine` |
+| Layer caching | `COPY . .` then `RUN npm install` | `COPY package*.json .` then `RUN npm ci` |
+| User | root (default) | `USER appuser` |
+| Build | Single-stage | Multi-stage build |
+| Health | No HEALTHCHECK | `HEALTHCHECK --interval=30s ...` |
+| Size | Cache not cleaned | `rm -rf /var/lib/apt/lists/*` |
+| Secrets | `.env` in image | `.dockerignore` + runtime env |
+| Instructions | Many `RUN` lines | Combined with `&&` |
+
+You can find additional Dockerfile examples in the **[devops-tools](https://github.com/ismoilovdevml/devops-tools/tree/master/Docker)** repository.
+
+## Additional Resources
+
+<Callout type="info" emoji="">
+
+Additional Resources
+ * [**Docker official Dockerfile reference**](https://docs.docker.com/reference/dockerfile/)
+ * [**Docker official best practices**](https://docs.docker.com/build/building/best-practices/)
+ * [**Installing Docker on Linux Servers**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+ * [**Docker Compose**](https://devops-journey.uz/guides/konteyner/docker-compose)
+
+**Date:** 2023.11.25 (November 25, 2023)
+
+**Last updated:** 2026.02.11 (February 11, 2026)
+
+**Author: Otabek Ismoilov**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>
