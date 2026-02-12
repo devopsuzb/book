@@ -1,6 +1,1003 @@
 ---
-title: "dockerga kirish"
+image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker.jpg
+description: "Introduction to Docker: Deep Dive into Containerization Technology"
 ---
 
-> This article has not been translated to English yet.
-> Please read the [Uzbek version](/guides/konteyner/dockerga-kirish) or help us translate it on [GitHub](https://github.com/ismoilovdevml/devops-journey).
+import { Callout } from "nextra-theme-docs";
+
+# Introduction to Docker
+
+![docker](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker.jpg)
+
+## Introduction
+
+One of the most common problems in the software world is the infamous **"It works on my machine!"** statement. Code that a developer writes on their local machine breaks when deployed to a test server because library versions differ, the operating system is different, or configuration files are missing. **Docker** was created to solve this problem.
+
+**Docker** is an open-source platform that packages software into **containers**, enabling it to run identically in any environment. Docker was created in 2013 by **Solomon Hykes** at the company **dotCloud** and rapidly spread across the globe.
+
+<Callout type="info" emoji="">
+The name Docker comes from the term **dock worker** — a port worker who loads various cargo into standardized containers and onto ships. Similarly, Docker packages applications into standardized containers and "ships" them to any server.
+</Callout>
+
+---
+
+## What is Containerization?
+
+To understand containerization, let us first compare it with **virtualization**.
+
+### Traditional Deployment
+
+In the traditional approach, multiple applications are installed on a single physical server. In this setup, applications can consume each other's resources, library versions can clash (dependency conflict), and a failure in one application can bring down the entire server.
+
+```
+┌─────────────────────────────────────────────┐
+│            Physical Server                  │
+│                                             │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐     │
+│  │  App A   │ │  App B   │ │  App C   │     │
+│  │ Node 18  │ │ Node 16  │ │ Python 3 │     │
+│  └──────────┘ └──────────┘ └──────────┘     │
+│                                             │
+│  ┌─────────────────────────────────────┐    │
+│  │       Operating System (OS)         │    │
+│  └─────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────┐    │
+│  │           Hardware                  │    │
+│  └─────────────────────────────────────┘    │
+└─────────────────────────────────────────────┘
+
+❌ Problem: App A and App B require different
+   Node.js versions — conflict!
+```
+
+### Virtual Machine (VM) Deployment
+
+With VMs, each application runs in a separate virtual machine. Each VM has its own full operating system. This provides isolation but consumes a significant amount of resources.
+
+```
+┌─────────────────────────────────────────────┐
+│            Physical Server                  │
+│                                             │
+│  ┌─────────────┐  ┌─────────────┐           │
+│  │    VM 1     │  │    VM 2     │           │
+│  │  ┌───────┐  │  │  ┌───────┐  │           │
+│  │  │ App A │  │  │  │ App B │  │           │
+│  │  └───────┘  │  │  └───────┘  │           │
+│  │  ┌───────┐  │  │  ┌───────┐  │           │
+│  │  │ Libs  │  │  │  │ Libs  │  │           │
+│  │  └───────┘  │  │  └───────┘  │           │
+│  │  ┌───────┐  │  │  ┌───────┐  │           │
+│  │  │ Guest │  │  │  │ Guest │  │           │
+│  │  │  OS   │  │  │  │  OS   │  │           │
+│  │  └───────┘  │  │  └───────┘  │           │
+│  └─────────────┘  └─────────────┘           │
+│                                             │
+│  ┌─────────────────────────────────────┐    │
+│  │           Hypervisor                │    │
+│  └─────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────┐    │
+│  │           Host OS                   │    │
+│  └─────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────┐    │
+│  │           Hardware                  │    │
+│  └─────────────────────────────────────┘    │
+└─────────────────────────────────────────────┘
+
+⚠️ Each VM has a full OS — consumes 1-2 GB RAM
+```
+
+### Container Deployment (Docker)
+
+Docker containers share the host operating system's **kernel**. Each container has its own isolated environment but does not require a separate OS. This makes containers extremely lightweight and fast.
+
+```
+┌─────────────────────────────────────────────┐
+│            Physical Server                  │
+│                                             │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐     │
+│  │Container │ │Container │ │Container │     │
+│  │  ┌────┐  │ │  ┌────┐  │ │  ┌────┐  │     │
+│  │  │App │  │ │  │App │  │ │  │App │  │     │
+│  │  │ A  │  │ │  │ B  │  │ │  │ C  │  │     │
+│  │  └────┘  │ │  └────┘  │ │  └────┘  │     │
+│  │  ┌────┐  │ │  ┌────┐  │ │  ┌────┐  │     │
+│  │  │Libs│  │ │  │Libs│  │ │  │Libs│  │     │
+│  │  └────┘  │ │  └────┘  │ │  └────┘  │     │
+│  └──────────┘ └──────────┘ └──────────┘     │
+│                                             │
+│  ┌─────────────────────────────────────┐    │
+│  │          Docker Engine              │    │
+│  └─────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────┐    │
+│  │         Host OS (kernel)            │    │
+│  └─────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────┐    │
+│  │           Hardware                  │    │
+│  └─────────────────────────────────────┘    │
+└─────────────────────────────────────────────┘
+
+✅ No separate OS — 10-100 MB, starts in seconds
+```
+
+### VM vs Container Comparison
+
+| Feature | Virtual Machine | Docker Container |
+|---------|----------------|-----------------|
+| Startup time | 1-3 minutes | 1-5 seconds |
+| Size | 1-10 GB | 10-500 MB |
+| RAM usage | 512MB-2GB (per VM) | 5-50 MB (per container) |
+| Isolation | Full (separate OS) | Process-level (shared kernel) |
+| Portability | Low (hypervisor-dependent) | High (runs anywhere) |
+| Instances per server | 5-20 VMs | 100+ containers |
+| OS | Each VM has its own OS | Shares host OS kernel |
+
+<Callout type="info" emoji="">
+**When to use a VM vs. a container?**
+- **VM** — when different operating systems are required (e.g., running Windows on a Linux server), or when full isolation is needed
+- **Container** — for microservices, CI/CD pipelines, rapid application deployment, and standardizing development environments
+</Callout>
+
+---
+
+## Docker Architecture
+
+Docker operates on a **client-server** architecture. Understanding this is essential for working effectively with Docker.
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                      Docker Architecture                      │
+│                                                               │
+│  ┌──────────────┐         ┌──────────────────────────────┐    │
+│  │   Docker     │  REST   │       Docker Daemon          │    │
+│  │   Client     │  API    │       (dockerd)              │    │
+│  │             ─┼────────►│                              │    │
+│  │  docker run  │         │  ┌────────────────────────┐  │    │
+│  │  docker build│         │  │     Container Runtime  │  │    │
+│  │  docker pull │         │  │      (containerd)      │  │    │
+│  │  docker push │         │  └────────────────────────┘  │    │
+│  │              │         │                              │    │
+│  └──────────────┘         │  ┌────────┐  ┌────────┐      │    │
+│                           │  │  Img 1 │  │  Img 2 │      │    │
+│                           │  └────────┘  └────────┘      │    │
+│                           │                              │    │
+│                           │  ┌──────┐ ┌──────┐ ┌──────┐  │    │
+│                           │  │Cont 1│ │Cont 2│ │Cont 3│  │    │
+│                           │  └──────┘ └──────┘ └──────┘  │    │
+│                           └──────────────────────────────┘    │
+│                                          │                    │
+│                                          ▼                    │
+│                           ┌──────────────────────────────┐    │
+│                           │      Docker Registry         │    │
+│                           │   (Docker Hub, Harbor, etc.) │    │
+│                           └──────────────────────────────┘    │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### Docker Engine
+
+Docker Engine is the core component of the Docker platform. It consists of three components:
+
+**1. Docker Daemon (`dockerd`)**
+
+The Docker Daemon is a server process that runs in the background. It accepts Docker API requests and manages images, containers, networks, and volumes.
+
+```bash
+# Docker Daemon status
+sudo systemctl status docker
+
+# Restart Docker Daemon
+sudo systemctl restart docker
+```
+
+The Docker Daemon performs the following tasks:
+- Building and storing images
+- Creating, starting, and stopping containers
+- Managing Docker networks
+- Managing volumes
+
+**2. Docker Client (`docker`)**
+
+The Docker Client is the CLI (Command Line Interface) tool that users interact with. When you type `docker` commands in the terminal, the Client sends those commands to the Docker Daemon via the REST API.
+
+```bash
+# Communicating with the Daemon via the Client
+docker version    # Client and Server version
+docker info       # Detailed information about the Docker system
+```
+
+**3. Docker Registry**
+
+A Docker Registry is a centralized repository for storing and distributing images. **Docker Hub** is the largest public registry. Private registries are also available:
+
+| Registry | Type | Description |
+|----------|------|-------------|
+| **Docker Hub** | Public/Private | Most popular, default registry |
+| **Harbor** | Private (self-hosted) | CNCF project, designed for enterprise use |
+| **Nexus** | Private (self-hosted) | Multi-format artifact manager |
+| **GCR** | Private (cloud) | Google Cloud Container Registry |
+| **ECR** | Private (cloud) | AWS Elastic Container Registry |
+| **ACR** | Private (cloud) | Azure Container Registry |
+| **GHCR** | Public/Private | GitHub Container Registry |
+
+---
+
+## Docker Image
+
+A **Docker Image** is a **read-only** template used to create containers. An image contains the application code, runtime, libraries, environment variables, and configuration files.
+
+### Image Layers
+
+Docker images are built using a **layer** system. Each Dockerfile instruction creates a new layer. Layers are **read-only** and are cached and reused.
+
+```
+┌─────────────────────────────────────┐
+│         Docker Image                │
+│                                     │
+│  ┌───────────────────────────────┐  │
+│  │ Layer 5: COPY app/ /app/      │  │  ← Your code
+│  ├───────────────────────────────┤  │
+│  │ Layer 4: RUN npm install      │  │  ← Dependencies
+│  ├───────────────────────────────┤  │
+│  │ Layer 3: COPY package.json    │  │  ← Package file
+│  ├───────────────────────────────┤  │
+│  │ Layer 2: RUN apt-get update   │  │  ← System packages
+│  ├───────────────────────────────┤  │
+│  │ Layer 1: FROM node:20-alpine  │  │  ← Base image
+│  └───────────────────────────────┘  │
+│                                     │
+│  All layers are READ-ONLY           │
+└─────────────────────────────────────┘
+```
+
+<Callout type="info" emoji="">
+**Layer caching advantage:** If you only modify the application code (Layer 5), Docker retrieves the lower layers (1-4) from cache and only rebuilds the changed layer. This speeds up the build process by **10-100x**.
+</Callout>
+
+### Image Naming Convention
+
+The full name of a Docker image follows this format:
+
+```
+[registry-url/][namespace/]image-name[:tag]
+```
+
+Real-world examples:
+
+```bash
+# From Docker Hub (registry-url is omitted)
+nginx:latest                          # Official image, latest tag
+node:20-alpine                        # Official image, specific version
+ismoilovdev/my-app:v1.2.3            # User namespace, custom image
+
+# From a private registry
+harbor.helm.uz/devops/my-app:v1.0    # Harbor registry
+gcr.io/my-project/api-server:latest  # Google Container Registry
+ghcr.io/username/my-app:main         # GitHub Container Registry
+```
+
+### Image Tags
+
+Tags are used to identify image versions:
+
+| Tag type | Example | Usage |
+|----------|---------|-------|
+| `latest` | `nginx:latest` | Default tag, but **do not use in production** |
+| Semantic versioning | `node:20.11.1` | Exact version, reliable |
+| Major version | `python:3` | Latest within the 3.x.x range |
+| OS variant | `node:20-alpine` | Based on Alpine Linux (small size) |
+| Slim variant | `python:3.12-slim` | Without unnecessary packages |
+| Custom | `my-app:v1.2.3-rc1` | Your own versioning scheme |
+
+<Callout type="warning" emoji="">
+**Warning about the `latest` tag:** `latest` does not mean "the newest" — it is simply the **default tag name**. If you run `docker build -t myapp .`, the image receives the `myapp:latest` tag. In production environments, **always use an explicit version**: `myapp:v1.2.3`.
+</Callout>
+
+### Practical Example: Working with Images
+
+```bash
+# Pull an image from Docker Hub
+docker pull nginx:1.25-alpine
+
+# List images available on the system
+docker images
+
+# View detailed information about an image
+docker inspect nginx:1.25-alpine
+
+# View image layers
+docker history nginx:1.25-alpine
+
+# Delete an image
+docker rmi nginx:1.25-alpine
+```
+
+---
+
+## Docker Container
+
+A **Docker Container** is a running instance of an image. While an image is a read-only template, a container adds a **writable layer** on top of the image.
+
+### Difference Between Image and Container
+
+```
+Docker Image (template)         Docker Container (running)
+┌─────────────────────┐         ┌─────────────────────┐
+│                     │         │  Writable Layer     │ ← New
+│  Read-only Layers   │  run    │─────────────────────│
+│                     │ ──────► │                     │
+│  App + Libs + OS    │         │  Read-only Layers   │ ← From image
+│                     │         │  App + Libs + OS    │
+└─────────────────────┘         └─────────────────────┘
+
+One image → can create multiple containers
+
+                   ┌──────────────┐
+                   │ Container 1  │
+┌──────────┐       ├──────────────┤
+│  nginx   │──────►│ Container 2  │
+│  image   │       ├──────────────┤
+└──────────┘       │ Container 3  │
+                   └──────────────┘
+```
+
+### Container Lifecycle
+
+The lifecycle of a Docker container consists of the following stages:
+
+```
+                    docker create
+                  ┌──────────────────┐
+                  │                  │
+                  ▼                  │
+┌────────┐   docker run  ┌──────────────┐   docker stop  ┌───────────┐
+│  Image │──────────────►│   Running    │──────────────► │ Stopped   │
+└────────┘               │  (running)   │                │ (stopped) │
+                         └──────┬───────┘                └──────┬────┘
+                                 │                              │
+                          docker pause                   docker start
+                                 │                              │
+                          ┌──────▼───────┐                      │
+                          │   Paused     │              ┌───────▼─────┐
+                          │ (paused)     │              │  Running    │
+                          └──────────────┘              └─────────────┘
+
+                          docker rm → container is removed (only when stopped)
+```
+
+| State | Description | Command |
+|-------|-------------|---------|
+| **Created** | Container is created but not yet started | `docker create` |
+| **Running** | Container is running | `docker start` / `docker run` |
+| **Paused** | Processes are suspended but remain in memory | `docker pause` |
+| **Stopped** | Container is stopped | `docker stop` / `docker kill` |
+| **Removed** | Container is deleted | `docker rm` |
+
+### Practical Example: Working with Containers
+
+```bash
+# Create and start a container (run = create + start)
+docker run -d --name my-nginx -p 8080:80 nginx:1.25-alpine
+
+# List running containers
+docker ps
+
+# Enter a container
+docker exec -it my-nginx /bin/sh
+
+# View container logs
+docker logs -f my-nginx
+
+# Stop a container
+docker stop my-nginx
+
+# Restart a container
+docker start my-nginx
+
+# Remove a container (must be stopped first)
+docker stop my-nginx && docker rm my-nginx
+```
+
+<Callout type="info" emoji="">
+**What does `docker run` do?** `docker run` actually performs several operations:
+1. Checks if the image exists locally (if not, runs `docker pull`)
+2. Creates a container (`docker create`)
+3. Adds a writable layer
+4. Creates a network interface and assigns an IP address
+5. Starts the container (`docker start`)
+</Callout>
+
+---
+
+## Dockerfile
+
+A **Dockerfile** is a text file used to build a Docker image. It describes step by step how the image should be constructed. Each instruction creates a new **layer**.
+
+### Dockerfile Instructions
+
+| Instruction | Purpose | Example |
+|-------------|---------|---------|
+| `FROM` | Select the base image (always first) | `FROM node:20-alpine` |
+| `WORKDIR` | Set the working directory | `WORKDIR /app` |
+| `COPY` | Copy files from host to image | `COPY package.json .` |
+| `ADD` | COPY + URL download and archive extraction | `ADD app.tar.gz /app/` |
+| `RUN` | Execute a command at build time | `RUN npm install` |
+| `CMD` | Default command to run when container starts | `CMD ["node", "server.js"]` |
+| `ENTRYPOINT` | The main process of the container | `ENTRYPOINT ["python"]` |
+| `ENV` | Set an environment variable | `ENV NODE_ENV=production` |
+| `ARG` | Accept a build-time argument | `ARG VERSION=1.0` |
+| `EXPOSE` | Document the container port | `EXPOSE 3000` |
+| `VOLUME` | Define a data storage mount point | `VOLUME ["/data"]` |
+| `USER` | Specify which user to run as | `USER node` |
+| `LABEL` | Add metadata to the image | `LABEL version="1.0"` |
+| `HEALTHCHECK` | Define a container health check | `HEALTHCHECK CMD curl -f http://localhost/` |
+
+### Difference Between CMD and ENTRYPOINT
+
+These two instructions often cause confusion. Understanding the difference is important:
+
+```dockerfile
+# CMD — default command, can be overridden at docker run
+FROM ubuntu:24.04
+CMD ["echo", "Salom Dunyo"]
+```
+
+```bash
+docker run my-image                  # Natija: "Salom Dunyo"
+docker run my-image echo "Boshqa"    # Natija: "Boshqa" (CMD o'zgartirildi)
+```
+
+```dockerfile
+# ENTRYPOINT — always executed, cannot be overridden
+FROM ubuntu:24.04
+ENTRYPOINT ["echo"]
+CMD ["Salom Dunyo"]
+```
+
+```bash
+docker run my-image                  # Natija: "Salom Dunyo"
+docker run my-image "Boshqa"         # Natija: "Boshqa" (CMD o'zgardi, lekin ENTRYPOINT saqlandi)
+```
+
+<Callout type="info" emoji="">
+**Rule of thumb:** `ENTRYPOINT` is the container's **main executable**, and `CMD` provides the **default arguments** to it. In a real-world example: `ENTRYPOINT ["python"]` + `CMD ["app.py"]` — by default it runs `python app.py`, but if you run `docker run my-image test.py`, it executes `python test.py` instead.
+</Callout>
+
+### Real-World Dockerfile Examples
+
+**1. Node.js (Express) application:**
+
+```dockerfile filename="Dockerfile"
+# 1. Base image — Alpine variant for smaller size
+FROM node:20-alpine
+
+# 2. Set the working directory
+WORKDIR /app
+
+# 3. Copy only package files first (for layer caching)
+COPY package.json package-lock.json ./
+
+# 4. Install dependencies
+RUN npm ci --only=production
+
+# 5. Copy application code
+COPY . .
+
+# 6. Use a non-root user (security)
+USER node
+
+# 7. Document the port
+EXPOSE 3000
+
+# 8. Health check
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+
+# 9. Start the application
+CMD ["node", "server.js"]
+```
+
+**2. Python (Flask/Django) application:**
+
+```dockerfile filename="Dockerfile"
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# System dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python dependencies (layer caching)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Application code
+COPY . .
+
+# Create and use a non-root user
+RUN useradd --create-home appuser
+USER appuser
+
+EXPOSE 8000
+
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"]
+```
+
+**3. Go application (multi-stage build):**
+
+```dockerfile filename="Dockerfile"
+# ======= Build stage =======
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /build
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server .
+
+# ======= Production stage =======
+FROM alpine:3.19
+
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /app
+
+# Copy only the binary from the builder stage
+COPY --from=builder /app/server .
+
+RUN adduser -D -g '' appuser
+USER appuser
+
+EXPOSE 8080
+
+ENTRYPOINT ["./server"]
+```
+
+<Callout type="info" emoji="">
+**Multi-stage build** is a technique for drastically reducing image size. In the Go example above, the build stage contains the Go compiler and all tools (~800MB), but the production stage contains only the compiled binary (~15MB). Result: a **15MB image instead of 800MB**.
+</Callout>
+
+### Dockerfile Best Practices
+
+**1. Optimize layer ordering** — place files that change infrequently at the top, and files that change frequently at the bottom:
+
+```dockerfile
+# ✅ Correct — dependencies rarely change
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .    # Code changes often — placed last
+
+# ❌ Incorrect — npm install re-runs every time code changes
+COPY . .
+RUN npm ci
+```
+
+**2. Use a `.dockerignore` file** — prevent unnecessary files from being included in the image:
+
+```text filename=".dockerignore"
+node_modules
+.git
+.env
+*.md
+Dockerfile
+docker-compose.yml
+.dockerignore
+```
+
+**3. Choose small base images:**
+
+| Base Image | Size | Use case |
+|-----------|------|----------|
+| `ubuntu:24.04` | ~78 MB | When a full Linux environment is needed |
+| `debian:bookworm-slim` | ~74 MB | Slim variant — fewer packages |
+| `alpine:3.19` | ~7 MB | Minimal image, sufficient for most cases |
+| `node:20` | ~1.1 GB | For development (large) |
+| `node:20-alpine` | ~130 MB | For production (recommended) |
+| `scratch` | 0 MB | For static binaries only (Go, Rust) |
+
+**4. Use a non-root user:**
+
+```dockerfile
+# Do not run as root for security
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+```
+
+**5. Combine RUN commands** — to reduce the number of layers:
+
+```dockerfile
+# ✅ Single layer — cleanup happens in the same layer
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl wget git \
+    && rm -rf /var/lib/apt/lists/*
+
+# ❌ Three separate layers — unnecessary cache remains
+RUN apt-get update
+RUN apt-get install -y curl wget git
+RUN rm -rf /var/lib/apt/lists/*
+```
+
+---
+
+## Docker Volume
+
+Docker containers are **ephemeral** (temporary) — when a container is deleted, all data inside it is lost. **Volumes** solve this problem by allowing data to be stored outside the container.
+
+### Volume Types
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                    Host Server                             │
+│                                                            │
+│  Named Volume          Bind Mount          tmpfs Mount     │
+│  (Managed by Docker)   (Host path)         (In RAM)        │
+│                                                            │
+│  /var/lib/docker/      /home/user/         tmpfs           │
+│  volumes/mydata/       project/            (in memory)     │
+│       │                    │                    │          │
+│       ▼                    ▼                    ▼          │
+│  ┌──────────────────────────────────────────────────┐      │
+│  │              Docker Container                    │      │
+│  │                                                  │      │
+│  │    /data          /app              /tmp/secret  │      │
+│  └──────────────────────────────────────────────────┘      │
+└────────────────────────────────────────────────────────────┘
+```
+
+| Type | Command | Usage |
+|------|---------|-------|
+| **Named Volume** | `-v mydata:/data` | Production — managed by Docker, easy to back up |
+| **Bind Mount** | `-v /host/path:/container/path` | Development — synchronized with the host file system |
+| **tmpfs** | `--tmpfs /tmp` | Temporary data — stored only in RAM, never written to disk |
+
+### Real-World Example: Persisting PostgreSQL Data
+
+```bash
+# Create a named volume
+docker volume create postgres-data
+
+# Start a PostgreSQL container with a volume
+docker run -d \
+  --name my-postgres \
+  -e POSTGRES_PASSWORD=mysecretpassword \
+  -e POSTGRES_DB=myapp \
+  -v postgres-data:/var/lib/postgresql/data \
+  -p 5432:5432 \
+  postgres:16-alpine
+
+# Data persists even after the container is removed
+docker stop my-postgres && docker rm my-postgres
+
+# New container — old data is still there!
+docker run -d \
+  --name my-postgres-new \
+  -e POSTGRES_PASSWORD=mysecretpassword \
+  -v postgres-data:/var/lib/postgresql/data \
+  -p 5432:5432 \
+  postgres:16-alpine
+```
+
+<Callout type="warning" emoji="">
+**Important:** If you remove a database container without using a volume, all data will be **irreversibly lost**. Always use volumes in production environments!
+</Callout>
+
+---
+
+## Docker Network
+
+Docker networks manage communication between containers. By default, Docker provides several network drivers.
+
+### Network Drivers
+
+```
+┌─────────────────────────────────────────────────────┐
+│                                                     │
+│  Bridge Network (default)                           │
+│  ┌──────────┐   ┌──────────┐   ┌──────────┐         │
+│  │   App    │   │   DB     │   │  Cache   │         │
+│  │ :3000    │◄─►│ :5432    │◄─►│ :6379    │         │
+│  └──────────┘   └──────────┘   └──────────┘         │
+│       ▲              Discover each other            │
+│       │              by name via DNS                │
+│       │                                             │
+│  ─────┼──────────────────────────────────────       │
+│       │                                             │
+│       ▼                                             │
+│  Host:8080 ──► Container:3000                       │
+│  (external world accesses via port mapping)         │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+| Driver | Description | Usage |
+|--------|-------------|-------|
+| `bridge` | Default network. Containers on the same host communicate with each other | Most commonly used |
+| `host` | Container uses the host network directly | No port mapping needed, higher performance |
+| `none` | No network. Container has no external connectivity | When security isolation is required |
+| `overlay` | Multi-host network (Docker Swarm) | For containers across a cluster |
+| `macvlan` | Container gets its own MAC address | Direct connection to the physical network |
+
+### Real-World Example: Application + Database Network
+
+```bash
+# Create a custom network
+docker network create app-network
+
+# PostgreSQL — on app-network
+docker run -d \
+  --name postgres \
+  --network app-network \
+  -e POSTGRES_PASSWORD=secret \
+  -e POSTGRES_DB=myapp \
+  postgres:16-alpine
+
+# Application — on app-network (finds postgres by name)
+docker run -d \
+  --name my-app \
+  --network app-network \
+  -e DATABASE_URL=postgresql://postgres:secret@postgres:5432/myapp \
+  -p 3000:3000 \
+  my-app:latest
+```
+
+<Callout type="info" emoji="">
+**DNS resolution:** Containers on the same network can discover each other by **container name**. In the example above, the `my-app` container connects to the `postgres` container via `postgres:5432` — no IP address required!
+</Callout>
+
+---
+
+## Docker Compose
+
+In most cases, an application consists of multiple services — a web server, database, cache, message queue, and so on. Starting each one individually with `docker run` is cumbersome. **Docker Compose** allows you to define all services in a single `docker-compose.yml` file and manage them with a single command.
+
+### docker-compose.yml Structure
+
+```yaml filename="docker-compose.yml"
+# Real-world example: Full-stack application
+version: "3.8"
+
+services:
+  # Frontend — React application
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Backend — Python API
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:secret@db:5432/myapp
+      - REDIS_URL=redis://cache:6379
+    depends_on:
+      - db
+      - cache
+    restart: unless-stopped
+
+  # Database — PostgreSQL
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: myapp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  # Cache — Redis
+  cache:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+```
+
+### Docker Compose Commands
+
+```bash
+# Start all services (in background)
+docker compose up -d
+
+# View service status
+docker compose ps
+
+# View all logs
+docker compose logs -f
+
+# View only backend logs
+docker compose logs -f backend
+
+# Stop and remove all services
+docker compose down
+
+# Stop services + remove volumes
+docker compose down -v
+```
+
+<Callout type="info" emoji="">
+**About `depends_on`:** `depends_on` only defines the **startup order** of containers. It does **not** wait for the database to be ready. In production, use **healthcheck** or **wait-for-it** scripts.
+</Callout>
+
+---
+
+## Docker Hub
+
+**Docker Hub** is the largest public registry for storing and sharing Docker images. It is similar to GitHub, but for Docker images.
+
+### Working with Docker Hub
+
+```bash
+# Log in to Docker Hub
+docker login -u username
+
+# Tag an image (in Docker Hub format)
+docker tag my-app:latest username/my-app:v1.0
+
+# Push an image
+docker push username/my-app:v1.0
+
+# Pull an image
+docker pull username/my-app:v1.0
+
+# Log out of Docker Hub
+docker logout
+```
+
+### Official vs User Images
+
+| Type | Format | Example | Trustworthiness |
+|------|--------|---------|----------------|
+| **Official** | `image:tag` | `nginx:latest`, `postgres:16` | Verified by Docker, secure |
+| **User** | `user/image:tag` | `ismoilovdev/my-app:v1` | Created by a user |
+| **Organization** | `org/image:tag` | `bitnami/postgresql:16` | Maintained by an organization |
+
+<Callout type="warning" emoji="">
+**Security:** When pulling images from Docker Hub, always use **Official** images or images from trusted sources. Unknown images may contain malicious code!
+</Callout>
+
+---
+
+## How Docker is Used in the Real World
+
+### 1. Development Environment
+
+When a new developer joins the team, they can set up the entire environment with Docker in seconds:
+
+```bash
+# New developer's first day:
+git clone https://github.com/company/project.git
+cd project
+docker compose up -d
+
+# Done! Database, Redis, API — everything is ready
+```
+
+### 2. CI/CD Pipeline
+
+On every `git push`, Docker images are automatically built and deployed:
+
+```
+Developer → git push → CI Server → docker build → docker push → Deploy
+                                                                  │
+                        ┌─────────────────────────────────────────┘
+                        ▼
+              ┌─────────────────┐
+              │   Production    │
+              │   Server        │
+              │                 │
+              │  docker pull    │
+              │  docker run     │
+              └─────────────────┘
+```
+
+### 3. Microservice Architecture
+
+A large application is split into small, independent services:
+
+```
+┌──────────────────────────────────────────────────┐
+│                  Kubernetes Cluster              │
+│                                                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
+│  │  Auth    │  │  Orders  │  │ Payments │        │
+│  │ Service  │  │ Service  │  │ Service  │        │
+│  │ (Go)     │  │ (Python) │  │ (Java)   │        │
+│  └──────────┘  └──────────┘  └──────────┘        │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
+│  │  Email   │  │  Search  │  │   API    │        │
+│  │ Service  │  │ Service  │  │ Gateway  │        │
+│  │ (Node)   │  │ (Rust)   │  │ (Nginx)  │        │
+│  └──────────┘  └──────────┘  └──────────┘        │
+│                                                  │
+│  Each service runs in its own Docker container   │
+└──────────────────────────────────────────────────┘
+```
+
+### 4. Testing and QA
+
+```bash
+# Test different versions in parallel
+docker run -d -p 8001:80 my-app:v1.0
+docker run -d -p 8002:80 my-app:v2.0-beta
+docker run -d -p 8003:80 my-app:v2.0-rc1
+
+# Clean up after testing
+docker stop $(docker ps -q) && docker rm $(docker ps -aq)
+```
+
+---
+
+## The Docker Ecosystem
+
+A large ecosystem has formed around Docker. The following tools are worth knowing:
+
+| Tool | Purpose |
+|------|---------|
+| **Docker Compose** | Managing multi-container applications |
+| **Docker Swarm** | Docker's native cluster orchestration tool |
+| **Kubernetes (K8s)** | The most popular container orchestration platform |
+| **Harbor** | Private container registry (CNCF project) |
+| **Podman** | Alternative to Docker (daemonless, rootless) |
+| **Buildah** | Tool for building OCI images |
+| **Skopeo** | Tool for copying and inspecting container images |
+| **Trivy** | Container image vulnerability scanner |
+| **Dive** | Tool for analyzing Docker image layers |
+
+---
+
+## Conclusion
+
+Docker is one of the fundamental tools of modern software development and deployment. In this guide, you have learned the core concepts of Docker:
+
+- **Containerization** — running applications in isolated environments
+- **Docker Image** — a read-only template for creating containers
+- **Docker Container** — a running instance of an image
+- **Dockerfile** — instructions for building an image
+- **Docker Volume** — persistent data storage
+- **Docker Network** — communication between containers
+- **Docker Compose** — managing multi-service applications
+
+Next steps:
+1. **[Installing Docker on Linux Servers](https://devops-journey.uz/guides/konteyner/docker-ornatish)** — install Docker and start practicing
+2. **[Writing Dockerfiles](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)** — create your own images
+3. **[Docker Commands](https://devops-journey.uz/guides/konteyner/docker-asoslari)** — master the Docker CLI
+
+## Additional Resources
+
+<Callout type="info" emoji="">
+
+Additional Resources
+ * [**Official Docker Documentation**](https://docs.docker.com/)
+ * [**Docker Hub**](https://hub.docker.com/)
+ * [**Docker Official GitHub**](https://github.com/moby/moby)
+ * [**Play with Docker (Docker in the browser)**](https://labs.play-with-docker.com/)
+ * [**Installing Docker on Linux Servers**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+ * [**Writing Dockerfiles**](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)
+ * [**Working with Docker Commands**](https://devops-journey.uz/guides/konteyner/docker-asoslari)
+
+**Date:** 2024.01.10 (January 10, 2024)
+
+**Last updated:** 2026.02.12 (February 12, 2026)
+
+**Author: Otabek Ismoilov**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>

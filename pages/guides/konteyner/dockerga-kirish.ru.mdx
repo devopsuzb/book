@@ -1,6 +1,1003 @@
 ---
-title: "dockerga kirish"
+image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker.jpg
+description: "Введение в Docker: Глубокое изучение технологии контейнеризации"
 ---
 
-> Эта статья ещё не переведена на русский язык.
-> Пожалуйста, прочитайте [версию на узбекском](/guides/konteyner/dockerga-kirish) или помогите нам с переводом на [GitHub](https://github.com/ismoilovdevml/devops-journey).
+import { Callout } from "nextra-theme-docs";
+
+# Введение в Docker
+
+![docker](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker.jpg)
+
+## Введение
+
+Одна из самых распространённых проблем в мире разработки программного обеспечения — фраза **«На моём компьютере работает!»**. Код, написанный разработчиком на его машине, перестаёт работать на тестовом сервере, потому что версии библиотек различаются, операционная система другая или отсутствуют конфигурационные файлы. Для решения этой проблемы был создан **Docker**.
+
+**Docker** — это open-source платформа, позволяющая упаковывать программное обеспечение в **контейнеры** и запускать его одинаково в любом окружении. Docker был создан в 2013 году **Соломоном Хайксом (Solomon Hykes)** в компании **dotCloud** и быстро распространился по всему миру.
+
+<Callout type="info" emoji="">
+Название Docker происходит от слова **dock worker** (портовый рабочий). Портовые рабочие укладывают различные грузы в стандартные контейнеры и загружают их на корабль. Точно так же Docker упаковывает приложения в стандартные контейнеры и «загружает» их на любой сервер.
+</Callout>
+
+---
+
+## Что такое контейнеризация?
+
+Чтобы понять контейнеризацию, сначала сравним её с **виртуализацией**.
+
+### Традиционное развёртывание (Traditional deployment)
+
+При традиционном подходе несколько приложений устанавливаются на один физический сервер. При этом приложения могут потреблять ресурсы друг друга, версии библиотек могут конфликтовать (dependency conflict), а ошибка одного приложения может вывести из строя весь сервер.
+
+```
+┌─────────────────────────────────────────────┐
+│          Физический сервер                  │
+│                                             │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐     │
+│  │  App A   │ │  App B   │ │  App C   │     │
+│  │ Node 18  │ │ Node 16  │ │ Python 3 │     │
+│  └──────────┘ └──────────┘ └──────────┘     │
+│                                             │
+│  ┌─────────────────────────────────────┐    │
+│  │     Операционная система (ОС)       │    │
+│  └─────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────┐    │
+│  │           Hardware                  │    │
+│  └─────────────────────────────────────┘    │
+└─────────────────────────────────────────────┘
+
+❌ Проблема: App A и App B требуют разных
+   версий Node.js — conflict!
+```
+
+### Развёртывание на виртуальных машинах (VM deployment)
+
+С помощью VM каждое приложение работает в отдельной виртуальной машине. Каждая VM имеет собственную полноценную операционную систему. Это обеспечивает изоляцию, но требует значительных ресурсов.
+
+```
+┌─────────────────────────────────────────────┐
+│          Физический сервер                  │
+│                                             │
+│  ┌─────────────┐  ┌─────────────┐           │
+│  │    VM 1     │  │    VM 2     │           │
+│  │  ┌───────┐  │  │  ┌───────┐  │           │
+│  │  │ App A │  │  │  │ App B │  │           │
+│  │  └───────┘  │  │  └───────┘  │           │
+│  │  ┌───────┐  │  │  ┌───────┐  │           │
+│  │  │ Libs  │  │  │  │ Libs  │  │           │
+│  │  └───────┘  │  │  └───────┘  │           │
+│  │  ┌───────┐  │  │  ┌───────┐  │           │
+│  │  │ Guest │  │  │  │ Guest │  │           │
+│  │  │  OS   │  │  │  │  OS   │  │           │
+│  │  └───────┘  │  │  └───────┘  │           │
+│  └─────────────┘  └─────────────┘           │
+│                                             │
+│  ┌─────────────────────────────────────┐    │
+│  │           Hypervisor                │    │
+│  └─────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────┐    │
+│  │           Host OS                   │    │
+│  └─────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────┐    │
+│  │           Hardware                  │    │
+│  └─────────────────────────────────────┘    │
+└─────────────────────────────────────────────┘
+
+⚠️ Каждая VM имеет полную ОС — расход 1-2 ГБ RAM
+```
+
+### Развёртывание в контейнерах (Docker)
+
+Docker-контейнеры разделяют **ядро** (kernel) хостовой операционной системы. Каждый контейнер имеет собственное изолированное окружение, но не требует отдельной ОС. Это обеспечивает лёгкость и высокую скорость.
+
+```
+┌─────────────────────────────────────────────┐
+│          Физический сервер                  │
+│                                             │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐     │
+│  │Container │ │Container │ │Container │     │
+│  │  ┌────┐  │ │  ┌────┐  │ │  ┌────┐  │     │
+│  │  │App │  │ │  │App │  │ │  │App │  │     │
+│  │  │ A  │  │ │  │ B  │  │ │  │ C  │  │     │
+│  │  └────┘  │ │  └────┘  │ │  └────┘  │     │
+│  │  ┌────┐  │ │  ┌────┐  │ │  ┌────┐  │     │
+│  │  │Libs│  │ │  │Libs│  │ │  │Libs│  │     │
+│  │  └────┘  │ │  └────┘  │ │  └────┘  │     │
+│  └──────────┘ └──────────┘ └──────────┘     │
+│                                             │
+│  ┌─────────────────────────────────────┐    │
+│  │          Docker Engine              │    │
+│  └─────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────┐    │
+│  │         Host OS (kernel)            │    │
+│  └─────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────┐    │
+│  │           Hardware                  │    │
+│  └─────────────────────────────────────┘    │
+└─────────────────────────────────────────────┘
+
+✅ Без отдельной ОС — 10-100 МБ, запуск за секунды
+```
+
+### Сравнение VM и Container
+
+| Характеристика | Virtual Machine | Docker Container |
+|----------------|----------------|-----------------|
+| Время запуска | 1–3 минуты | 1–5 секунд |
+| Размер | 1–10 ГБ | 10–500 МБ |
+| Потребление RAM | 512 МБ – 2 ГБ (на каждую VM) | 5–50 МБ (на каждый контейнер) |
+| Изоляция | Полная (отдельная ОС) | На уровне процессов (shared kernel) |
+| Портативность | Низкая (зависит от hypervisor) | Высокая (работает где угодно) |
+| Количество на одном сервере | 5–20 VM | 100+ контейнеров |
+| ОС | Каждая VM имеет свою ОС | Контейнеры разделяют kernel хостовой ОС |
+
+<Callout type="info" emoji="">
+**Когда использовать VM, а когда контейнер?**
+- **VM** — когда требуются разные операционные системы (например, запуск Windows на Linux-сервере) или необходима полная изоляция
+- **Контейнер** — для microservice-архитектуры, CI/CD pipeline, быстрого развёртывания приложений, стандартизации среды разработки
+</Callout>
+
+---
+
+## Архитектура Docker
+
+Docker работает по **клиент-серверной** архитектуре. Понимание этого крайне важно для эффективной работы с Docker.
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                     Архитектура Docker                        │
+│                                                               │
+│  ┌────────── ───┐         ┌──────────────────────────────┐    │
+│  │   Docker     │  REST   │       Docker Daemon          │    │
+│  │   Client     │  API    │       (dockerd)              │    │
+│  │             ─┼────────►│                              │    │
+│  │  docker run  │         │  ┌────────────────────────┐  │    │
+│  │  docker build│         │  │     Container Runtime  │  │    │
+│  │  docker pull │         │  │      (containerd)      │  │    │
+│  │  docker push │         │  └────────────────────────┘  │    │
+│  │              │         │                              │    │
+│  └──────────── ─┘         │  ┌────────┐  ┌────────┐      │    │
+│                           │  │  Img 1 │  │  Img 2 │      │    │
+│                           │  └────────┘  └────────┘      │    │
+│                           │                              │    │
+│                           │  ┌──────┐ ┌──────┐ ┌──────┐  │    │
+│                           │  │Cont 1│ │Cont 2│ │Cont 3│  │    │
+│                           │  └──────┘ └──────┘ └──────┘  │    │
+│                           └──────────────────────────────┘    │
+│                                          │                    │
+│                                          ▼                    │
+│                           ┌──────────────────────────────┐    │
+│                           │      Docker Registry         │    │
+│                           │   (Docker Hub, Harbor, etc.) │    │
+│                           └──────────────────────────────┘    │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### Docker Engine
+
+Docker Engine — это основной компонент платформы Docker. Он состоит из трёх компонентов:
+
+**1. Docker Daemon (`dockerd`)**
+
+Docker Daemon — это серверный процесс, работающий в фоновом режиме. Он принимает запросы через Docker API и управляет образами, контейнерами, сетями и томами.
+
+```bash
+# Статус Docker Daemon
+sudo systemctl status docker
+
+# Перезапуск Docker Daemon
+sudo systemctl restart docker
+```
+
+Docker Daemon выполняет следующие задачи:
+- Сборка и хранение образов
+- Создание, запуск и остановка контейнеров
+- Управление Docker-сетями
+- Управление томами (volumes)
+
+**2. Docker Client (`docker`)**
+
+Docker Client — это CLI-инструмент (Command Line Interface), через который пользователь взаимодействует с Docker. Когда вы вводите команды `docker` в терминале, Client отправляет эти команды Docker Daemon через REST API.
+
+```bash
+# Взаимодействие Client с Daemon
+docker version    # Версия Client и Server
+docker info       # Подробная информация о системе Docker
+```
+
+**3. Docker Registry**
+
+Docker Registry — это централизованное хранилище для хранения и распространения образов. **Docker Hub** является крупнейшим публичным registry. Кроме него, существуют приватные registry:
+
+| Registry | Тип | Описание |
+|----------|-----|----------|
+| **Docker Hub** | Public/Private | Самый популярный, стандартный registry |
+| **Harbor** | Private (self-hosted) | Проект CNCF, для корпоративного использования |
+| **Nexus** | Private (self-hosted) | Мультиформатный менеджер артефактов |
+| **GCR** | Private (cloud) | Google Cloud Container Registry |
+| **ECR** | Private (cloud) | AWS Elastic Container Registry |
+| **ACR** | Private (cloud) | Azure Container Registry |
+| **GHCR** | Public/Private | GitHub Container Registry |
+
+---
+
+## Docker Image
+
+**Docker Image** — это **read-only** шаблон для создания контейнеров. Образ содержит код приложения, runtime, библиотеки, переменные окружения и конфигурационные файлы.
+
+### Слои образа (Image Layers)
+
+Docker-образы построены на системе **слоёв** (layers). Каждая инструкция в Dockerfile создаёт новый слой. Слои являются **read-only** и кэшируются для повторного использования.
+
+```
+┌─────────────────────────────────────┐
+│         Docker Image                │
+│                                     │
+│  ┌───────────────────────────────┐  │
+│  │ Layer 5: COPY app/ /app/      │  │  ← Ваш код
+│  ├───────────────────────────────┤  │
+│  │ Layer 4: RUN npm install      │  │  ← Зависимости
+│  ├───────────────────────────────┤  │
+│  │ Layer 3: COPY package.json    │  │  ← Файл пакетов
+│  ├───────────────────────────────┤  │
+│  │ Layer 2: RUN apt-get update   │  │  ← Системные пакеты
+│  ├───────────────────────────────┤  │
+│  │ Layer 1: FROM node:20-alpine  │  │  ← Base image
+│  └───────────────────────────────┘  │
+│                                     │
+│  Все слои READ-ONLY                 │
+└─────────────────────────────────────┘
+```
+
+<Callout type="info" emoji="">
+**Преимущество кэширования слоёв:** Если вы изменили только код приложения (Layer 5), Docker возьмёт нижние слои (1–4) из кэша и пересоберёт только изменённый слой. Это ускоряет сборку в **10–100 раз**.
+</Callout>
+
+### Соглашение об именовании образов
+
+Полное имя Docker-образа имеет следующий формат:
+
+```
+[registry-url/][namespace/]image-name[:tag]
+```
+
+Примеры:
+
+```bash
+# Из Docker Hub (registry-url опускается)
+nginx:latest                          # Official image, latest tag
+node:20-alpine                        # Official image, конкретная версия
+ismoilovdev/my-app:v1.2.3            # User namespace, custom image
+
+# Из приватного registry
+harbor.helm.uz/devops/my-app:v1.0    # Harbor registry
+gcr.io/my-project/api-server:latest  # Google Container Registry
+ghcr.io/username/my-app:main         # GitHub Container Registry
+```
+
+### Теги образов (Image tags)
+
+Теги используются для обозначения версии образа:
+
+| Тип тега | Пример | Использование |
+|----------|--------|---------------|
+| `latest` | `nginx:latest` | Тег по умолчанию, но **не используйте в production** |
+| Semantic versioning | `node:20.11.1` | Точная версия, надёжно |
+| Major-версия | `python:3` | Последняя в диапазоне 3.x.x |
+| Вариант ОС | `node:20-alpine` | На базе Alpine Linux (малый размер) |
+| Slim-вариант | `python:3.12-slim` | Без лишних пакетов |
+| Custom | `my-app:v1.2.3-rc1` | Ваши собственные версии |
+
+<Callout type="warning" emoji="">
+**Предупреждение о теге `latest`:** `latest` — это не «самый новый», а просто **имя тега по умолчанию**. Если вы выполните `docker build -t myapp .`, образ получит тег `myapp:latest`. В production-среде **всегда используйте конкретную версию**: `myapp:v1.2.3`.
+</Callout>
+
+### Практический пример: работа с образами
+
+```bash
+# Загрузка образа из Docker Hub
+docker pull nginx:1.25-alpine
+
+# Просмотр доступных образов в системе
+docker images
+
+# Подробная информация об образе
+docker inspect nginx:1.25-alpine
+
+# Просмотр слоёв образа
+docker history nginx:1.25-alpine
+
+# Удаление образа
+docker rmi nginx:1.25-alpine
+```
+
+---
+
+## Docker Container
+
+**Docker Container** — это запущенный экземпляр (running instance) образа. Если образ является read-only шаблоном, то контейнер добавляет поверх него **записываемый слой** (writable layer).
+
+### Различие между Image и Container
+
+```
+Docker Image (шаблон)           Docker Container (запущенный)
+┌─────────────────────┐         ┌─────────────────────┐
+│                     │         │  Writable Layer     │ ← Новый
+│  Read-only Layers   │  run    │─────────────────────│
+│                     │ ──────► │                     │
+│  App + Libs + OS    │         │  Read-only Layers   │ ← Из образа
+│                     │         │  App + Libs + OS    │
+└─────────────────────┘         └─────────────────────┘
+
+Один образ → можно создать много контейнеров
+
+                   ┌──────────────┐
+                   │ Container 1  │
+┌──────────┐       ├──────────────┤
+│  nginx   │──────►│ Container 2  │
+│  image   │       ├──────────────┤
+└──────────┘       │ Container 3  │
+                   └──────────────┘
+```
+
+### Жизненный цикл контейнера (Container Lifecycle)
+
+Жизненный цикл Docker-контейнера состоит из следующих этапов:
+
+```
+                    docker create
+                  ┌──────────────────┐
+                  │                  │
+                  ▼                  │
+┌────────┐   docker run  ┌──────────────┐   docker stop  ┌────────────┐
+│  Image │──────────────►│   Running    │──────────────► │ Stopped    │
+└────────┘               │  (работает)  │                │(остановлен)│
+                         └──────┬───────┘                └──────┬─────┘
+                                │                               │
+                          docker pause                   docker start
+                                │                               │
+                          ┌─────▼────────┐                       │
+                          │   Paused     │               ┌───────▼─────┐
+                          │ (пауза)      │               │  Running    │
+                          └──────────────┘               └─────────────┘
+
+                          docker rm → контейнер удаляется (только в состоянии stopped)
+```
+
+| Состояние | Описание | Команда |
+|-----------|----------|---------|
+| **Created** | Контейнер создан, но не запущен | `docker create` |
+| **Running** | Контейнер работает | `docker start` / `docker run` |
+| **Paused** | Процессы приостановлены, но остаются в памяти | `docker pause` |
+| **Stopped** | Контейнер остановлен | `docker stop` / `docker kill` |
+| **Removed** | Контейнер удалён | `docker rm` |
+
+### Практический пример: работа с контейнерами
+
+```bash
+# Создание и запуск контейнера (run = create + start)
+docker run -d --name my-nginx -p 8080:80 nginx:1.25-alpine
+
+# Просмотр запущенных контейнеров
+docker ps
+
+# Вход внутрь контейнера
+docker exec -it my-nginx /bin/sh
+
+# Просмотр логов контейнера
+docker logs -f my-nginx
+
+# Остановка контейнера
+docker stop my-nginx
+
+# Повторный запуск контейнера
+docker start my-nginx
+
+# Удаление контейнера (сначала необходимо остановить)
+docker stop my-nginx && docker rm my-nginx
+```
+
+<Callout type="info" emoji="">
+**Что делает `docker run`?** `docker run` на самом деле выполняет несколько операций:
+1. Проверяет наличие образа в системе (если нет — выполняет `docker pull`)
+2. Создаёт контейнер (`docker create`)
+3. Добавляет записываемый слой (writable layer)
+4. Создаёт сетевой интерфейс и назначает IP-адрес
+5. Запускает контейнер (`docker start`)
+</Callout>
+
+---
+
+## Dockerfile
+
+**Dockerfile** — это текстовый файл, содержащий инструкции для создания Docker-образа. Он поэтапно описывает, как будет собран образ. Каждая инструкция создаёт новый **слой** (layer).
+
+### Инструкции Dockerfile
+
+| Инструкция | Назначение | Пример |
+|------------|-----------|--------|
+| `FROM` | Выбор базового образа (всегда первая) | `FROM node:20-alpine` |
+| `WORKDIR` | Установка рабочей директории | `WORKDIR /app` |
+| `COPY` | Копирование файлов из хоста в образ | `COPY package.json .` |
+| `ADD` | COPY + загрузка по URL и распаковка архивов | `ADD app.tar.gz /app/` |
+| `RUN` | Выполнение команды во время сборки | `RUN npm install` |
+| `CMD` | Команда по умолчанию при запуске контейнера | `CMD ["node", "server.js"]` |
+| `ENTRYPOINT` | Основной процесс контейнера | `ENTRYPOINT ["python"]` |
+| `ENV` | Установка переменной окружения | `ENV NODE_ENV=production` |
+| `ARG` | Приём аргумента во время сборки | `ARG VERSION=1.0` |
+| `EXPOSE` | Документирование порта контейнера | `EXPOSE 3000` |
+| `VOLUME` | Точка хранения данных | `VOLUME ["/data"]` |
+| `USER` | Указание пользователя для выполнения | `USER node` |
+| `LABEL` | Добавление метаданных к образу | `LABEL version="1.0"` |
+| `HEALTHCHECK` | Проверка состояния контейнера | `HEALTHCHECK CMD curl -f http://localhost/` |
+
+### Различие между CMD и ENTRYPOINT
+
+Эти две инструкции часто вызывают путаницу. Важно понимать разницу:
+
+```dockerfile
+# CMD — команда по умолчанию, может быть переопределена при docker run
+FROM ubuntu:24.04
+CMD ["echo", "Salom Dunyo"]
+```
+
+```bash
+docker run my-image                  # Natija: "Salom Dunyo"
+docker run my-image echo "Boshqa"    # Natija: "Boshqa" (CMD o'zgartirildi)
+```
+
+```dockerfile
+# ENTRYPOINT — выполняется всегда, не переопределяется
+FROM ubuntu:24.04
+ENTRYPOINT ["echo"]
+CMD ["Salom Dunyo"]
+```
+
+```bash
+docker run my-image                  # Natija: "Salom Dunyo"
+docker run my-image "Boshqa"         # Natija: "Boshqa" (CMD o'zgardi, lekin ENTRYPOINT saqlandi)
+```
+
+<Callout type="info" emoji="">
+**Правило:** `ENTRYPOINT` — это **основная программа** контейнера, `CMD` — **аргументы по умолчанию** для неё. Реальный пример: `ENTRYPOINT ["python"]` + `CMD ["app.py"]` — по умолчанию выполняется `python app.py`, но если указать `docker run my-image test.py`, то выполнится `python test.py`.
+</Callout>
+
+### Реальные примеры Dockerfile
+
+**1. Для приложения на Node.js (Express):**
+
+```dockerfile filename="Dockerfile"
+# 1. Base image — Alpine-вариант для малого размера
+FROM node:20-alpine
+
+# 2. Установка рабочей директории
+WORKDIR /app
+
+# 3. Сначала копируем только package-файлы (для кэширования слоёв)
+COPY package.json package-lock.json ./
+
+# 4. Установка зависимостей
+RUN npm ci --only=production
+
+# 5. Копирование кода приложения
+COPY . .
+
+# 6. Использование non-root пользователя (безопасность)
+USER node
+
+# 7. Документирование порта
+EXPOSE 3000
+
+# 8. Health check
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+
+# 9. Запуск приложения
+CMD ["node", "server.js"]
+```
+
+**2. Для приложения на Python (Flask/Django):**
+
+```dockerfile filename="Dockerfile"
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Системные зависимости
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python-зависимости (кэширование слоёв)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Код приложения
+COPY . .
+
+# Создание и использование non-root пользователя
+RUN useradd --create-home appuser
+USER appuser
+
+EXPOSE 8000
+
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"]
+```
+
+**3. Для приложения на Go (multi-stage build):**
+
+```dockerfile filename="Dockerfile"
+# ======= Build stage =======
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /build
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server .
+
+# ======= Production stage =======
+FROM alpine:3.19
+
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /app
+
+# Копирование только бинарного файла из build stage
+COPY --from=builder /app/server .
+
+RUN adduser -D -g '' appuser
+USER appuser
+
+EXPOSE 8080
+
+ENTRYPOINT ["./server"]
+```
+
+<Callout type="info" emoji="">
+**Multi-stage build** — это способ значительно уменьшить размер образа. В примере с Go на этапе сборки присутствует компилятор Go и все инструменты (~800 МБ), но на этапе production остаётся только скомпилированный бинарный файл (~15 МБ). Результат: **15 МБ вместо 800 МБ**.
+</Callout>
+
+### Лучшие практики написания Dockerfile
+
+**1. Оптимизируйте порядок слоёв** — размещайте редко изменяемые файлы вверху, а часто изменяемые — внизу:
+
+```dockerfile
+# ✅ Правильно — зависимости меняются редко
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .    # Код меняется часто — в самом конце
+
+# ❌ Неправильно — при каждом изменении кода npm install выполняется заново
+COPY . .
+RUN npm ci
+```
+
+**2. Используйте файл `.dockerignore`** — исключайте ненужные файлы из образа:
+
+```text filename=".dockerignore"
+node_modules
+.git
+.env
+*.md
+Dockerfile
+docker-compose.yml
+.dockerignore
+```
+
+**3. Выбирайте минимальные базовые образы:**
+
+| Базовый образ | Размер | Применение |
+|---------------|--------|-----------|
+| `ubuntu:24.04` | ~78 МБ | Когда нужно полноценное Linux-окружение |
+| `debian:bookworm-slim` | ~74 МБ | Slim-вариант — меньше пакетов |
+| `alpine:3.19` | ~7 МБ | Минимальный образ, достаточен в большинстве случаев |
+| `node:20` | ~1.1 ГБ | Для разработки (большой) |
+| `node:20-alpine` | ~130 МБ | Для production (рекомендуется) |
+| `scratch` | 0 МБ | Только для статических бинарных файлов (Go, Rust) |
+
+**4. Используйте non-root пользователя:**
+
+```dockerfile
+# Для безопасности не работайте от root
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+```
+
+**5. Объединяйте RUN-команды** — для уменьшения количества слоёв:
+
+```dockerfile
+# ✅ Один слой — очистка в том же слое
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl wget git \
+    && rm -rf /var/lib/apt/lists/*
+
+# ❌ Три отдельных слоя — лишний кэш остаётся
+RUN apt-get update
+RUN apt-get install -y curl wget git
+RUN rm -rf /var/lib/apt/lists/*
+```
+
+---
+
+## Docker Volume
+
+Docker-контейнеры являются **эфемерными** (временными) — при удалении контейнера все данные в нём теряются. **Volume** решает эту проблему — позволяет хранить данные за пределами контейнера.
+
+### Типы Volume
+
+```
+┌───────────────────────────────────────────────────────────┐
+│                    Host Server                            │
+│                                                           │
+│  Named Volume          Bind Mount          tmpfs Mount    │
+│  (Управляется Docker)  (Host path)         (В RAM)        │
+│                                                           │
+│  /var/lib/docker/      /home/user/         tmpfs          │
+│  volumes/mydata/       project/            (в памяти)     │
+│       │                    │                    │         │
+│       ▼                    ▼                    ▼         │
+│  ┌──────────────────────────────────────────────────┐     │
+│  │              Docker Container                    │     │
+│  │                                                  │     │
+│  │    /data          /app              /tmp/secret  │     │
+│  └──────────────────────────────────────────────────┘     │
+└───────────────────────────────────────────────────────────┘
+```
+
+| Тип | Команда | Применение |
+|-----|---------|-----------|
+| **Named Volume** | `-v mydata:/data` | Production — управляется Docker, удобное резервное копирование |
+| **Bind Mount** | `-v /host/path:/container/path` | Разработка — синхронизация с файловой системой хоста |
+| **tmpfs** | `--tmpfs /tmp` | Временные данные — только в оперативной памяти, на диск не записывается |
+
+### Реальный пример: сохранение данных PostgreSQL
+
+```bash
+# Создание named volume
+docker volume create postgres-data
+
+# Запуск контейнера PostgreSQL с volume
+docker run -d \
+  --name my-postgres \
+  -e POSTGRES_PASSWORD=mysecretpassword \
+  -e POSTGRES_DB=myapp \
+  -v postgres-data:/var/lib/postgresql/data \
+  -p 5432:5432 \
+  postgres:16-alpine
+
+# Даже при удалении контейнера данные сохраняются
+docker stop my-postgres && docker rm my-postgres
+
+# Новый контейнер — старые данные на месте!
+docker run -d \
+  --name my-postgres-new \
+  -e POSTGRES_PASSWORD=mysecretpassword \
+  -v postgres-data:/var/lib/postgresql/data \
+  -p 5432:5432 \
+  postgres:16-alpine
+```
+
+<Callout type="warning" emoji="">
+**Важно:** Если вы удалите контейнер с базой данных без использования volume, все данные будут **безвозвратно потеряны**. В production-среде всегда используйте volume!
+</Callout>
+
+---
+
+## Docker Network
+
+Docker-сети управляют коммуникацией между контейнерами. По умолчанию Docker предоставляет несколько сетевых драйверов.
+
+### Сетевые драйверы
+
+```
+┌─────────────────────────────────────────────────────┐
+│                                                     │
+│  Bridge Network (default)                           │
+│  ┌──────────┐   ┌──────────┐   ┌──────────┐         │
+│  │   App    │   │   DB     │   │  Cache   │         │
+│  │ :3000    │◄─►│ :5432    │◄─►│ :6379    │         │
+│  └──────────┘   └──────────┘   └──────────┘         │
+│       ▲              Находят друг друга             │
+│       │              по имени через DNS             │
+│       │                                             │
+│  ─────┼──────────────────────────────────────       │
+│       │                                             │
+│       ▼                                             │
+│  Host:8080 ──► Container:3000                       │
+│  (внешний мир подключается через port mapping)      │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+| Драйвер | Описание | Применение |
+|---------|----------|-----------|
+| `bridge` | Сеть по умолчанию. Контейнеры на одном хосте взаимодействуют между собой | Наиболее используемый |
+| `host` | Контейнер напрямую использует сеть хоста | Не требует port mapping, высокая производительность |
+| `none` | Сеть отсутствует. Контейнер не взаимодействует с внешним миром | Когда требуется безопасность |
+| `overlay` | Сеть между несколькими хостами (Docker Swarm) | Для контейнеров в кластере |
+| `macvlan` | Контейнеру назначается собственный MAC-адрес | Для прямого подключения к физической сети |
+
+### Реальный пример: сеть приложения + базы данных
+
+```bash
+# Создание пользовательской сети
+docker network create app-network
+
+# PostgreSQL — в app-network
+docker run -d \
+  --name postgres \
+  --network app-network \
+  -e POSTGRES_PASSWORD=secret \
+  -e POSTGRES_DB=myapp \
+  postgres:16-alpine
+
+# Приложение — в app-network (находит postgres по имени)
+docker run -d \
+  --name my-app \
+  --network app-network \
+  -e DATABASE_URL=postgresql://postgres:secret@postgres:5432/myapp \
+  -p 3000:3000 \
+  my-app:latest
+```
+
+<Callout type="info" emoji="">
+**DNS-резолвинг:** Контейнеры в одной сети находят друг друга по **имени контейнера**. В примере выше контейнер `my-app` подключается к контейнеру `postgres` через `postgres:5432` — IP-адрес не нужен!
+</Callout>
+
+---
+
+## Docker Compose
+
+Во многих случаях приложение состоит из нескольких сервисов — web-сервер, база данных, кэш, очередь сообщений и т.д. Запускать каждый из них отдельной командой `docker run` неудобно. **Docker Compose** позволяет описать все сервисы в одном файле `docker-compose.yml` и управлять ими одной командой.
+
+### Структура docker-compose.yml
+
+```yaml filename="docker-compose.yml"
+# Реальный пример: Full-stack приложение
+version: "3.8"
+
+services:
+  # Frontend — React-приложение
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Backend — Python API
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:secret@db:5432/myapp
+      - REDIS_URL=redis://cache:6379
+    depends_on:
+      - db
+      - cache
+    restart: unless-stopped
+
+  # Database — PostgreSQL
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: myapp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  # Cache — Redis
+  cache:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+```
+
+### Команды Docker Compose
+
+```bash
+# Запуск всех сервисов (в фоновом режиме)
+docker compose up -d
+
+# Просмотр состояния сервисов
+docker compose ps
+
+# Просмотр всех логов
+docker compose logs -f
+
+# Просмотр логов только backend
+docker compose logs -f backend
+
+# Остановка и удаление всех сервисов
+docker compose down
+
+# Остановка сервисов + удаление volume
+docker compose down -v
+```
+
+<Callout type="info" emoji="">
+**О `depends_on`:** `depends_on` определяет лишь **порядок запуска** контейнеров. Он **не ждёт** готовности базы данных. В production используйте **healthcheck** или скрипты **wait-for-it**.
+</Callout>
+
+---
+
+## Docker Hub
+
+**Docker Hub** — это крупнейший публичный registry для хранения и распространения Docker-образов. Он подобен GitHub, но для Docker-образов.
+
+### Работа с Docker Hub
+
+```bash
+# Вход в Docker Hub
+docker login -u username
+
+# Тегирование образа (в формате Docker Hub)
+docker tag my-app:latest username/my-app:v1.0
+
+# Загрузка образа в registry
+docker push username/my-app:v1.0
+
+# Скачивание образа из registry
+docker pull username/my-app:v1.0
+
+# Выход из Docker Hub
+docker logout
+```
+
+### Official vs User Image
+
+| Тип | Формат | Пример | Надёжность |
+|-----|--------|--------|------------|
+| **Official** | `image:tag` | `nginx:latest`, `postgres:16` | Проверен Docker, безопасен |
+| **User** | `user/image:tag` | `ismoilovdev/my-app:v1` | Создан пользователем |
+| **Organization** | `org/image:tag` | `bitnami/postgresql:16` | Создан организацией |
+
+<Callout type="warning" emoji="">
+**Безопасность:** При загрузке образов из Docker Hub всегда используйте **Official** образы или образы из доверенных источников. Неизвестные образы могут содержать вредоносный код!
+</Callout>
+
+---
+
+## Как Docker используется в реальной жизни?
+
+### 1. Среда разработки
+
+Когда новый разработчик присоединяется к команде, он настраивает всё окружение с помощью Docker за считанные секунды:
+
+```bash
+# Первый день нового разработчика:
+git clone https://github.com/company/project.git
+cd project
+docker compose up -d
+
+# Готово! База данных, Redis, API — всё работает
+```
+
+### 2. CI/CD Pipeline
+
+При каждом `git push` Docker-образ автоматически собирается и разворачивается:
+
+```
+Developer → git push → CI Server → docker build → docker push → Deploy
+                                                                  │
+                        ┌─────────────────────────────────────────┘
+                        ▼
+              ┌─────────────────┐
+              │   Production    │
+              │   Server        │
+              │                 │
+              │  docker pull    │
+              │  docker run     │
+              └─────────────────┘
+```
+
+### 3. Microservice-архитектура
+
+Крупное приложение разделяется на небольшие, независимые сервисы:
+
+```
+┌──────────────────────────────────────────────────┐
+│                  Kubernetes Cluster              │
+│                                                  │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
+│  │  Auth    │  │  Orders  │  │ Payments │        │
+│  │ Service  │  │ Service  │  │ Service  │        │
+│  │ (Go)     │  │ (Python) │  │ (Java)   │        │
+│  └──────────┘  └──────────┘  └──────────┘        │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐        │
+│  │  Email   │  │  Search  │  │   API    │        │
+│  │ Service  │  │ Service  │  │ Gateway  │        │
+│  │ (Node)   │  │ (Rust)   │  │ (Nginx)  │        │
+│  └──────────┘  └──────────┘  └──────────┘        │
+│                                                  │
+│  Каждый сервис в своём Docker-контейнере         │
+└──────────────────────────────────────────────────┘
+```
+
+### 4. Тестирование и QA
+
+```bash
+# Параллельное тестирование разных версий
+docker run -d -p 8001:80 my-app:v1.0
+docker run -d -p 8002:80 my-app:v2.0-beta
+docker run -d -p 8003:80 my-app:v2.0-rc1
+
+# После завершения тестов — полная очистка
+docker stop $(docker ps -q) && docker rm $(docker ps -aq)
+```
+
+---
+
+## Экосистема Docker
+
+Вокруг Docker сформировалась обширная экосистема. Полезно ознакомиться со следующими инструментами:
+
+| Инструмент | Назначение |
+|------------|-----------|
+| **Docker Compose** | Управление многоконтейнерными приложениями |
+| **Docker Swarm** | Встроенный инструмент оркестрации кластеров Docker |
+| **Kubernetes (K8s)** | Самая популярная платформа оркестрации контейнеров |
+| **Harbor** | Приватный container registry (проект CNCF) |
+| **Podman** | Альтернатива Docker (daemonless, rootless) |
+| **Buildah** | Инструмент для сборки OCI-образов |
+| **Skopeo** | Копирование и инспекция container-образов |
+| **Trivy** | Сканер уязвимостей container-образов |
+| **Dive** | Анализ слоёв Docker-образа |
+
+---
+
+## Заключение
+
+Docker — один из ключевых инструментов современной разработки и развёртывания программного обеспечения. В данном руководстве вы изучили основные концепции Docker:
+
+- **Контейнеризация** — запуск приложений в изолированных окружениях
+- **Docker Image** — read-only шаблон для создания контейнеров
+- **Docker Container** — запущенный экземпляр образа
+- **Dockerfile** — инструкции для создания образа
+- **Docker Volume** — постоянное хранение данных
+- **Docker Network** — коммуникация между контейнерами
+- **Docker Compose** — управление многосервисными приложениями
+
+Следующие шаги:
+1. **[Установка Docker на серверы Linux](https://devops-journey.uz/guides/konteyner/docker-ornatish)** — установите Docker и начните практику
+2. **[Написание Dockerfile](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)** — создавайте собственные образы
+3. **[Команды Docker](https://devops-journey.uz/guides/konteyner/docker-asoslari)** — полностью освойте Docker CLI
+
+## Дополнительно
+
+<Callout type="info" emoji="">
+
+Дополнительные ресурсы
+ * [**Официальная документация Docker**](https://docs.docker.com/)
+ * [**Docker Hub**](https://hub.docker.com/)
+ * [**Официальный GitHub Docker**](https://github.com/moby/moby)
+ * [**Play with Docker (Docker в браузере)**](https://labs.play-with-docker.com/)
+ * [**Установка Docker на серверы Linux**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+ * [**Написание Dockerfile**](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)
+ * [**Работа с командами Docker**](https://devops-journey.uz/guides/konteyner/docker-asoslari)
+
+**Дата:** 10.01.2024 (10 января 2024 г.)
+
+**Последнее обновление:** 12.02.2026 (12 февраля 2026 г.)
+
+**Автор: Отабек Исмоилов**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>

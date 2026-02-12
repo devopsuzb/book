@@ -8,77 +8,128 @@ import { Callout } from "nextra-theme-docs";
 
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/banner.png)
 
-**Docker** — bu dasturlarni izolyatsiyalangan konteynerlarda ishga tushirish imkoniyatini beruvchi platforma bo'lib, bugungi kunda keng qo'llaniladi. Docker konteynerlari applicationlarni tez va ishonchli ravishda ishga tushirish, deploy qilish va boshqarish uchun ishlatiladi. Konteynerlar bir xil operatsion tizim kernelidan foydalangan holda izolyatsiyalangan muhitda applicationlarni ishga tushirish imkonini beradi. Ushbu qo'llanma Docker bilan ishlashda eng ko'p qo'llaniladigan buyruqlarni o'z ichiga oladi va bu buyruqlarni tushunib olish sizga Docker bilan samarali ishlashda yordam beradi. Docker'ning asosiy imkoniyatlari — ko'p marta ishlatilishi mumkin bo'lgan imagelarni yaratish, konteynerlarni boshqarish, ularni turli muhitlarda(environment) ishga tushirish va monitoring qilishni o'z ichiga oladi. Docker buyruqlaridan foydalanib, siz o'z dasturiy ta'minotingizni yanada optimallashtirish va ko'chma qilish imkoniga ega bo'lasiz.
+**Docker** — bu applicationlarni izolyatsiyalangan container'larda ishga tushirish imkoniyatini beruvchi platforma bo'lib, bugungi kunda keng qo'llaniladi. Docker container'lari applicationlarni tez va ishonchli ravishda ishga tushirish, deploy qilish va boshqarish uchun ishlatiladi. Container'lar bir xil operatsion tizim kernel'idan foydalangan holda izolyatsiyalangan muhitda applicationlarni ishga tushirish imkonini beradi.
+
+Ushbu qo'llanma Docker bilan ishlashda eng ko'p qo'llaniladigan buyruqlarni o'z ichiga oladi — image'lar bilan ishlash, container'larni boshqarish, network va volume sozlash, Docker Compose, registry bilan ishlash va tizimni tozalash. Bu buyruqlarni tushunib olish sizga Docker bilan samarali ishlashda yordam beradi.
 
 <Callout type="info" emoji="">
-* Bu qo'llanmani o'qishdan oldin siz Docker bila tanish bo'lishingiz kerak agar tanish bo'lmasangiz quyidagi qo'llanmani o'qib chiqishingizni tavsiya beramiz - **[Dockerga Kirish](https://devops-journey.uz/guides/konteyner/dockerga-kirish)**. 
+* Bu qo'llanmani o'qishdan oldin siz Docker bilan tanish bo'lishingiz kerak. Agar tanish bo'lmasangiz quyidagi qo'llanmani o'qib chiqishingizni tavsiya beramiz — **[Dockerga Kirish](https://devops-journey.uz/guides/konteyner/dockerga-kirish)**.
 
-* Bu qo'llanmani to'liq o'zlashtirshingiz uchun siz amaliyot qilishingiz kerak bo'ladi va sizda docker o'rnatilgan bo'lishi kerak agar o'rnatilmagan bo'lsa ushbu qo'llanmani ko'rib chiqib docker o'rnatib olishingiz kerak bo'ladi - **[Linux serverlarga Docker o'rnatish](https://devops-journey.uz/guides/konteyner/docker-ornatish)**
+* Bu qo'llanmani to'liq o'zlashtirishingiz uchun sizda Docker o'rnatilgan bo'lishi kerak. Agar o'rnatilmagan bo'lsa ushbu qo'llanmani ko'rib chiqib Docker o'rnatib oling — **[Linux serverlarga Docker o'rnatish](https://devops-journey.uz/guides/konteyner/docker-ornatish)**
 
-* Dockerfile yozishni ham bilishingiz bu qo'llanmada sizga asqotadi - **[Dockerfile yozish](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)**
+* Dockerfile yozishni ham bilishingiz bu qo'llanmada sizga asqotadi — **[Dockerfile yozish](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)**
 </Callout>
 
 
 ## Docker asosiy buyruqlari
 
-Bu buyruq Dockerning o'rnatilgan versiyasini tekshirish uchun ishlatiladi. U **Docker Client** va **Server (Docker daemon)** haqidagi versiya ma'lumotlarini ko'rsatadi.
+### docker version
+
+Bu buyruq Docker'ning o'rnatilgan versiyasini tekshirish uchun ishlatiladi. U **Docker Client** va **Server (Docker daemon)** haqidagi versiya ma'lumotlarini ko'rsatadi.
+
 ```bash
 docker version
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/1.png)
 
-* Client va Server versiya raqamlari.
-* API versiyasi.
-* Git commit raqami.
+Natijada quyidagi ma'lumotlar ko'rsatiladi:
+* Client va Server versiya raqamlari
+* API versiyasi
+* Git commit raqami
 * Go versiyasi
-* Build daqiqalari va mos OS (operatsion tizim).
----
-Bu buyruq Docker daemon haqida batafsil ma'lumot beradi,
+* Build sanasi va OS (operatsion tizim)
+
+### docker info
+
+Bu buyruq Docker daemon haqida batafsil ma'lumot beradi.
+
 ```bash
 docker info
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/2.png)
 
-* Docker versiyasi.
-* Mavjud konteynerlar va imagelar soni.
-* Docker engine'ning ishlash holati va xotira bo'yicha cheklovlar.
-* Networklar, volumelar, storage driverlari haqida ma'lumot.
----
+Natijada quyidagi ma'lumotlar ko'rsatiladi:
+* Docker versiyasi
+* Mavjud container'lar va image'lar soni
+* Docker Engine'ning ishlash holati va memory cheklovlari
+* Network'lar, volume'lar, storage driver'lar haqida ma'lumot
+
+### docker --help
+
 Bu buyruq har qanday Docker buyruqlari uchun yordamchi ma'lumot olish uchun ishlatiladi. Agar qaysidir buyruqning barcha parametr va variantlarini bilishni xohlasangiz, ushbu buyruq yordamida qo'shimcha ma'lumot olasiz.
+
 ```bash
 docker --help
+
+# Muayyan buyruq uchun yordam
+docker run --help
+docker build --help
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/3.png)
 
 ---
-## Imagelar bilan ishlash
 
-Bu buyruq hozirgi tizimda mavjud bo'lgan Docker imagelar ro'yxatini ko'rsatadi.
+## Image'lar bilan ishlash
+
+### docker images
+
+Bu buyruq hozirgi tizimda mavjud bo'lgan Docker image'lar ro'yxatini ko'rsatadi.
 
 ```bash
 docker images
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/4.png)
 
-* Image nomi (**REPOSITORY**).
-* Teg (**TAG**).
-* Imagening identifikatori (**IMAGE ID**).
-* Yaratilgan vaqti. (**CREATED**)
-* Hajmi (**SIZE**).
----
+Natijada har bir image uchun quyidagi ustunlar ko'rsatiladi:
+* **REPOSITORY** — image nomi
+* **TAG** — versiya tag'i
+* **IMAGE ID** — image'ning unique identifikatori
+* **CREATED** — yaratilgan vaqti
+* **SIZE** — hajmi
 
-Bu buyruq Docker Hub yoki boshqa registrydan ma'lum bir imageni yuklab olish uchun ishlatiladi. tag ko'rsatilmagan bo'lsa, Docker **latest** tagli docker imageni avtomatik yuklaydi.
+```bash
+# Faqat image ID'larini ko'rish
+docker images -q
+
+# Barcha image'lar (oraliq layer'lar bilan)
+docker images -a
+
+# Filter bilan
+docker images --filter "dangling=true"
+```
+
+### docker pull
+
+Bu buyruq Docker Hub yoki boshqa registry'dan image yuklab olish uchun ishlatiladi. Tag ko'rsatilmagan bo'lsa, Docker `latest` tag'li image'ni avtomatik yuklaydi.
+
 ```bash
 docker pull image-nomi:tag
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/5.png)
 
-* Imagening layerlarining yuklanishi haqida ma'lumot.
-* Yuklanish muvaffaqiyatli bo'lsa, tasdiqlovchi xabar.
----
-Bu buyruq **Dockerfile** asosida image yaratish uchun ishlatiladi. Bu buyruq **Dockerfile** joylashgan katalogni ko'rsatadi va unga asoslangan yangi imageni yaratadi. agar Dockerfile buyruqni ishga tushrayotgan katalogda bo'lmasa
+Natijada:
+* Image layer'larining yuklanishi haqida ma'lumot
+* Yuklanish muvaffaqiyatli bo'lsa, tasdiqlovchi xabar
 
- `-f /katalog/Dockerfile` qilib path beriladi.
+### docker search
+
+Docker Hub'dan image qidirish uchun ishlatiladi.
+
+```bash
+# Image qidirish
+docker search nginx
+
+# Faqat official image'lar
+docker search --filter is-official=true nginx
+
+# Stars soni bo'yicha filter
+docker search --filter stars=100 nginx
+```
+
+### docker build
+
+Bu buyruq **Dockerfile** asosida image yaratish uchun ishlatiladi. Bu buyruq Dockerfile joylashgan directory'ni ko'rsatadi va unga asoslangan yangi image'ni yaratadi.
+
 ```bash
 docker build -t image-nomi:tag .
 ```
@@ -86,93 +137,183 @@ docker build -t image-nomi:tag .
 
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/7.png)
 
-* Dockerfileni o'qish va har bir layer(qatlam) uchun bajarilish holati.
-* Image yaratish muvaffaqiyati va identifikatori (sha256).
+Agar Dockerfile buyruqni ishga tushirayotgan directory'da bo'lmasa, `-f` flag bilan path beriladi:
 
----
-Bu buyruq image yangi nom va teg berish uchun ishlatiladi. Bu buyruq imageni klonlash bilan bog'liq emas, shunchaki yangi nom beradi.
 ```bash
-docker tag image-nomi yangi-image-nomi 
+docker build -f /path/to/Dockerfile -t image-nomi:tag .
+```
+
+Natijada:
+* Dockerfile'ni o'qish va har bir layer uchun bajarilish holati
+* Image yaratish muvaffaqiyati va identifikatori (sha256)
+
+Foydali flag'lar:
+
+```bash
+# Build cache'siz yaratish
+docker build --no-cache -t image-nomi:tag .
+
+# Build argument berish
+docker build --build-arg VERSION=1.0 -t image-nomi:tag .
+
+# Target stage (multi-stage build)
+docker build --target builder -t image-nomi:tag .
+```
+
+### docker tag
+
+Bu buyruq image'ga yangi nom va tag berish uchun ishlatiladi. Bu image'ni klonlamaydi, shunchaki yangi nom (reference) beradi.
+
+```bash
+docker tag image-nomi yangi-image-nomi
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/8.png)
 
----
-Bu buyruq esa imageni tizimdan o'chirish uchun ishlatiladi. Agar image biron konteyner tomonidan ishlatilayotgan bo'lsa, o'chirib bo'lmaydi.
+```bash
+# Registry uchun tag berish
+docker tag myapp:latest registry.example.com/myapp:v1.0
+```
+
+### docker rmi
+
+Bu buyruq image'ni tizimdan o'chirish uchun ishlatiladi. Agar image biron container tomonidan ishlatilayotgan bo'lsa, o'chirib bo'lmaydi.
 
 ```bash
-docker rmi image-nomi:teg
+docker rmi image-nomi:tag
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/9.png)
 
----
-Bu buyruq docker imageni arxiv fayli sifatida saqlash uchun ishlatiladi. Bu buyruq imageni **.tar** formatida saqlaydi.
+```bash
+# Majburiy o'chirish (force)
+docker rmi -f image-nomi:tag
+
+# Bir nechta image o'chirish
+docker rmi image1:tag image2:tag
+
+# Barcha image'larni o'chirish
+docker rmi $(docker images -q)
+```
+
+### docker save va docker load
+
+**`docker save`** — image'ni `.tar` arxiv fayli sifatida saqlash uchun ishlatiladi.
+
 ```bash
 docker save -o image-file.tar image-nomi:tag
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/10.png)
-Bu buryuq ko'pincha internet bo'lmagan serverlarda `.tar` arxiv qilib imagelarni ishlatib load qilib ishlatish uchun ishlatiladi asosan.
 
----
-Bu buyruq esa oldindan saqlangan imageni arxivdan yuklash uchun ishlatiladi. Bu buyruq saqlangan **.tar** faylini qayta Docker imagega yuklaydi.
+Bu buyruq ko'pincha internet bo'lmagan (air-gapped) serverlarda image'larni `.tar` arxiv qilib ko'chirib o'tkazish uchun ishlatiladi.
+
+**`docker load`** — oldindan saqlangan `.tar` faylini qayta Docker image sifatida yuklash uchun ishlatiladi.
+
 ```bash
 docker load -i image-file.tar
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/11.png)
-Yuqorida arxivlagan docker imageni bu buyruq orqali load qilib image qilib olamiz.
 
----
-Bu buyruq image yaratishda ishlatilgan layerlarning (qatlam) tarixini ko'rish imkonini beradi. Har bir layer Dockerfilening bir qatoriga mos keladi.
+```bash
+# Pipe orqali ham ishlatish mumkin
+docker save myapp:latest | gzip > myapp.tar.gz
+gunzip -c myapp.tar.gz | docker load
+```
+
+### docker history
+
+Bu buyruq image yaratishda ishlatilgan layer'larning tarixini ko'rish imkonini beradi. Har bir layer Dockerfile'ning bir instruksiyasiga mos keladi.
+
 ```bash
 docker history image-nomi:tag
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/12.png)
 
----
-Bu buyruq image yoki konteyner haqida batafsil ma'lumot olish uchun ishlatiladi. Bu buyruq **JSON** formatida barcha texnik ma'lumotlarni ko'rsatadi.
 ```bash
-docker inspect image-nomi:tag 
+# To'liq buyruqlarni ko'rish (truncate qilmasdan)
+docker history --no-trunc image-nomi:tag
+```
+
+### docker inspect
+
+Bu buyruq image yoki container haqida batafsil texnik ma'lumot olish uchun ishlatiladi. Natija **JSON** formatida qaytariladi.
+
+```bash
+docker inspect image-nomi:tag
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/13.png)
 
-## Konteynerlar bilan ishlash
-
-Bu buyruq faol holatdagi konteynerlar ro'yxatini ko'rsatadi. Konteynerlarning **ID**'si, nomi, image nomi, holati va portlari haqida ma'lumot beradi.
 ```bash
-docker ps 
+# Muayyan ma'lumotni olish (Go template)
+docker inspect --format='{{.Config.ExposedPorts}}' image-nomi
+
+# Image hajmini ko'rish
+docker inspect --format='{{.Size}}' image-nomi
+```
+
+---
+
+## Container'lar bilan ishlash
+
+### docker ps
+
+Bu buyruq faol holatdagi container'lar ro'yxatini ko'rsatadi.
+
+```bash
+docker ps
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/14.png)
 
-Natijada siz har bir konteyner uchun **ID**, **IMAGE**, **COMMAND**, **CREATED**, **STATUS**, **PORTS** va **NAMES** ustunlari ko'rishingiz mumkin.
+Natijada siz har bir container uchun **ID**, **IMAGE**, **COMMAND**, **CREATED**, **STATUS**, **PORTS** va **NAMES** ustunlarini ko'rishingiz mumkin.
 
----
-Bu buyruq barcha konteynerlarni (faollari va to'xtatilganlari) ko'rsatadi.
+Barcha container'larni (faollari va to'xtatilganlari) ko'rsatish uchun `-a` flag ishlatiladi:
+
 ```bash
-dockewr ps -a
+docker ps -a
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/15.png)
-Natijada to'xtatilgan konteynerlar ham ko'rsatiladi, ularning **ID**'si, holati va boshqa ma'lumotlari mavjud, bu holatda bizda redis to'xtailgan konteyner hisoblanadi.
 
----
-Bu buyruq yangi konteynerni imagedan yaratish va ishga tushirish uchun ishlatiladi. Agar image tizimda mavjud bo'lmasa, deafult holda avval `docker pull` orqali docker hub dan yuklanadi.
+Natijada to'xtatilgan container'lar ham ko'rsatiladi. Bu holatda `redis` to'xtatilgan container hisoblanadi.
+
+```bash
+# Faqat container ID'larini ko'rish
+docker ps -q
+
+# Oxirgi yaratilgan container
+docker ps -l
+
+# Filter bilan
+docker ps --filter "status=exited"
+docker ps --filter "name=redis"
+
+# Custom format
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+```
+
+### docker run
+
+Bu buyruq yangi container'ni image'dan yaratish va ishga tushirish uchun ishlatiladi. Agar image tizimda mavjud bo'lmasa, default holda avval `docker pull` orqali Docker Hub'dan yuklanadi.
+
 ```bash
 docker run image-nomi:tag
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/16.png)
 
-Konteyner yaratiladi va terminalga biriktiriladi.
+Container yaratiladi va terminal'ga biriktiriladi.
 
----
+#### Detached mode (-d)
 
-Bu buyruq esa konteynerni fon rejimida (detach) ishga tushirish uchun ishlatiladi, ya'ni terminal bilan bog'lanmagan holda ishga tushadi.
+Container'ni background'da (detach) ishga tushirish uchun `-d` flag ishlatiladi — terminal bilan bog'lanmagan holda ishlaydi.
+
 ```bash
 docker run -d image-nomi:tag
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/17.png)
-Konteyner fon rejimida ishga tushadi va terminalda konteyner **ID**'si ko'rsatiladi siz `docker ps` orqali ko'rishingiz mumkin
 
----
+Container background'da ishga tushadi va terminal'da container **ID**'si ko'rsatiladi. `docker ps` orqali ko'rishingiz mumkin.
 
-Bu buyruq interaktiv rejimda konteynerni ishga tushiradi va terminalni konteynerga biriktiradi. Konteyner ichida boshqarishni qo'lga olasiz, yani container ichida container consoli ochiladi )).
+#### Interactive mode (-it)
+
+Interactive rejimda container'ni ishga tushiradi va terminal'ni container'ga biriktiradi. Container ichida console ochiladi.
+
 ```bash
 docker run -it image-nomi /bin/bash
 # yoki
@@ -180,94 +321,99 @@ docker run -it image-nomi /bin/sh
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/18.png)
 
-Konteyner ichida interaktiv sessiya ochiladi, bu orqali konteynerda buyruqlarni bajarasiz.
+Container ichida interactive sessiya ochiladi, bu orqali container'da buyruqlarni bajarasiz.
 
----
+#### Port mapping (-p)
 
-Bu buyruq faol holatdagi konteynerni tartibli to'xtatish uchun ishlatiladi. Ushbu buyruq konteynerga signal yuboradi va u to'xtaydi. Konteynerni to'xtataish uchun ishlatiladi.
-```bash
-docker stop container-nomi
-```
-![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/19.png)
-
-Rasmda konteyner faoliyatini to'xtatadi.
-
----
-
-Ushbu buyruq to'xtatilgan konteynerni qayta ishga tushirish uchun ishlatiladi.
-```bash
-docker start container-nomi
-```
-![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/20.png)
-
-Natijada konteyner yana faol holatda ishlay boshlaydi.
-
----
-
-Bu buyruq konteynerni qayta ishga tushirish(restart) uchun ishlatiladi. Ushbu buyruq konteynerni to'xtatib, keyin yana ishga tushiradi. Konteyneringiz ishlamay qolsa restart bervoring )).
+Host portini container portiga ulash:
 
 ```bash
-docker restart container-nomi
+# host_port:container_port
+docker run -d -p 8080:80 nginx
+
+# Bir nechta port
+docker run -d -p 8080:80 -p 8443:443 nginx
+
+# Faqat localhost'da ochish
+docker run -d -p 127.0.0.1:8080:80 nginx
+
+# Random host port
+docker run -d -p 80 nginx
 ```
-![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/21.png)
-Natijada konteyner to'xtatiladi va darhol qayta ishga tushiriladi.
 
----
+#### Volume mount (-v)
 
-Bu buyruq Konteynerni darhol to'xtatish uchun ishlatiladi. Bu buyruq signal yuborib, konteynerni zo'rlik bilan majburan to'xtatadi.
-```bash
-docker kill container-nomi
-```
-![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/22.png)
-Natijada konteyner favqulodda to'xtatiladi.
+Container'ga volume ulash:
 
----
-
-Bu buyruq to'xtatilgan konteynerni tizimdan o'chirish uchun ishlatiladi. Faol holatdagi konteynerni o'chirib bo'lmaydi, avval `docker stop` yoki `docker kill` bilan to'xtatish kerak.
-```bash
-docker rm container-nomi
-```
-![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/23.png)
----
-
-Bu buyruq ishlayotgan konteyner ichiga kirib, interaktiv buyruqlarni bajarish imkonini beradi. Agar konteynerda `bash` yo'q bo'lsa, `sh` ishlatiladi.
-```bash
-docker exec -it container-nomi /bin/bash
-# yoki
-docker exec -it container-nomi /bin/sh
-```
-![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/24.png)
-Natijada konteyner ichida interaktiv terminal sessiyasi ochiladi va siz container ichida ishlayverasiz mezza qilib ))
-
----
-
-Bu buyruq konteynerning loglarini ko'rish imkonini beradi. Bu buyruq yordamida konteyner faoliyati davomida chiqarilgan ma'lumotlarni ko'rishingiz mumkin. Konteynerdagi applicationingiz ishlamay qolsa sizga aniq kerak bo'ladi ))
-```bash
-docker logs container-nomi
-```
-![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/25.png)
-
-Rasmda `redis` kontaeyneri loglarini ko'rsatilgan.
-
----
-
-Konteynerga volume ulash uchun ishlatiladi. Bu buyruq yordamida konteynerning ma'lum bir katalogiga volumeni ulaysiz va bu katalogdagi ma'lumotlar konteyner o'chirilgandan keyin ham saqlanadi.
 ```bash
 docker run -v volume:/path image-nomi
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/26.png)
-Bu buyruq bir nechta parametrlar bilan ishlaydi:
 
-* `-d (detach mode)` — Konteynerni fon rejimida ishga tushiradi, ya'ni terminalga bog'lanmaydi va orqa fonda ishlaydi.
+#### Environment variables (-e)
 
-* `-p 8081:8081` — Lokal hostning 8081 portini konteyner ichidagi 8081 portiga ulanadi. Bu orqali host tizimingizda http://localhost:8081 manzili orqali konteyner veb-interfeysiga kirish mumkin bo'ladi.
+Container ishga tushganda environment variable'lar o'rnatish:
 
-* `--name nexus` — Konteynerga `nexus` nomini beradi. Bu nom keyinchalik konteynerni boshqarishda ishlatilishi mumkin (start, stop, restart va boshqalar).
+```bash
+docker run --name mysql-server -e MYSQL_ROOT_PASSWORD=FL20315dl2w132 -d mysql:latest
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/28.png)
 
-* `-v /mnt/nexus-data:/nexus-data` — Host tizimdagi `/mnt/nexus-dat`a katalogini konteyner ichidagi `/nexus-data` katalogiga ulaydi. Bu konteyner ma'lumotlarining persistent storageni ta'minlaydi, shunda konteyner o'chirilganda ham ma'lumotlar saqlanib qoladi.
+`-e MYSQL_ROOT_PASSWORD=FL20315dl2w132` — MySQL root foydalanuvchisi uchun parolni belgilaydi.
 
-* `sonatype/nexus3` — Ishga tushirilayotgan Docker image. Bu yerda `sonatype/nexus3` — Nexus Repository Manager'ning 3-versiyasiga tegishli image.
----
+```bash
+# Bir nechta environment variable
+docker run -e DB_HOST=localhost -e DB_PORT=5432 image-nomi
+
+# Fayldan environment variable'larni yuklash
+docker run --env-file .env image-nomi
+```
+
+<Callout type="info" emoji="">
+`--env-file` flag juda foydali — production'da parol va secret'larni command line'da ko'rsatmaslik uchun `.env` fayldan yuklash xavfsizroq.
+</Callout>
+
+#### Name (--name)
+
+Container'ga nom berish:
+
+```bash
+docker run -d --name my-redis redis:latest
+```
+
+#### Restart policy (--restart)
+
+Container to'xtab qolsa nima qilish kerakligini belgilaydi:
+
+```bash
+docker run -d --restart always image-nomi
+```
+
+| Policy | Tavsif |
+|--------|--------|
+| `no` | Restart qilmaydi (default) |
+| `on-failure` | Faqat xato bilan to'xtasa restart qiladi |
+| `on-failure:5` | Maksimum 5 marta restart qiladi |
+| `always` | Har doim restart qiladi (Docker daemon restart bo'lganda ham) |
+| `unless-stopped` | `always` kabi, lekin qo'lda to'xtatilgan bo'lsa restart qilmaydi |
+
+#### Auto-remove (--rm)
+
+Container to'xtaganda avtomatik o'chiriladi — test va vaqtinchalik ishlar uchun juda foydali:
+
+```bash
+docker run --rm -it ubuntu:24.04 /bin/bash
+```
+
+#### Resource limits
+
+Container uchun CPU va memory cheklash:
+
+```bash
+docker run -d --cpus 2 --memory 512m --memory-swap 1g image-nomi
+```
+
+#### Murakkab docker run namunalari
 
 ```bash
 sudo docker run -d -p 3000:3000 --name devops-journey --restart always devopsjourneyuz/devops-journey-uz:latest
@@ -276,383 +422,770 @@ sudo docker run -d -p 3000:3000 --name devops-journey --restart always devopsjou
 
 Bu buyruq bir nechta parametrlar bilan ishlaydi:
 
-* `-d` — konteynerni fon rejimida ishga tushiradi.
-* `-p 3000:3000` — lokal mashinaning 3000-portini konteynerning 3000-portiga ulanadi.
-* `--name devops-journey` — konteynerga "devops-journey" nomini beradi, shunda keyinchalik konteyner bilan ishlashda bu nomdan foydalanish mumkin bo'ladi.
-* `--restart always` — konteyner to'xtab qolsa, u avtomatik ravishda qayta ishga tushiriladi.
-* `devopsjourneyuz/devops-journey-uz:latest` — Docker Hub yoki boshqa registrydan `devops-journey-uz:latest` imageni yuklab, ishga tushiradi.
+* `-d` — container'ni background'da ishga tushiradi
+* `-p 3000:3000` — lokal mashinaning 3000-portini container'ning 3000-portiga ulaydi
+* `--name devops-journey` — container'ga "devops-journey" nomini beradi
+* `--restart always` — container to'xtab qolsa, avtomatik qayta ishga tushiradi
+* `devopsjourneyuz/devops-journey-uz:latest` — Docker Hub'dan `devops-journey-uz:latest` image'ni yuklab ishga tushiradi
 
 ---
 
-Bu buyruq konteyner ishga tushganda unga muhit o'zgaruvchilarni (environment variables) o'rnatish orqali ishlatish mumkin.
+Volume bilan murakkab namuna:
+
+Bu buyruq bir nechta parametrlar bilan ishlaydi:
+
+* `-d (detach mode)` — container'ni background'da ishga tushiradi
+* `-p 8081:8081` — lokal host'ning 8081 portini container ichidagi 8081 portiga ulaydi. Bu orqali host tizimingizda `http://localhost:8081` manzili orqali container web-interfeysiga kirish mumkin
+* `--name nexus` — container'ga `nexus` nomini beradi
+* `-v /mnt/nexus-data:/nexus-data` — host tizimdagi `/mnt/nexus-data` directory'sini container ichidagi `/nexus-data` directory'siga ulaydi. Bu persistent storage'ni ta'minlaydi — container o'chirilganda ham ma'lumotlar saqlanib qoladi
+* `sonatype/nexus3` — Nexus Repository Manager'ning 3-versiyasiga tegishli image
+
+### docker stop / docker start / docker restart
+
+**`docker stop`** — faol container'ni tartibli to'xtatish uchun ishlatiladi. Container'ga `SIGTERM` signal yuboriladi va graceful shutdown qiladi.
+
 ```bash
-docker run --name mysql-server -e MYSQL_ROOT_PASSWORD=FL20315dl2w132 -d mysql:latest
+docker stop container-nomi
 ```
-![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/28.png)
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/19.png)
 
-Rasmdagi namunada `-e MYSQL_ROOT_PASSWORD=FL20315dl2w132`  MySQL root foydalanuvchisi uchun parolni belgilaydi. `-e` bu muhit o'zgaruvchisini (environment variable) o'rnatadi.
+```bash
+# Timeout bilan (default 10 soniya)
+docker stop -t 30 container-nomi
 
-## Volumelar bilan ishlash
+# Bir nechta container'ni to'xtatish
+docker stop container1 container2 container3
 
-Volumelar bilan ishlash Dockerda konteynerlarga doimiy saqlash (persistent storage) imkonini beradi. Volumelar konteynerlar o'chirilganda yoki qayta ishga tushirilganda ham ma'lumotlarni saqlab qoladi. Quyida volumelar bilan ishlash bo'yicha asosiy buyruqlar va ularning misollarini ko'rib chiqamiz.
+# Barcha container'larni to'xtatish
+docker stop $(docker ps -q)
+```
 
+**`docker start`** — to'xtatilgan container'ni qayta ishga tushirish uchun ishlatiladi.
 
-Bu buyruq tizimda yaratilgan barcha volumelarni ro'yxatini ko'rsatadi.
+```bash
+docker start container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/20.png)
+
+Natijada container yana faol holatda ishlay boshlaydi.
+
+**`docker restart`** — container'ni qayta ishga tushirish (stop + start) uchun ishlatiladi.
+
+```bash
+docker restart container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/21.png)
+
+Natijada container to'xtatiladi va darhol qayta ishga tushiriladi.
+
+### docker kill
+
+Container'ni darhol majburiy to'xtatish uchun ishlatiladi. Bu buyruq `SIGKILL` signal yuboradi — container graceful shutdown qilmasdan to'xtaydi.
+
+```bash
+docker kill container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/22.png)
+
+<Callout type="info" emoji="">
+**`docker stop` vs `docker kill` farqi:**
+- `docker stop` — `SIGTERM` yuboradi, container graceful shutdown qilishi uchun vaqt beradi (default 10s). Agar shu vaqt ichida to'xtamasa, `SIGKILL` yuboriladi
+- `docker kill` — darhol `SIGKILL` yuboradi, container majburan to'xtatiladi
+- Odatda `docker stop` ishlatiladi. `docker kill` faqat container javob bermay qolgan holatlarda ishlatiladi
+</Callout>
+
+### docker rm
+
+To'xtatilgan container'ni tizimdan o'chirish uchun ishlatiladi. Faol container'ni o'chirib bo'lmaydi — avval `docker stop` yoki `docker kill` bilan to'xtatish kerak.
+
+```bash
+docker rm container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/23.png)
+
+```bash
+# Majburiy o'chirish (ishlayotgan bo'lsa ham)
+docker rm -f container-nomi
+
+# Barcha to'xtatilgan container'larni o'chirish
+docker rm $(docker ps -aq --filter "status=exited")
+```
+
+### docker exec
+
+Ishlayotgan container ichiga kirib buyruqlarni bajarish imkonini beradi. Agar container'da `bash` yo'q bo'lsa, `sh` ishlatiladi.
+
+```bash
+docker exec -it container-nomi /bin/bash
+# yoki
+docker exec -it container-nomi /bin/sh
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/24.png)
+
+Natijada container ichida interactive terminal sessiyasi ochiladi.
+
+```bash
+# Bitta buyruq bajarish (interactive bo'lmasdan)
+docker exec container-nomi ls -la /app
+
+# Root sifatida kirish
+docker exec -u root -it container-nomi /bin/bash
+
+# Environment variable bilan
+docker exec -e MY_VAR=hello container-nomi env
+
+# Working directory belgilash
+docker exec -w /app container-nomi pwd
+```
+
+### docker logs
+
+Container'ning log'larini ko'rish imkonini beradi. Application ishlamay qolsa yoki debug qilish kerak bo'lsa, bu buyruq juda kerak.
+
+```bash
+docker logs container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/25.png)
+
+Rasmda `redis` container'i log'lari ko'rsatilgan.
+
+```bash
+# Real-time log'larni kuzatish (follow)
+docker logs -f container-nomi
+
+# Oxirgi N qator
+docker logs --tail 100 container-nomi
+
+# Vaqt bo'yicha filter
+docker logs --since 2h container-nomi
+docker logs --since "2024-01-01T00:00:00" container-nomi
+
+# Timestamp bilan
+docker logs -t container-nomi
+
+# Follow + tail kombinatsiyasi
+docker logs -f --tail 50 container-nomi
+```
+
+<Callout type="info" emoji="">
+**`docker logs -f`** — eng ko'p ishlatiladigan variant. Real-time'da container log'larini kuzatish uchun juda foydali. `Ctrl+C` bilan chiqish mumkin.
+</Callout>
+
+### docker port
+
+Container'ning port mapping'larini ko'rish uchun:
+
+```bash
+docker port container-nomi
+```
+
+Natijada container'ning qaysi port'lari host'ning qaysi port'lariga ulanganligi ko'rsatiladi.
+
+---
+
+## Volume'lar bilan ishlash
+
+Volume'lar Docker'da container'larga persistent storage imkonini beradi. Volume'lar container'lar o'chirilganda yoki qayta ishga tushirilganda ham ma'lumotlarni saqlab qoladi.
+
+### docker volume ls
+
+Tizimda yaratilgan barcha volume'lar ro'yxatini ko'rsatadi.
+
 ```bash
 docker volume ls
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/29.png)
 
----
+### docker volume create
 
-Bu buyruq yangi volume yaratish uchun ishlatiladi. Bu volume keyinchalik konteynerlarga ulanish uchun ishlatiladi.
+Yangi volume yaratish uchun ishlatiladi.
+
 ```bash
 docker volume create volume-nomi
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/30.png)
 
----
+### docker volume rm
 
-Bu buyruq mavjud volumeni tizimdan o'chirish uchun ishlatiladi. Agar volume biron konteyner tomonidan ishlatilayotgan bo'lsa, uni o'chirib bo'lmaydi.
+Mavjud volume'ni tizimdan o'chirish uchun ishlatiladi. Agar volume biron container tomonidan ishlatilayotgan bo'lsa, o'chirib bo'lmaydi.
+
 ```bash
 docker volume rm volume-nomi
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/31.png)
----
 
-Bu buyruq Docker tizimida foydalanilmayotgan volumelarni o'chiradi. Agar volume biror konteyner tomonidan ishlatilmayotgan bo'lsa, u tizimdan olib tashlanadi. Bu tizim bo'sh joyini optimallashtirishga yordam beradi.
+### docker volume prune
+
+Foydalanilmayotgan volume'larni o'chiradi. Agar volume biror container tomonidan ishlatilmayotgan bo'lsa, tizimdan olib tashlanadi.
+
 ```bash
 docker volume prune
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/32.png)
----
 
-Bu buyruq tizimdagi barcha volumelarni o'chirish uchun ishlatiladi. Bu yerda `docker volume ls -q` barcha volumelarni faqat `ID`'si bilan ro'yxatlaydi, va bu ro'yxatni `docker volume rm` yordamida o'chiradi.
+Barcha volume'larni o'chirish:
+
 ```bash
 docker volume rm $(docker volume ls -q)
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/33.png)
-Agar siz barcha volumelarni tezda o'chirish kerak bo'lsa sizga bu buyruq kerak bo'ladi.
 
----
+### docker volume inspect
 
-Bu buyruq volume haqida texnik ma'lumotlar, volumening joylashuvi, mountpointlari kabi ma'lumotlarni qaytaradi.
+Volume haqida texnik ma'lumotlar — joylashuvi, mountpoint'lari kabi ma'lumotlarni ko'rsatadi.
+
 ```bash
 docker volume inspect volume-nomi
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/34.png)
 
----
+### Volume'ni container'ga ulash
 
-Bu buyruq konteynerga volumeni ulash va shu volume orqali ma'lumotlarni konteynerdan tashqarida saqlash uchun ishlatiladi. Konteyner ichidagi katalog volume bilan bog'lanadi va volumeda saqlangan ma'lumotlar konteynerdan o'chirilgandan keyin ham mavjud bo'ladi.
+#### Named volume
+
+Named volume yaratib container'ga ulash — eng tavsiya etiladigan usul:
+
 ```bash
 docker run -v volume-nomi:/data busybox
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/35.png)
 
-Bu misolda `mysql-volume` volume konteynerdagi `/var/lib/mysql` katalogiga ulanadi va konteynerdagi barcha ma'lumotlar volumeda saqlanadi.
+Bu misolda `mysql-volume` volume container'dagi `/var/lib/mysql` directory'siga ulanadi va container'dagi barcha ma'lumotlar volume'da saqlanadi.
 
----
+#### Bind mount (Host Path)
 
-Bind mount (Host Path) bilan volume ulash hostdagi katalogni konteynerdagi katalogga ulash uchun bind mountdan foydalaniladi.
+Host'dagi directory'ni container'dagi directory'ga ulash uchun bind mount ishlatiladi:
 
 ```bash
-docker run -v /host/path:/container/path <image>
+docker run -v /host/path:/container/path image-nomi
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/26.png)
 
-Bu holatda host tizimidagi `mnt/nexus-data` katalogi konteynerdagi nexus servisining `nexus/data`ga ulanadi. Shu bilan, hostdagi katalogdagi fayllar konteyner ichidagi `/nexus-data` kataloga xizmat ko'rsatiladi.
-Bind mount yordamida konteyner va host tizim o'rtasida real vaqtda ma'lumot almashinuvini tashkil qilish mumkin.
+Bu holatda host tizimdagi `/mnt/nexus-data` directory'si container'dagi `/nexus-data` directory'siga ulanadi. Bind mount yordamida container va host tizim o'rtasida real-time ma'lumot almashinuvini tashkil qilish mumkin.
+
+<Callout type="info" emoji="">
+**Named volume vs Bind mount:**
+- **Named volume** — Docker tomonidan boshqariladi, portable, backup qilish oson. Production uchun tavsiya etiladi
+- **Bind mount** — host filesystem'ga to'g'ridan-to'g'ri bog'lanadi, development'da source code mount qilish uchun qulay
+- **Read-only mount**: `-v /host/path:/container/path:ro` — container ichidan faqat o'qish mumkin
+</Callout>
+
+---
 
 ## Docker Network bilan ishlash
 
-Docker networklari konteynerlar orasidagi aloqani ta'minlash va izolyatsiyalangan muhitda applicationlarni ishga tushirish uchun ishlatiladi. Quyida Docker networklari bilan ishlash uchun asosiy buyruqlar va ularning ishlash tartibi keltirilgan.
+Docker network'lari container'lar orasidagi aloqani ta'minlash va izolyatsiyalangan muhitda applicationlarni ishga tushirish uchun ishlatiladi.
 
 <Callout type="info" emoji="">
-* Docker Networkni yaxshi tushinish uchun quyidagi video qo'llanmani ko'rishni tavsiya qilaman - **[Docker Networking Tutorial (Bridge - None - Host - IPvlan - Macvlan - Overlay)](https://youtu.be/fBRgw5dyBd4?si=_XyPZ-SHrtQpPVrD)**
+Docker Network'ni yaxshi tushunish uchun quyidagi video qo'llanmani ko'rishni tavsiya qilaman — **[Docker Networking Tutorial (Bridge - None - Host - IPvlan - Macvlan - Overlay)](https://youtu.be/fBRgw5dyBd4?si=_XyPZ-SHrtQpPVrD)**
 </Callout>
 
-Bu buyruq hozirgi tizimda mavjud bo'lgan barcha network(tarmoq)lar ro'yxatini ko'rsatadi.
+### Docker network driver'lari
+
+| Driver | Tavsif |
+|--------|--------|
+| `bridge` | Default network. Bitta host'dagi container'lar o'zaro aloqa qiladi |
+| `host` | Container host'ning network'ini to'g'ridan-to'g'ri ishlatadi (port mapping kerak emas) |
+| `none` | Network'siz. Container tashqi dunyo bilan aloqa qilmaydi |
+| `overlay` | Multi-host network (Docker Swarm). Turli server'lardagi container'lar aloqa qiladi |
+| `macvlan` | Container'ga o'zining MAC address beriladi, fizik network'ga to'g'ridan-to'g'ri ulanadi |
+
+### docker network ls
+
+Tizimda mavjud bo'lgan barcha network'lar ro'yxatini ko'rsatadi.
+
 ```bash
 docker network ls
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/36.png)
 
-Natijada siz tarmoqlarning **NETWORK ID**'si, nomi(**NAME**), turi(**DRIVER**) (bridge, host, overlay) va scope (local yoki global)ni ko'rasiz
+Natijada network'larning **NETWORK ID**'si, nomi (**NAME**), turi (**DRIVER**) va scope'ini ko'rasiz.
 
----
+### docker network create
 
-Bu buyruq yangi tarmoq yaratish uchun ishlatiladi. Odatda bridge turidagi tarmoq yaratiladi, bu konteynerlar orasida o'zaro aloqa o'rnatish uchun ishlatiladi.
+Yangi network yaratish uchun ishlatiladi.
 
 ```bash
 docker network create network-nomi
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/37.png)
----
 
-Bu buyruq tarmoq haqida batafsil texnik ma'lumot beradi, jumladan, tarmoqda ulangan konteynerlar ro'yxati va tarmoq sozlamalari.
+```bash
+# Subnet bilan yaratish
+docker network create --subnet=172.20.0.0/16 network-nomi
+
+# Driver belgilash
+docker network create --driver overlay network-nomi
+```
+
+### docker network inspect
+
+Network haqida batafsil texnik ma'lumot beradi — ulangan container'lar ro'yxati va network sozlamalari.
+
 ```bash
 docker network inspect network-nomi
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/38.png)
-Natijada siz Docker networkning **JSON** formatidagi texnik ma'lumotlari, ulangan konteynerlar va boshqa tafsilotlarni ko'rishingiz mumkin.
 
----
+Natijada Docker network'ning **JSON** formatidagi texnik ma'lumotlari, ulangan container'lar va boshqa tafsilotlarni ko'rishingiz mumkin.
 
-Bu buyruq orqali siz konteynerni mavjud tarmoqqa ulash orqali siz konteynerlar orasida o'zaro aloqa o'rnatishingiz mumkin.
+### docker network connect / disconnect
+
+Container'ni mavjud network'ga ulash:
+
 ```bash
 docker network connect network-nomi container-nomi
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/39.png)
-Natijada `redis` konteyneri `redis-network` tarmog'iga ulanadi, buni `docker network inspect network-nomi` orqali ko'rishingiz mumkin
 
----
-Konteynerni tarmoqdan uzish uchun quyidagi buyruq ishlatiladi.
+Natijada `redis` container'i `redis-network` network'iga ulanadi. `docker network inspect network-nomi` orqali tekshirishingiz mumkin.
+
+Container'ni network'dan uzish:
+
 ```bash
 docker network disconnect network-nomi container-nomi
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/40.png)
-Natijada `redis` konteyneri `redis-network` tarmog'idan uziladi, buni `docker network inspect network-nomi` orqali ko'rishingiz mumkin
 
----
+Natijada `redis` container'i `redis-network` network'idan uziladi.
 
-Bu buyruq foydalanilmayotgan tarmoqni tizimdan o'chirish uchun ishlatiladi.
+### docker network rm
+
+Foydalanilmayotgan network'ni tizimdan o'chirish uchun ishlatiladi.
 
 ```bash
-docker network rm network-nomi 
+docker network rm network-nomi
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/41.png)
 
+### Container'ni network bilan ishga tushirish
+
+```bash
+# Muayyan network'da container ishga tushirish
+docker run -d --name redis --network my-network redis:latest
+
+# Container'ga static IP berish
+docker run -d --name redis --network my-network --ip 172.20.0.10 redis:latest
+```
+
+<Callout type="info" emoji="">
+**Muhim:** Bitta network'dagi container'lar bir-birini **container nomi** orqali topa oladi (DNS resolution). Masalan, `my-network` network'ida `redis` nomli container bor bo'lsa, boshqa container `redis:6379` orqali unga ulanishi mumkin.
+</Callout>
+
+---
 
 ## Docker Compose bilan ishlash
 
-**Docker Compose** bir necha servicelarni bir vaqtda boshqarish uchun ishlatiladi. Docker Compose yordamida applicationlarning barcha komponentlarini (masalan, web, db) bir joyda boshqarish mumkin.
+**Docker Compose** bir nechta service'larni bir vaqtda boshqarish uchun ishlatiladi. Docker Compose yordamida applicationlarning barcha komponentlarini (masalan, web, db, cache) bir joyda boshqarish mumkin.
 
 <Callout type="info" emoji="">
-* Docker Composeni yaxshi tushinish uchun quyidagi video qo'llanmani ko'rishni tavsiya qilaman - **[Docker Compose Tutorial for Beginners (Networks - Volumes - Secrets - Postgres - Letsencrypt)](https://youtu.be/YMBT1NguJJw?si=GuZZTuiqtnx9cYFi)**
+Docker Compose'ni yaxshi tushunish uchun quyidagi video qo'llanmani ko'rishni tavsiya qilaman — **[Docker Compose Tutorial for Beginners (Networks - Volumes - Secrets - Postgres - Letsencrypt)](https://youtu.be/YMBT1NguJJw?si=GuZZTuiqtnx9cYFi)**
 </Callout>
 
-Bu buyruq `docker-compose.yml` fayli asosida barcha servicelarni ishga tushiradi. imagelar yaratilib, konteynerlar ishga tushiriladi. Ushbu buyruqni `docker-compose.yml` falybi bor bo'lgan katalogda ishga tushirsih kerak bo'ladi.
+### docker compose up
+
+`docker-compose.yml` fayli asosida barcha service'larni ishga tushiradi. Image'lar yaratilib, container'lar ishga tushiriladi. Bu buyruqni `docker-compose.yml` fayli bor directory'da ishga tushirish kerak.
+
 ```bash
 docker compose up
-#backroundga ishga tushirish uchun
+
+# Background'da ishga tushirish
 docker compose up -d
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/42.png)
-Natijada siz `docker-compose.yml` yozgan servicelaringiz ishgfa tushganini ko'rishingiz mumkin.
 
----
-Bu buyruq barcha servicelarni to'xtatadi va ularning konteynerlarini o'chiradi. Networklar va imagelar saqlab qolinadi, lekin konteynerlar tozalab tashlanadi.
+Natijada `docker-compose.yml` da yozgan service'laringiz ishga tushganini ko'rishingiz mumkin.
+
+```bash
+# Faqat muayyan service'ni ishga tushirish
+docker compose up -d redis
+
+# Image'larni qayta build qilib ishga tushirish
+docker compose up -d --build
+
+# Scale qilish
+docker compose up -d --scale web=3
+```
+
+### docker compose down
+
+Barcha service'larni to'xtatadi va ularning container'larini o'chiradi. Network'lar ham o'chiriladi, lekin volume'lar saqlanib qoladi.
+
 ```bash
 docker compose down
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/43.png)
----
 
-Bu buyruq faol holatdagi barcha servicelar konteynerlarini ro'yxatini ko'rsatadi, `docker ps` ni docker composedagi varianti ))
+```bash
+# Volume'larni ham o'chirish
+docker compose down -v
+
+# Image'larni ham o'chirish
+docker compose down --rmi all
+```
+
+### docker compose ps
+
+Faol holatdagi barcha service container'larini ko'rsatadi.
+
 ```bash
 docker compose ps
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/44.png)
----
 
-Bu buyruq archa konteynerlarning loglarini ko'rish imkonini beradi. Bu buyruq service konteynerlari chiqarayotgan log ma'lumotlarini ko'rsatadi, `docker logs` ni dockewr compsedagi varianti ))
+### docker compose logs
+
+Barcha container'larning log'larini ko'rish imkonini beradi.
+
 ```bash
 docker compose logs
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/45.png)
----
 
-Bu buyruq esa muayyan service konteyneriga kirib, unda buyruqlarni bajarish imkonini beradi. Bu usul bilan faol konteyner ichida interaktiv tarzda ishlash mumkin.
+```bash
+# Real-time follow
+docker compose logs -f
+
+# Muayyan service log'lari
+docker compose logs -f web
+
+# Oxirgi N qator
+docker compose logs --tail 50
+```
+
+### docker compose exec
+
+Muayyan service container'iga kirib buyruqlarni bajarish imkonini beradi.
+
 ```bash
 docker compose exec web /bin/bash
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/46.png)
----
 
-Bu buyruq barcha servicelarni to'xtatish uchun ishlatiladi. Konteynerlar saqlanadi, lekin servicelar to'xtaydi.
+### docker compose stop
+
+Barcha service'larni to'xtatish uchun ishlatiladi. Container'lar saqlanadi, lekin service'lar to'xtaydi.
+
 ```bash
 docker compose stop
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/47.png)
 
+### docker compose build
+
+Service'lar uchun image'larni build qilish:
+
+```bash
+# Barcha service'larni build qilish
+docker compose build
+
+# Muayyan service'ni build qilish
+docker compose build web
+
+# Cache'siz build
+docker compose build --no-cache
+```
+
+### docker compose pull
+
+Registry'dan image'larni yangilash:
+
+```bash
+docker compose pull
+```
+
+### docker compose config
+
+`docker-compose.yml` faylini validatsiya qilish va yakuniy konfiguratsiyani ko'rish:
+
+```bash
+docker compose config
+```
+
+Bu buyruq YAML syntax xatolarini topishda juda foydali.
+
+---
+
+## Docker Registry bilan ishlash
+
+Docker Registry — bu Docker image'larini saqlash, yuklash va ulardan foydalanish uchun mo'ljallangan tizim. Docker Hub eng mashhur public Docker registry hisoblanadi, lekin siz private Docker registry ham o'rnatishingiz mumkin — masalan Harbor, Nexus yoki cloud provider'lar (GCR, ECR, ACR).
+
+### docker login
+
+Docker registry'ga kirish uchun ishlatiladi. Login va parol so'raladi.
+
+```bash
+docker login -u user-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/54.png)
+
+Private Container Registry uchun:
+
+```bash
+docker login registry.example.com -u user-name
+```
+
+### docker logout
+
+Docker registry'dan chiqish uchun ishlatiladi.
+
+```bash
+docker logout
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/55.png)
+
+### docker push
+
+Docker image'ni registry'ga yuklash uchun ishlatiladi. Image nomi `registry/repository:tag` formatida bo'lishi kerak.
+
+```bash
+docker push registry/repo-name/image-nomi:tag
+```
+
+Rasmda `redis:latest` image'ga `ismoilovdev/redis-test:latest` tag berib Docker Hub'ga push qilish ko'rsatilgan:
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/57.png)
+
+Container Registry'ga docker image push qilish:
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/56.png)
+
+Docker image'ni push qilganingizdan keyin Container Registry'da paydo bo'lishi kerak — bizning holatda Docker Hub'da:
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/58.png)
+
+### docker pull (Registry'dan)
+
+Docker registry'dan image yuklab olish uchun ishlatiladi. Tag ko'rsatilmasa, `latest` tag yuklanadi.
+
+```bash
+docker pull repo-name/image-nomi:tag
+```
+
+Docker Hub'dan pull qilish:
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/59.png)
+
+GCR (Google Container Registry) dan pull qilish — `registry-manzili/repo-nomi/image-nomi:tag` formatida:
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/60.png)
+
+---
+
 ## Docker tozalash (Clean up)
-Docker tizimida foydalanilmayotgan yoki keraksiz resurslarni tozalash uchun bir nechta buyruqlar mavjud. Ular tizimni optimallashtirish va disk joyini bo'shatish uchun ishlatiladi.
 
+Docker tizimida foydalanilmayotgan yoki keraksiz resource'larni tozalash uchun bir nechta buyruqlar mavjud. Ular tizimni optimallashtirish va disk joyini bo'shatish uchun ishlatiladi.
 
-Bu buyruq Docker tizimida keraksiz bo'lgan barcha resurslarni — to'xtatilgan konteynerlar, foydalanilmayotgan imagelar, volumelar va networklarni tozalash uchun ishlatiladi.
+### docker system prune
+
+Docker tizimida keraksiz bo'lgan barcha resource'larni — to'xtatilgan container'lar, foydalanilmayotgan image'lar va network'larni tozalash uchun ishlatiladi.
+
 ```bash
 docker system prune
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/48.png)
----
 
+### docker container prune
 
-Bu buyruq to'xtatilgan barcha konteynerlarni tizimdan o'chiradi. Foydalanilmayotgan konteynerlarni tezda tozalash uchun qulay buyruq.
+To'xtatilgan barcha container'larni tizimdan o'chiradi.
+
 ```bash
 docker container prune
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/49.png)
----
 
-Bu buyruq foydalanilmayotgan volumelarni o'chirish uchun ishlatiladi. Volumelar, agar hech qanday konteyner ulab ishlatilmasa, tizimda bo'sh joy egallaydi.
+### docker volume prune
+
+Foydalanilmayotgan volume'larni o'chirish uchun ishlatiladi.
+
 ```bash
 docker volume prune
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/50.png)
----
 
-Bu buyruq foydalanilmayotgan imagelarni tizimdan o'chiradi. Bu imagelar hech qanday konteyner tomonidan ishlatilmaydi.
+### docker image prune
+
+Foydalanilmayotgan image'larni tizimdan o'chiradi.
+
 ```bash
 docker image prune
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/51.png)
----
 
-Bu buyruq foydalanilmayotgan networklarni o'chirish uchun ishlatiladi. Agar network biror konteyner tomonidan ishlatilmayotgan bo'lsa, uni tizimdan olib tashlaydi.
+### docker network prune
+
+Foydalanilmayotgan network'larni o'chirish uchun ishlatiladi.
+
 ```bash
 docker network prune
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/52.png)
----
 
-Bu buyruq Docker tizimida mavjud bo'lgan barcha keraksiz resurslarni o'chirish uchun ishlatiladi. `-af` parametrlarining ma'nosi quyidagicha:
+### docker system prune -af
 
-* `-a (all)` — Foydalanilmagan barcha konteynerlar, image, volume va networklarni o'chirish. Agar bu parametrsiz ishlatilsa, faqat konteynerlar va resurslar tizimda foydalanilmagan bo'lsa o'chiriladi. `-a` esa foydalanilmagan imagelarni ham o'chiradi.
-* `-f (force)` — Buyruqni tasdiqlash so'rovisiz majburiy tarzda (force) bajarish.
+Barcha keraksiz resource'larni — container'lar, image'lar, volume'lar va network'larni to'liq tozalash uchun:
+
+* `-a (all)` — foydalanilmagan barcha image'larni ham o'chiradi (faqat dangling emas, balki barchasi)
+* `-f (force)` — tasdiqlash so'rovisiz majburiy bajaradi
+
 ```bash
 docker system prune -af
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/53.png)
 
-Ushbu buyruq diskdagi bo'sh joyni maksimal darajada bo'shatadi, lekin ishlayotgan konteynerlar va networklarga zarar yetkazmaydi. Docker musorlarini tezda tozlash uchun ishlatsangiz bo'ladi ))
+Bu buyruq diskdagi bo'sh joyni maksimal darajada bo'shatadi, lekin ishlayotgan container'lar va ularga tegishli resource'larga zarar yetkazmaydi.
 
-## Docker registry bilan ishlash
-
-Docker Registry — bu Docker imagelarini saqlash, yuklash va ulardan foydalanish uchun mo'ljallangan tizim. Docker Hub eng mashhur umumiy Docker registry hisoblanadi, lekin siz xususiy(shaxsiy, private) Docker registry ham o'rnatishingiz mumkin, masalan Harbor Container Registry, Nexus yoki Cloudda GCR ACR ACR.
-
----
-Bu buyruq yordamida Docker registry'ga kirishingiz mumkin. docker login buyruqni ishlatganingizda, sizdan login va parol so'raladi.
-```bash
-docker login -u user-name
-```
-![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/54.png)
-Quyidagi rasmnda qanday qilib Docker Hub registryga kirish ko'rsatilgan.
+<Callout type="warning" emoji="">
+**Ehtiyot bo'ling!** `docker system prune -af` barcha foydalanilmayotgan image'larni o'chiradi. Agar siz image'larni qayta yuklashni xohlamasangiz, avval `docker images` bilan tekshirib oling.
+</Callout>
 
 ---
-
-Agar sizda shaxsiy Container Registry bo'lsa quyidagicha login qilishingiz mumkin.
-```bash
-docker login helm.harbor.uz -u user-name
-```
----
-
-Bu buyruq yordamida Docker registry'dan chiqishingiz(logout) mumkin.
-```bash
-docker logout
-```
-![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/55.png)
----
-
-Bu buyruq Docker imagenini registry'ga yuklash uchun ishlatiladi. Imageni yuklashdan oldin image nomi `registry/repository:tag` formatida bo'lishi kerak.
-```bash
-docker push registry/repo-name/image-nomi:tag
-```
-Rasmda o'zimdagi `resdis:latest` imagega `ismoilovdev/redis-test:latest` tag berib uni yangiladim bu yerda dockerhub bo'lgani uchun username yozdim.
-![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/57.png)
-
-Bu rasmda qanday Container Registryga docker image push qilish ko'rsatilgan
-![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/56.png)
-
-Docker imageni Container Registryga push qilganingizdan keyin Container Registryda u paydoi bo'lishi kerak bizning holatda Dockerhubda docker image paydo bo'ldi
-![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/58.png)
-
----
-
-Bu buyruq Docker registry'dan imageni yuklab olish uchun ishlatiladi. Image nomi va tegi kerak bo'ladi, agar tegi ko'rsatilmasa, `latest` tegi yuklanadi.
-```bash
-docker pull repo-name/image-nomi:tag
-```
-Rasmda Docker Hub dan image pull qilishga namuna
-![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/59.png)
-
-Rasmda GCR Google Conatiner Registry dan pull qilib olish ko'rsatilgan. Rasmga etibor bersangiz `registry-manzili/repo-nomi/image-nomi:tag` ko'rsatilgan bunda `gcr.io/cadvisor/cadvisor:latest`
-![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/60.png)
 
 ## Boshqa foydali buyruqlar
 
-Bu buyruq konteynerlarning ish faoliyatini real vaqt rejimida ko'rish imkonini beradi. CPU, memory, network va disk bloklari bo'yicha o'zgarishlar ko'rsatiladi.
+### docker stats
+
+Container'larning ishlash ko'rsatkichlarini real-time'da ko'rish imkonini beradi — CPU, memory, network va disk I/O.
+
 ```bash
 docker stats
 ```
-Bu buyruq monitoring uchun yaxshi buyruq ))
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/61.png)
 
----
+```bash
+# Muayyan container
+docker stats container-nomi
 
-Bu buyruq konteyner ichida ishlayotgan processlarni ko'rsatadi. Tizimda ishlayotgan `ps` kabi, konteyner ichidagi processlar ro'yxatini beradi.
+# Bir marotaba ko'rish (stream qilmasdan)
+docker stats --no-stream
+```
+
+### docker top
+
+Container ichida ishlayotgan process'larni ko'rsatadi.
+
 ```bash
 docker top container-nomi
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/62.png)
----
 
+### docker cp
 
-Bu buyruq konteynerdan host tizimiga yoki hostdan konteynerga fayl va kataloglarni nusxalash uchun ishlatiladi, yani siz host vm dan docker containerga file yoki katalog copy qilishigiz yoki containerdan host vm ga file katalog copy qilishingiz mumkin.
+Container'dan host tizimiga yoki host'dan container'ga fayl va directory'larni copy qilish uchun ishlatiladi.
+
 ```bash
+# Container'dan host'ga
 docker cp container-nomi:/app/data /home/user/path
+
+# Host'dan container'ga
+docker cp /home/user/file.txt container-nomi:/app/
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/63.png)
----
 
+### docker rename
 
-Bu buyruq ishlayotgan konteynerning nomini o'zgartirish uchun ishlatiladi.
+Ishlayotgan container'ning nomini o'zgartirish uchun ishlatiladi.
+
 ```bash
 docker rename eski-container-nomi yangi-container-nomi
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/64.png)
 
----
+### docker pause / docker unpause
 
-Bu buyruq konteynerdagi barcha processlarni vaqtincha to'xtatadi. Keyin ularni `docker unpause` orqali qayta tiklash mumkin.
+**`docker pause`** — container'dagi barcha process'larni vaqtincha to'xtatadi. Process'larga `SIGSTOP` signal yuboriladi — ular memory'da qoladi, lekin CPU ishlatmaydi.
+
 ```bash
 docker pause container-nomi
 ```
-`docker pause` konteyner ichidagi barcha processlarga `SIGSTOP` signali yuboradi, bu esa processlarni vaqtincha to'xtatadi. Processlar xotirada qoladi, lekin ular `CPU` ishlatmaydi.
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/65.png)
 
----
+**`docker unpause`** — vaqtincha to'xtatilgan container'ni qayta tiklaydi. Process'larga `SIGCONT` signal yuboriladi.
 
-Bu buyruq vaqtincha to'xtatilgan konteynerni qayta ishga tushiradi.
 ```bash
 docker unpause container-nomi
 ```
-`docker unpause` konteyner ichidagi barcha processlarga `SIGCONT` signali yuboradi, bu esa to'xtatilgan processlarni qayta tiklaydi va ular odatdagidek davom etadi.
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/66.png)
 
----
+### docker update
 
-Bu buyruq konteyner ishlayotgan paytda uning resurslarini (CPU va memory cheklovlari) yangilash uchun ishlatiladi.
+Container ishlayotgan paytda resource limit'larni yangilash uchun ishlatiladi.
+
 ```bash
 docker update --cpus 2 --memory 2g --memory-swap 3g container-nomi
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/67.png)
 
----
+```bash
+# Restart policy yangilash
+docker update --restart unless-stopped container-nomi
+```
 
-Docker resurslari (imagelar, konteynerlar, netwroklar, volumelar) tomonidan egallangan disk hajmini ko'rish imkonini beradi.
+### docker system df
+
+Docker resource'lari (image'lar, container'lar, network'lar, volume'lar) tomonidan egallangan disk hajmini ko'rish:
+
 ```bash
 docker system df
 ```
 ![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/68.png)
 
-Bu qo'llanma sizga ancha yordam beradi deb umid qilaman.❤️
+```bash
+# Batafsil ma'lumot
+docker system df -v
+```
+
+### docker diff
+
+Container'da host filesystem'ga nisbatan o'zgargan fayllarni ko'rsatadi:
+
+```bash
+docker diff container-nomi
+```
+
+Natijada:
+* `A` — qo'shilgan (Added) fayl
+* `C` — o'zgartirilgan (Changed) fayl
+* `D` — o'chirilgan (Deleted) fayl
+
+### docker events
+
+Docker daemon event'larini real-time'da kuzatish:
+
+```bash
+# Real-time event'lar
+docker events
+
+# Vaqt bo'yicha filter
+docker events --since 1h
+
+# Container event'lari
+docker events --filter type=container
+```
+
+### docker wait
+
+Container to'xtagunicha kutadi va exit code'ni qaytaradi:
+
+```bash
+docker wait container-nomi
+```
+
+Bu buyruq CI/CD pipeline'larda yoki script'larda container ishini kutish uchun foydali.
+
+---
+
+## Qo'shimcha
 
 <Callout type="info" emoji="">
 
+Qo'shimcha resurslar
+ * [**Docker rasmiy dokumentatsiya**](https://docs.docker.com/)
+ * [**Docker CLI reference**](https://docs.docker.com/reference/cli/docker/)
+ * [**Docker Compose reference**](https://docs.docker.com/compose/reference/)
+ * [**Dockerga Kirish**](https://devops-journey.uz/guides/konteyner/dockerga-kirish)
+ * [**Linux Serverlarga Docker o'rnatish**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+ * [**Dockerfile yozish**](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)
+ * [**Docker Compose**](https://devops-journey.uz/guides/konteyner/docker-compose)
+
 **Sana:** 2024.10.19(2024-yil 19-oktabr)
 
-**Oxirgi yangilanish:** 2024.10.19(2024-yil 19-oktabr)
+**Oxirgi yangilanish:** 2026.02.12(2026-yil 12-fevral)
 
 **Muallif: Otabek Ismoilov**
 

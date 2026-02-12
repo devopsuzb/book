@@ -1,6 +1,1195 @@
 ---
-title: "docker asoslari"
+image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/banner.png
+description: "Mastering Docker: Полное руководство по работе с командами"
+---
+import { Callout } from "nextra-theme-docs";
+
+# Mastering Docker: Полное руководство по работе с командами
+
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/banner.png)
+
+**Docker** — это платформа, позволяющая запускать приложения в изолированных контейнерах, и на сегодняшний день она получила широкое распространение. Docker-контейнеры используются для быстрого и надёжного запуска, развёртывания и управления приложениями. Контейнеры позволяют запускать приложения в изолированной среде, используя общее ядро операционной системы.
+
+Данное руководство охватывает наиболее часто используемые команды при работе с Docker — работа с образами, управление контейнерами, настройка сетей и томов, Docker Compose, работа с реестрами и очистка системы. Понимание этих команд поможет вам эффективно работать с Docker.
+
+<Callout type="info" emoji="">
+* Перед прочтением данного руководства вы должны быть знакомы с Docker. Если вы ещё не знакомы, рекомендуем ознакомиться со следующим руководством — **[Введение в Docker](https://devops-journey.uz/guides/konteyner/dockerga-kirish)**.
+
+* Для полного освоения данного руководства у вас должен быть установлен Docker. Если он ещё не установлен, ознакомьтесь с этим руководством и установите Docker — **[Установка Docker на Linux-серверы](https://devops-journey.uz/guides/konteyner/docker-ornatish)**
+
+* Знание написания Dockerfile также пригодится вам в данном руководстве — **[Написание Dockerfile](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)**
+</Callout>
+
+
+## Основные команды Docker
+
+### docker version
+
+Эта команда используется для проверки установленной версии Docker. Она отображает информацию о версиях **Docker Client** и **Server (Docker daemon)**.
+
+```bash
+docker version
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/1.png)
+
+В результате отображается следующая информация:
+* Номера версий Client и Server
+* Версия API
+* Номер Git-коммита
+* Версия Go
+* Дата сборки и ОС (операционная система)
+
+### docker info
+
+Эта команда предоставляет подробную информацию о Docker daemon.
+
+```bash
+docker info
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/2.png)
+
+В результате отображается следующая информация:
+* Версия Docker
+* Количество имеющихся контейнеров и образов
+* Состояние работы Docker Engine и ограничения памяти
+* Информация о сетях, томах и драйверах хранения
+
+### docker --help
+
+Эта команда используется для получения справочной информации по любым командам Docker. Если вы хотите узнать все параметры и опции определённой команды, используйте эту команду для получения дополнительной информации.
+
+```bash
+docker --help
+
+# Справка по конкретной команде
+docker run --help
+docker build --help
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/3.png)
+
 ---
 
-> Эта статья ещё не переведена на русский язык.
-> Пожалуйста, прочитайте [версию на узбекском](/guides/konteyner/docker-asoslari) или помогите нам с переводом на [GitHub](https://github.com/ismoilovdevml/devops-journey).
+## Работа с образами
+
+### docker images
+
+Эта команда отображает список Docker-образов, имеющихся в текущей системе.
+
+```bash
+docker images
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/4.png)
+
+В результате для каждого образа отображаются следующие столбцы:
+* **REPOSITORY** — имя образа
+* **TAG** — тег версии
+* **IMAGE ID** — уникальный идентификатор образа
+* **CREATED** — время создания
+* **SIZE** — размер
+
+```bash
+# Показать только ID образов
+docker images -q
+
+# Все образы (включая промежуточные слои)
+docker images -a
+
+# С фильтром
+docker images --filter "dangling=true"
+```
+
+### docker pull
+
+Эта команда используется для загрузки образа из Docker Hub или другого реестра. Если тег не указан, Docker автоматически загружает образ с тегом `latest`.
+
+```bash
+docker pull image-nomi:tag
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/5.png)
+
+В результате:
+* Информация о загрузке слоёв образа
+* Подтверждающее сообщение в случае успешной загрузки
+
+### docker search
+
+Используется для поиска образов в Docker Hub.
+
+```bash
+# Поиск образа
+docker search nginx
+
+# Только официальные образы
+docker search --filter is-official=true nginx
+
+# Фильтр по количеству звёзд
+docker search --filter stars=100 nginx
+```
+
+### docker build
+
+Эта команда используется для создания образа на основе **Dockerfile**. Она указывает директорию, в которой расположен Dockerfile, и создаёт на его основе новый образ.
+
+```bash
+docker build -t image-nomi:tag .
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/6.png)
+
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/7.png)
+
+Если Dockerfile находится не в директории запуска команды, путь указывается с помощью флага `-f`:
+
+```bash
+docker build -f /path/to/Dockerfile -t image-nomi:tag .
+```
+
+В результате:
+* Чтение Dockerfile и статус выполнения каждого слоя
+* Успешность создания образа и его идентификатор (sha256)
+
+Полезные флаги:
+
+```bash
+# Создание без кэша сборки
+docker build --no-cache -t image-nomi:tag .
+
+# Передача аргумента сборки
+docker build --build-arg VERSION=1.0 -t image-nomi:tag .
+
+# Целевой этап (multi-stage build)
+docker build --target builder -t image-nomi:tag .
+```
+
+### docker tag
+
+Эта команда используется для присвоения образу нового имени и тега. Она не клонирует образ, а лишь создаёт новое имя (ссылку).
+
+```bash
+docker tag image-nomi yangi-image-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/8.png)
+
+```bash
+# Присвоение тега для реестра
+docker tag myapp:latest registry.example.com/myapp:v1.0
+```
+
+### docker rmi
+
+Эта команда используется для удаления образа из системы. Если образ используется каким-либо контейнером, удалить его нельзя.
+
+```bash
+docker rmi image-nomi:tag
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/9.png)
+
+```bash
+# Принудительное удаление (force)
+docker rmi -f image-nomi:tag
+
+# Удаление нескольких образов
+docker rmi image1:tag image2:tag
+
+# Удаление всех образов
+docker rmi $(docker images -q)
+```
+
+### docker save и docker load
+
+**`docker save`** — используется для сохранения образа в виде архивного файла `.tar`.
+
+```bash
+docker save -o image-file.tar image-nomi:tag
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/10.png)
+
+Эта команда часто используется для переноса образов в виде `.tar`-архивов на серверы без доступа к интернету (air-gapped).
+
+**`docker load`** — используется для загрузки ранее сохранённого `.tar`-файла обратно в качестве Docker-образа.
+
+```bash
+docker load -i image-file.tar
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/11.png)
+
+```bash
+# Также можно использовать через pipe
+docker save myapp:latest | gzip > myapp.tar.gz
+gunzip -c myapp.tar.gz | docker load
+```
+
+### docker history
+
+Эта команда позволяет просмотреть историю слоёв, использованных при создании образа. Каждый слой соответствует одной инструкции Dockerfile.
+
+```bash
+docker history image-nomi:tag
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/12.png)
+
+```bash
+# Просмотр полных команд (без усечения)
+docker history --no-trunc image-nomi:tag
+```
+
+### docker inspect
+
+Эта команда используется для получения подробной технической информации об образе или контейнере. Результат возвращается в формате **JSON**.
+
+```bash
+docker inspect image-nomi:tag
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/13.png)
+
+```bash
+# Получение конкретной информации (Go template)
+docker inspect --format='{{.Config.ExposedPorts}}' image-nomi
+
+# Просмотр размера образа
+docker inspect --format='{{.Size}}' image-nomi
+```
+
+---
+
+## Работа с контейнерами
+
+### docker ps
+
+Эта команда отображает список активных контейнеров.
+
+```bash
+docker ps
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/14.png)
+
+В результате для каждого контейнера вы увидите столбцы **ID**, **IMAGE**, **COMMAND**, **CREATED**, **STATUS**, **PORTS** и **NAMES**.
+
+Для отображения всех контейнеров (активных и остановленных) используется флаг `-a`:
+
+```bash
+docker ps -a
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/15.png)
+
+В результате отображаются также остановленные контейнеры. В данном случае `redis` является остановленным контейнером.
+
+```bash
+# Показать только ID контейнеров
+docker ps -q
+
+# Последний созданный контейнер
+docker ps -l
+
+# С фильтром
+docker ps --filter "status=exited"
+docker ps --filter "name=redis"
+
+# Пользовательский формат
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+```
+
+### docker run
+
+Эта команда используется для создания нового контейнера из образа и его запуска. Если образ отсутствует в системе, по умолчанию он сначала загружается из Docker Hub с помощью `docker pull`.
+
+```bash
+docker run image-nomi:tag
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/16.png)
+
+Контейнер создаётся и привязывается к терминалу.
+
+#### Detached mode (-d)
+
+Для запуска контейнера в фоновом режиме (detach) используется флаг `-d` — контейнер работает без привязки к терминалу.
+
+```bash
+docker run -d image-nomi:tag
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/17.png)
+
+Контейнер запускается в фоновом режиме, и в терминале отображается **ID** контейнера. Его можно увидеть с помощью `docker ps`.
+
+#### Interactive mode (-it)
+
+Запускает контейнер в интерактивном режиме и привязывает терминал к контейнеру. Внутри контейнера открывается консоль.
+
+```bash
+docker run -it image-nomi /bin/bash
+# или
+docker run -it image-nomi /bin/sh
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/18.png)
+
+Внутри контейнера открывается интерактивная сессия, через которую вы можете выполнять команды в контейнере.
+
+#### Port mapping (-p)
+
+Привязка порта хоста к порту контейнера:
+
+```bash
+# host_port:container_port
+docker run -d -p 8080:80 nginx
+
+# Несколько портов
+docker run -d -p 8080:80 -p 8443:443 nginx
+
+# Открытие только на localhost
+docker run -d -p 127.0.0.1:8080:80 nginx
+
+# Случайный порт хоста
+docker run -d -p 80 nginx
+```
+
+#### Volume mount (-v)
+
+Подключение тома к контейнеру:
+
+```bash
+docker run -v volume:/path image-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/26.png)
+
+#### Environment variables (-e)
+
+Установка переменных окружения при запуске контейнера:
+
+```bash
+docker run --name mysql-server -e MYSQL_ROOT_PASSWORD=FL20315dl2w132 -d mysql:latest
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/28.png)
+
+`-e MYSQL_ROOT_PASSWORD=FL20315dl2w132` — задаёт пароль для пользователя root MySQL.
+
+```bash
+# Несколько переменных окружения
+docker run -e DB_HOST=localhost -e DB_PORT=5432 image-nomi
+
+# Загрузка переменных окружения из файла
+docker run --env-file .env image-nomi
+```
+
+<Callout type="info" emoji="">
+Флаг `--env-file` очень полезен — в production-среде загрузка паролей и секретов из файла `.env` вместо указания в командной строке является более безопасным подходом.
+</Callout>
+
+#### Name (--name)
+
+Присвоение имени контейнеру:
+
+```bash
+docker run -d --name my-redis redis:latest
+```
+
+#### Restart policy (--restart)
+
+Определяет поведение при остановке контейнера:
+
+```bash
+docker run -d --restart always image-nomi
+```
+
+| Политика | Описание |
+|----------|----------|
+| `no` | Не перезапускать (по умолчанию) |
+| `on-failure` | Перезапускать только при остановке с ошибкой |
+| `on-failure:5` | Максимум 5 попыток перезапуска |
+| `always` | Всегда перезапускать (даже при перезапуске Docker daemon) |
+| `unless-stopped` | Как `always`, но не перезапускать, если контейнер был остановлен вручную |
+
+#### Auto-remove (--rm)
+
+Контейнер автоматически удаляется при остановке — очень полезно для тестирования и временных задач:
+
+```bash
+docker run --rm -it ubuntu:24.04 /bin/bash
+```
+
+#### Resource limits
+
+Ограничение CPU и памяти для контейнера:
+
+```bash
+docker run -d --cpus 2 --memory 512m --memory-swap 1g image-nomi
+```
+
+#### Примеры сложных команд docker run
+
+```bash
+sudo docker run -d -p 3000:3000 --name devops-journey --restart always devopsjourneyuz/devops-journey-uz:latest
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/27.png)
+
+Эта команда использует несколько параметров:
+
+* `-d` — запускает контейнер в фоновом режиме
+* `-p 3000:3000` — привязывает порт 3000 локальной машины к порту 3000 контейнера
+* `--name devops-journey` — присваивает контейнеру имя "devops-journey"
+* `--restart always` — автоматически перезапускает контейнер при его остановке
+* `devopsjourneyuz/devops-journey-uz:latest` — загружает и запускает образ `devops-journey-uz:latest` из Docker Hub
+
+---
+
+Сложный пример с томом:
+
+Эта команда использует несколько параметров:
+
+* `-d (detach mode)` — запускает контейнер в фоновом режиме
+* `-p 8081:8081` — привязывает порт 8081 локального хоста к порту 8081 внутри контейнера. Через это можно получить доступ к веб-интерфейсу контейнера по адресу `http://localhost:8081` на хост-системе
+* `--name nexus` — присваивает контейнеру имя `nexus`
+* `-v /mnt/nexus-data:/nexus-data` — привязывает директорию `/mnt/nexus-data` хост-системы к директории `/nexus-data` внутри контейнера. Это обеспечивает постоянное хранение — данные сохраняются даже при удалении контейнера
+* `sonatype/nexus3` — образ Nexus Repository Manager версии 3
+
+### docker stop / docker start / docker restart
+
+**`docker stop`** — используется для корректной остановки активного контейнера. Контейнеру отправляется сигнал `SIGTERM`, и он выполняет graceful shutdown.
+
+```bash
+docker stop container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/19.png)
+
+```bash
+# С таймаутом (по умолчанию 10 секунд)
+docker stop -t 30 container-nomi
+
+# Остановка нескольких контейнеров
+docker stop container1 container2 container3
+
+# Остановка всех контейнеров
+docker stop $(docker ps -q)
+```
+
+**`docker start`** — используется для повторного запуска остановленного контейнера.
+
+```bash
+docker start container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/20.png)
+
+В результате контейнер снова начинает работать в активном состоянии.
+
+**`docker restart`** — используется для перезапуска контейнера (stop + start).
+
+```bash
+docker restart container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/21.png)
+
+В результате контейнер останавливается и немедленно перезапускается.
+
+### docker kill
+
+Используется для немедленной принудительной остановки контейнера. Эта команда отправляет сигнал `SIGKILL` — контейнер останавливается без graceful shutdown.
+
+```bash
+docker kill container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/22.png)
+
+<Callout type="info" emoji="">
+**Разница между `docker stop` и `docker kill`:**
+- `docker stop` — отправляет `SIGTERM`, давая контейнеру время на graceful shutdown (по умолчанию 10 с). Если контейнер не остановится за это время, отправляется `SIGKILL`
+- `docker kill` — немедленно отправляет `SIGKILL`, контейнер принудительно останавливается
+- Обычно используется `docker stop`. `docker kill` применяется только в случаях, когда контейнер не отвечает
+</Callout>
+
+### docker rm
+
+Используется для удаления остановленного контейнера из системы. Активный контейнер удалить нельзя — сначала его нужно остановить с помощью `docker stop` или `docker kill`.
+
+```bash
+docker rm container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/23.png)
+
+```bash
+# Принудительное удаление (даже если работает)
+docker rm -f container-nomi
+
+# Удаление всех остановленных контейнеров
+docker rm $(docker ps -aq --filter "status=exited")
+```
+
+### docker exec
+
+Позволяет входить в работающий контейнер и выполнять команды. Если в контейнере нет `bash`, используется `sh`.
+
+```bash
+docker exec -it container-nomi /bin/bash
+# или
+docker exec -it container-nomi /bin/sh
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/24.png)
+
+В результате внутри контейнера открывается интерактивная терминальная сессия.
+
+```bash
+# Выполнение одной команды (без интерактивного режима)
+docker exec container-nomi ls -la /app
+
+# Вход от имени root
+docker exec -u root -it container-nomi /bin/bash
+
+# С переменной окружения
+docker exec -e MY_VAR=hello container-nomi env
+
+# Указание рабочей директории
+docker exec -w /app container-nomi pwd
+```
+
+### docker logs
+
+Позволяет просматривать логи контейнера. Эта команда незаменима, когда приложение перестаёт работать или требуется отладка.
+
+```bash
+docker logs container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/25.png)
+
+На рисунке показаны логи контейнера `redis`.
+
+```bash
+# Отслеживание логов в реальном времени (follow)
+docker logs -f container-nomi
+
+# Последние N строк
+docker logs --tail 100 container-nomi
+
+# Фильтр по времени
+docker logs --since 2h container-nomi
+docker logs --since "2024-01-01T00:00:00" container-nomi
+
+# С временными метками
+docker logs -t container-nomi
+
+# Комбинация follow + tail
+docker logs -f --tail 50 container-nomi
+```
+
+<Callout type="info" emoji="">
+**`docker logs -f`** — наиболее часто используемый вариант. Очень полезен для отслеживания логов контейнера в реальном времени. Выход осуществляется по `Ctrl+C`.
+</Callout>
+
+### docker port
+
+Просмотр привязок портов контейнера:
+
+```bash
+docker port container-nomi
+```
+
+В результате отображается, какие порты контейнера привязаны к каким портам хоста.
+
+---
+
+## Работа с томами
+
+Тома в Docker предоставляют контейнерам возможность постоянного хранения данных. Тома сохраняют данные даже при удалении или перезапуске контейнеров.
+
+### docker volume ls
+
+Отображает список всех томов, созданных в системе.
+
+```bash
+docker volume ls
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/29.png)
+
+### docker volume create
+
+Используется для создания нового тома.
+
+```bash
+docker volume create volume-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/30.png)
+
+### docker volume rm
+
+Используется для удаления существующего тома из системы. Если том используется каким-либо контейнером, удалить его нельзя.
+
+```bash
+docker volume rm volume-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/31.png)
+
+### docker volume prune
+
+Удаляет неиспользуемые тома. Если том не используется ни одним контейнером, он удаляется из системы.
+
+```bash
+docker volume prune
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/32.png)
+
+Удаление всех томов:
+
+```bash
+docker volume rm $(docker volume ls -q)
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/33.png)
+
+### docker volume inspect
+
+Отображает техническую информацию о томе — его расположение, точки монтирования и другие данные.
+
+```bash
+docker volume inspect volume-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/34.png)
+
+### Подключение тома к контейнеру
+
+#### Named volume
+
+Создание именованного тома и подключение его к контейнеру — наиболее рекомендуемый способ:
+
+```bash
+docker run -v volume-nomi:/data busybox
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/35.png)
+
+В данном примере том `mysql-volume` подключается к директории `/var/lib/mysql` контейнера, и все данные контейнера сохраняются в томе.
+
+#### Bind mount (Host Path)
+
+Для привязки директории хоста к директории контейнера используется bind mount:
+
+```bash
+docker run -v /host/path:/container/path image-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/26.png)
+
+В данном случае директория `/mnt/nexus-data` хост-системы привязывается к директории `/nexus-data` контейнера. С помощью bind mount можно организовать обмен данными между контейнером и хост-системой в реальном времени.
+
+<Callout type="info" emoji="">
+**Named volume и Bind mount:**
+- **Named volume** — управляется Docker, портативен, легко создавать резервные копии. Рекомендуется для production
+- **Bind mount** — напрямую привязан к файловой системе хоста, удобен для монтирования исходного кода при разработке
+- **Монтирование только для чтения**: `-v /host/path:/container/path:ro` — внутри контейнера доступно только чтение
+</Callout>
+
+---
+
+## Работа с сетями Docker
+
+Сети Docker используются для обеспечения связи между контейнерами и запуска приложений в изолированной среде.
+
+<Callout type="info" emoji="">
+Для лучшего понимания сетей Docker рекомендуем посмотреть следующее видеоруководство — **[Docker Networking Tutorial (Bridge - None - Host - IPvlan - Macvlan - Overlay)](https://youtu.be/fBRgw5dyBd4?si=_XyPZ-SHrtQpPVrD)**
+</Callout>
+
+### Сетевые драйверы Docker
+
+| Драйвер | Описание |
+|----------|----------|
+| `bridge` | Сеть по умолчанию. Контейнеры на одном хосте взаимодействуют друг с другом |
+| `host` | Контейнер напрямую использует сеть хоста (маппинг портов не требуется) |
+| `none` | Без сети. Контейнер не взаимодействует с внешним миром |
+| `overlay` | Многохостовая сеть (Docker Swarm). Контейнеры на разных серверах взаимодействуют между собой |
+| `macvlan` | Контейнеру назначается собственный MAC-адрес, он подключается напрямую к физической сети |
+
+### docker network ls
+
+Отображает список всех доступных в системе сетей.
+
+```bash
+docker network ls
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/36.png)
+
+В результате вы увидите **NETWORK ID**, имя (**NAME**), тип (**DRIVER**) и область действия (scope) сетей.
+
+### docker network create
+
+Используется для создания новой сети.
+
+```bash
+docker network create network-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/37.png)
+
+```bash
+# Создание с подсетью
+docker network create --subnet=172.20.0.0/16 network-nomi
+
+# Указание драйвера
+docker network create --driver overlay network-nomi
+```
+
+### docker network inspect
+
+Предоставляет подробную техническую информацию о сети — список подключённых контейнеров и параметры сети.
+
+```bash
+docker network inspect network-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/38.png)
+
+В результате вы увидите техническую информацию сети Docker в формате **JSON**, подключённые контейнеры и другие подробности.
+
+### docker network connect / disconnect
+
+Подключение контейнера к существующей сети:
+
+```bash
+docker network connect network-nomi container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/39.png)
+
+В результате контейнер `redis` подключается к сети `redis-network`. Проверить можно с помощью `docker network inspect network-nomi`.
+
+Отключение контейнера от сети:
+
+```bash
+docker network disconnect network-nomi container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/40.png)
+
+В результате контейнер `redis` отключается от сети `redis-network`.
+
+### docker network rm
+
+Используется для удаления неиспользуемой сети из системы.
+
+```bash
+docker network rm network-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/41.png)
+
+### Запуск контейнера с сетью
+
+```bash
+# Запуск контейнера в определённой сети
+docker run -d --name redis --network my-network redis:latest
+
+# Назначение статического IP контейнеру
+docker run -d --name redis --network my-network --ip 172.20.0.10 redis:latest
+```
+
+<Callout type="info" emoji="">
+**Важно:** Контейнеры в одной сети могут находить друг друга по **имени контейнера** (DNS-разрешение). Например, если в сети `my-network` есть контейнер с именем `redis`, другой контейнер может подключиться к нему по адресу `redis:6379`.
+</Callout>
+
+---
+
+## Работа с Docker Compose
+
+**Docker Compose** используется для одновременного управления несколькими сервисами. С помощью Docker Compose можно управлять всеми компонентами приложения (например, web, db, cache) в одном месте.
+
+<Callout type="info" emoji="">
+Для лучшего понимания Docker Compose рекомендуем посмотреть следующее видеоруководство — **[Docker Compose Tutorial for Beginners (Networks - Volumes - Secrets - Postgres - Letsencrypt)](https://youtu.be/YMBT1NguJJw?si=GuZZTuiqtnx9cYFi)**
+</Callout>
+
+### docker compose up
+
+Запускает все сервисы на основе файла `docker-compose.yml`. Образы создаются, контейнеры запускаются. Эту команду необходимо выполнять в директории, где находится файл `docker-compose.yml`.
+
+```bash
+docker compose up
+
+# Запуск в фоновом режиме
+docker compose up -d
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/42.png)
+
+В результате вы увидите, что сервисы, описанные в `docker-compose.yml`, запущены.
+
+```bash
+# Запуск только определённого сервиса
+docker compose up -d redis
+
+# Пересборка образов и запуск
+docker compose up -d --build
+
+# Масштабирование
+docker compose up -d --scale web=3
+```
+
+### docker compose down
+
+Останавливает все сервисы и удаляет их контейнеры. Сети также удаляются, но тома сохраняются.
+
+```bash
+docker compose down
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/43.png)
+
+```bash
+# Удаление томов
+docker compose down -v
+
+# Удаление образов
+docker compose down --rmi all
+```
+
+### docker compose ps
+
+Отображает все активные контейнеры сервисов.
+
+```bash
+docker compose ps
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/44.png)
+
+### docker compose logs
+
+Позволяет просматривать логи всех контейнеров.
+
+```bash
+docker compose logs
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/45.png)
+
+```bash
+# Отслеживание в реальном времени
+docker compose logs -f
+
+# Логи определённого сервиса
+docker compose logs -f web
+
+# Последние N строк
+docker compose logs --tail 50
+```
+
+### docker compose exec
+
+Позволяет входить в контейнер определённого сервиса и выполнять команды.
+
+```bash
+docker compose exec web /bin/bash
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/46.png)
+
+### docker compose stop
+
+Используется для остановки всех сервисов. Контейнеры сохраняются, но сервисы останавливаются.
+
+```bash
+docker compose stop
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/47.png)
+
+### docker compose build
+
+Сборка образов для сервисов:
+
+```bash
+# Сборка всех сервисов
+docker compose build
+
+# Сборка определённого сервиса
+docker compose build web
+
+# Сборка без кэша
+docker compose build --no-cache
+```
+
+### docker compose pull
+
+Обновление образов из реестра:
+
+```bash
+docker compose pull
+```
+
+### docker compose config
+
+Валидация файла `docker-compose.yml` и просмотр итоговой конфигурации:
+
+```bash
+docker compose config
+```
+
+Эта команда очень полезна для обнаружения синтаксических ошибок YAML.
+
+---
+
+## Работа с Docker Registry
+
+Docker Registry — это система, предназначенная для хранения, загрузки и использования Docker-образов. Docker Hub является наиболее популярным публичным Docker-реестром, но вы также можете развернуть приватный Docker-реестр — например, Harbor, Nexus или реестры облачных провайдеров (GCR, ECR, ACR).
+
+### docker login
+
+Используется для авторизации в Docker-реестре. Запрашиваются логин и пароль.
+
+```bash
+docker login -u user-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/54.png)
+
+Для приватного Container Registry:
+
+```bash
+docker login registry.example.com -u user-name
+```
+
+### docker logout
+
+Используется для выхода из Docker-реестра.
+
+```bash
+docker logout
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/55.png)
+
+### docker push
+
+Используется для загрузки Docker-образа в реестр. Имя образа должно быть в формате `registry/repository:tag`.
+
+```bash
+docker push registry/repo-name/image-nomi:tag
+```
+
+На рисунке показано присвоение тега `ismoilovdev/redis-test:latest` образу `redis:latest` и его отправка в Docker Hub:
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/57.png)
+
+Отправка Docker-образа в Container Registry:
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/56.png)
+
+После отправки Docker-образа он должен появиться в Container Registry — в нашем случае в Docker Hub:
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/58.png)
+
+### docker pull (из реестра)
+
+Используется для загрузки образа из Docker-реестра. Если тег не указан, загружается тег `latest`.
+
+```bash
+docker pull repo-name/image-nomi:tag
+```
+
+Загрузка из Docker Hub:
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/59.png)
+
+Загрузка из GCR (Google Container Registry) — в формате `адрес-реестра/имя-репозитория/имя-образа:тег`:
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/60.png)
+
+---
+
+## Очистка Docker (Clean up)
+
+В системе Docker существует несколько команд для очистки неиспользуемых или ненужных ресурсов. Они используются для оптимизации системы и освобождения дискового пространства.
+
+### docker system prune
+
+Используется для очистки всех ненужных ресурсов в системе Docker — остановленных контейнеров, неиспользуемых образов и сетей.
+
+```bash
+docker system prune
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/48.png)
+
+### docker container prune
+
+Удаляет все остановленные контейнеры из системы.
+
+```bash
+docker container prune
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/49.png)
+
+### docker volume prune
+
+Используется для удаления неиспользуемых томов.
+
+```bash
+docker volume prune
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/50.png)
+
+### docker image prune
+
+Удаляет неиспользуемые образы из системы.
+
+```bash
+docker image prune
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/51.png)
+
+### docker network prune
+
+Используется для удаления неиспользуемых сетей.
+
+```bash
+docker network prune
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/52.png)
+
+### docker system prune -af
+
+Для полной очистки всех ненужных ресурсов — контейнеров, образов, томов и сетей:
+
+* `-a (all)` — удаляет также все неиспользуемые образы (не только dangling, а все)
+* `-f (force)` — выполняет принудительно, без запроса подтверждения
+
+```bash
+docker system prune -af
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/53.png)
+
+Эта команда максимально освобождает дисковое пространство, но не затрагивает работающие контейнеры и относящиеся к ним ресурсы.
+
+<Callout type="warning" emoji="">
+**Будьте осторожны!** `docker system prune -af` удаляет все неиспользуемые образы. Если вы не хотите загружать образы заново, сначала проверьте их с помощью `docker images`.
+</Callout>
+
+---
+
+## Другие полезные команды
+
+### docker stats
+
+Позволяет просматривать показатели работы контейнеров в реальном времени — CPU, память, сеть и дисковый ввод-вывод.
+
+```bash
+docker stats
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/61.png)
+
+```bash
+# Конкретный контейнер
+docker stats container-nomi
+
+# Однократный просмотр (без потоковой передачи)
+docker stats --no-stream
+```
+
+### docker top
+
+Отображает процессы, работающие внутри контейнера.
+
+```bash
+docker top container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/62.png)
+
+### docker cp
+
+Используется для копирования файлов и директорий из контейнера на хост-систему или с хоста в контейнер.
+
+```bash
+# Из контейнера на хост
+docker cp container-nomi:/app/data /home/user/path
+
+# С хоста в контейнер
+docker cp /home/user/file.txt container-nomi:/app/
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/63.png)
+
+### docker rename
+
+Используется для переименования работающего контейнера.
+
+```bash
+docker rename eski-container-nomi yangi-container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/64.png)
+
+### docker pause / docker unpause
+
+**`docker pause`** — временно приостанавливает все процессы в контейнере. Процессам отправляется сигнал `SIGSTOP` — они остаются в памяти, но не используют CPU.
+
+```bash
+docker pause container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/65.png)
+
+**`docker unpause`** — возобновляет работу временно приостановленного контейнера. Процессам отправляется сигнал `SIGCONT`.
+
+```bash
+docker unpause container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/66.png)
+
+### docker update
+
+Используется для обновления ограничений ресурсов во время работы контейнера.
+
+```bash
+docker update --cpus 2 --memory 2g --memory-swap 3g container-nomi
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/67.png)
+
+```bash
+# Обновление политики перезапуска
+docker update --restart unless-stopped container-nomi
+```
+
+### docker system df
+
+Просмотр объёма дискового пространства, занятого ресурсами Docker (образы, контейнеры, сети, тома):
+
+```bash
+docker system df
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/68.png)
+
+```bash
+# Подробная информация
+docker system df -v
+```
+
+### docker diff
+
+Отображает файлы, изменённые в контейнере относительно файловой системы хоста:
+
+```bash
+docker diff container-nomi
+```
+
+В результате:
+* `A` — добавленный (Added) файл
+* `C` — изменённый (Changed) файл
+* `D` — удалённый (Deleted) файл
+
+### docker events
+
+Отслеживание событий Docker daemon в реальном времени:
+
+```bash
+# События в реальном времени
+docker events
+
+# Фильтр по времени
+docker events --since 1h
+
+# События контейнеров
+docker events --filter type=container
+```
+
+### docker wait
+
+Ожидает остановки контейнера и возвращает код завершения:
+
+```bash
+docker wait container-nomi
+```
+
+Эта команда полезна для ожидания завершения работы контейнера в CI/CD-пайплайнах или скриптах.
+
+---
+
+## Дополнительно
+
+<Callout type="info" emoji="">
+
+Дополнительные ресурсы
+ * [**Официальная документация Docker**](https://docs.docker.com/)
+ * [**Справочник Docker CLI**](https://docs.docker.com/reference/cli/docker/)
+ * [**Справочник Docker Compose**](https://docs.docker.com/compose/reference/)
+ * [**Введение в Docker**](https://devops-journey.uz/guides/konteyner/dockerga-kirish)
+ * [**Установка Docker на Linux-серверы**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+ * [**Написание Dockerfile**](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)
+ * [**Docker Compose**](https://devops-journey.uz/guides/konteyner/docker-compose)
+
+**Дата:** 19.10.2024 (19 октября 2024 г.)
+
+**Последнее обновление:** 12.02.2026 (12 февраля 2026 г.)
+
+**Автор: Отабек Исмоилов**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>

@@ -1,6 +1,6 @@
 ---
 image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker.jpg
-description: "Dockerga Kirish"
+description: "Dockerga Kirish: Konteynerizatsiya texnologiyasini chuqur o'rganish"
 ---
 
 import { Callout } from "nextra-theme-docs";
@@ -9,69 +9,1001 @@ import { Callout } from "nextra-theme-docs";
 
 ![docker](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker.jpg)
 
-## Docker nima?
+## Kirish
 
-Docker - bu dasturni ishga tushirish uchun zarur bo'lgan barcha narsalarni (kod, kutubxonalar(library), runtime, tizim sozlamalari(system setting) va depencylar) o'z ichiga olgan yengil(lightweight), stand-alone(mustaqil) paketlarni yaratish, deploy qilish va boshqarish imkonini beruvchi tooldir. Bunday paketlar konteynerlar(container) deb ataladi.
+Dasturiy ta'minot dunyosida eng ko'p uchraydigan muammo — **"Mening kompyuterimda ishlayapti!"** iborasi. Developer o'z mashinasida yozgan kod test serverga o'tganda ishlamay qoladi, chunki kutubxona(library) versiyalari farq qiladi, operatsion tizim boshqacha yoki konfiguratsiya fayllari yo'q. Bu muammoni hal qilish uchun **Docker** yaratilgan.
 
-Har bir konteyner alohida kernel(yadro) va operatsion tizimga bog'liq bo'lmasdan, o'z protsessor(CPU), xotira(memory), block I/O, va tarmoq resurslari bilan deploy qilingan. Docker va virtual mashinalarni solishtirish eng oson bo'lishi mumkin bo'lsa-da, ular resurslarni almashish yoki ajratish usullari bilan farqlanadi.
+**Docker** — bu dasturiy ta'minotni **konteynerlar** ichida paketlab, istalgan muhitda bir xil ishlatish imkonini beruvchi open-source platforma. Docker 2013-yilda **Solomon Hykes** tomonidan **dotCloud** kompaniyasida yaratilgan va tezda butun dunyo bo'ylab tarqaldi.
 
-Docker - konteynerlar deb ataladigan paketlarda dasturiy ta'minotni etkazib berish uchun operatsion tizim darajasidagi virtualizatsiyadan foydalanadigan service sifatidagi platformalar(platforms as a service **(PaaS)**) mahsulotlari. Konteynerlar bir-biridan ajratilgan(izolatsiya qilingan) va o'zlarining dasturiy ta'minoti, kutubxonalari va konfiguratsiya fayllarini birlashtiradi; ular bir-biri bilan aniq belgilangan kanallar orqali muloqot qilishlari mumkin. Barcha konteynerlar bitta operatsion tizim kerneli tomonidan boshqariladi va shuning uchun virtual mashinaga qaraganda kamroq resurslardan foydalanadi.
+<Callout type="info" emoji="">
+Docker nomi **dock worker** (port ishchisi) so'zidan olingan. Port ishchilari turli xil yuklarni standart konteynerlarga joylab, kemaga yuklaydi. Xuddi shunday, Docker ham dasturlarni standart konteynerlarga joylab, istalgan serverga "yuklaydi".
+</Callout>
 
-## Docker imagelari
+---
 
-Bu bir nechta layerlardan tashkil topgan fayl bo'lib, Docker konteynerida kodni bajarish(execute)  uchun foydalaniladi. Ular docker konteynerlarini yaratish uchun ishlatiladigan ko'rsatmalar to'plamidir. **Docker Image** - bu dasturni ishga tushirish uchun zarur bo'lgan barcha narsalarni o'z ichiga olgan executable packet. Ushbu image konteyner qanday yaratilishi kerakligi haqida ma'lumot beradi, qaysi dasturiy komponentlar va qanday ishlashini aniqlaydi. Docker Container - bu dasturni ishga tushirish uchun zarur bo'lgan barcha depencylar(bog'liqliklar) bilan dastur kodini birlashtirgan virtual muhit.
+## Konteynerizatsiya nima?
 
-Har bir Docker konteyneri imagedan yaratilgan. Imagelarni Docker registridan (masalan, rasmiy Docker Hub) tortib(pull) olasiz va ulardan konteynerlar yaratish uchun foydalanasiz. Bitta image ko'plab konteynerlarni yaratishi mumkin. Masalan, veb-server konteynerini o'rnatish uchun eng so'nggi(latest) nginx imagesidan foydalanishingiz mumkin.
+Konteynerizatsiyani tushunish uchun avval **virtualizatsiya** bilan solishtiramiz.
 
-## Docker Konteynerlar
+### Traditional (an'anaviy) deployment
 
-Docker konteyneri imagening runtime instancedir. Dasturlarga ilovalarni(application) kutubxonalar(library) va boshqa bog'liqliklar(depencylar) kabi barcha kerakli qismlar bilan paketlash imkonini beradi. Konteynerlar ilova uchun zarur bo'lgan to'liq to'plamni o'z ichiga oladi, shuning uchun dastur izolyatsiya qilingan tarzda ishga tushirilishi mumkin. Misol uchun, deylik, NGINX SERVER bilan Ubuntu OS image mavjud bo'lsa, bu image docker run buyrug'i bilan ishga tushirilganda, konteyner yaratiladi va NGINX SERVER Ubuntu OS da ishlaydi.
+An'anaviy usulda bir nechta dastur bitta fizik serverga o'rnatiladi. Bunda dasturlar bir-birining resurslarini ishlatib qo'yishi, kutubxona versiyalari to'qnashishi (dependency conflict) va bitta dasturning xatosi butun serverni ishdan chiqarishi mumkin.
 
-## Dockerfilelar
-Dockerfile **DSL (Domain Specific Language)** dan foydalanadi va Docker imageni yaratish bo'yicha ko'rsatmalarni(instruction) o'z ichiga oladi. Dockerfile imageni tezda yaratish jarayonlarini belgilaydi. Ilovangizni yaratishda siz Docker faylini tartibda yaratishingiz kerak, chunki Docker dasturi barcha ko'rsatmalarni yuqoridan pastgacha bajaradi.
-
-Dockerfile - Bu matn hujjati bo'lib, u bajarilganda Docker imageni yig'ishga yordam beradigan kerakli buyruqlarni o'z ichiga oladi. Docker image Docker fayli yordamida yaratilgan. Dockerfile - bu imagening manba kodi. Dockerfile yozilgach, administrator fayl ichidagi buyruqlar asosida image yaratish uchun `docker build` buyrug'idan foydalanadi. Dockerfile ichidagi buyruqlar va ma'lumotlar izchil va barqaror joylashtirishni ta'minlash uchun maxsus dasturiy ta'minot versiyalari va bog'liqliklardan(dependency) foydalanish uchun sozlanishi mumkin. 
-
-Dockerfile imagelarni yaratish uchun quyidagi buyruqlardan foydalaniladi:
-
-* `ADD` - fayllarni hostdagi manbadan belgilangan manzildagi konteynerning fayl tizimiga nusxalash.
-* `CMD` - konteyner ichida ma'lum bir buyruqni bajarish.
-* `ENTRYPOINT` - image bilan konteyner yaratilgan har safar foydalanish uchun standart dasturni o'rnatish.
-* `ENV` - environment o'zgaruvchilarini o'rnatish.
-* `EXPOSE` - konteyner va tashqi dunyo o'rtasida tarmoq ulanishini yoqish uchun ma'lum bir portni ko'rsatish.
-* `FROM` - build jarayonini boshlash uchun ishlatiladigan asosiy imageni aniqlang.
-* `MAINTAINER` - image yaratuvchining to'liq ismi va elektron pochta manzilini aniqlang.
-* `RUN` - Dockerfilelar uchun markaziy executing directive.
-* `USER` - konteynerni ishga tushiradigan UID (foydalanuvchi nomi) ni o'rnating.
-* `VOLUME` - konteynerdan host mashinasidagi jildga kirishni yoqish.
-* `WORKDIR` - CMD bilan belgilangan buyruq bajariladigan yo'lni(path) o'rnatish.
-
-Har bir buyruqni ishlatish shart emas. Quyida faqat `MAINTAINER`, `FROM` va `RUN` buyruqlaridan foydalangan holda ishlaydigan Dockerfile misoli keltirilgan:
-
-
-```dockerfile filename="Dockerfile" /MAINTAINER/ /FROM/ /RUN/
-MAINTAINER Samid Dastanbayev
-FROM ubuntu:latest
-RUN apt-get -y update && apt-get -y upgrade && apt-get install -y build-essential
 ```
+┌─────────────────────────────────────────────┐
+│            Fizik Server                     │
+│                                             │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐     │
+│  │  App A   │ │  App B   │ │  App C   │     │
+│  │ Node 18  │ │ Node 16  │ │ Python 3 │     │
+│  └──────────┘ └──────────┘ └──────────┘     │
+│                                             │
+│  ┌─────────────────────────────────────┐    │
+│  │     Operatsion tizim (OS)           │    │
+│  └─────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────┐    │
+│  │           Hardware                  │    │
+│  └─────────────────────────────────────┘    │
+└─────────────────────────────────────────────┘
+
+❌ Muammo: App A va App B turli Node.js
+   versiya talab qiladi — conflict!
+```
+
+> **Muammo:** App A va App B turli Node.js versiya talab qiladi — conflict!
+
+### Virtual Machine (VM) deployment
+
+VM yordamida har bir dastur alohida virtual mashinada ishlaydi. Har bir VM o'zining to'liq operatsion tizimiga ega. Bu izolyatsiyani ta'minlaydi, lekin juda ko'p resurs talab qiladi.
+
+```
+┌─────────────────────────────────────────────┐
+│            Fizik Server                     │
+│                                             │
+│  ┌─────────────┐  ┌─────────────┐           │
+│  │    VM 1     │  │    VM 2     │           │
+│  │  ┌───────┐  │  │  ┌───────┐  │           │
+│  │  │ App A │  │  │  │ App B │  │           │
+│  │  └───────┘  │  │  └───────┘  │           │
+│  │  ┌───────┐  │  │  ┌───────┐  │           │
+│  │  │ Libs  │  │  │  │ Libs  │  │           │
+│  │  └───────┘  │  │  └───────┘  │           │
+│  │  ┌───────┐  │  │  ┌───────┐  │           │
+│  │  │ Guest │  │  │  │ Guest │  │           │
+│  │  │  OS   │  │  │  │  OS   │  │           │
+│  │  └───────┘  │  │  └───────┘  │           │
+│  └─────────────┘  └─────────────┘           │
+│                                             │
+│  ┌─────────────────────────────────────┐    │
+│  │           Hypervisor                │    │
+│  └─────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────┐    │
+│  │           Host OS                   │    │
+│  └─────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────┐    │
+│  │           Hardware                  │    │
+│  └─────────────────────────────────────┘    │
+└─────────────────────────────────────────────┘
+
+⚠️ Har bir VM to'liq OS — 1-2 GB RAM sarflaydi
+```
+
+> Har bir VM to'liq OS — 1-2 GB RAM sarflaydi
+
+### Konteyner deployment (Docker)
+
+Docker konteynerlari host operatsion tizimning **kernelini** baham ko'radi. Har bir konteyner o'zining izolyatsiya qilingan muhitiga ega, lekin alohida OS talab qilmaydi. Bu juda yengil va tez.
+
+```
+┌─────────────────────────────────────────────┐
+│            Fizik Server                     │
+│                                             │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐     │
+│  │Container │ │Container │ │Container │     │
+│  │  ┌────┐  │ │  ┌────┐  │ │  ┌────┐  │     │
+│  │  │App │  │ │  │App │  │ │  │App │  │     │
+│  │  │ A  │  │ │  │ B  │  │ │  │ C  │  │     │
+│  │  └────┘  │ │  └────┘  │ │  └────┘  │     │
+│  │  ┌────┐  │ │  ┌────┐  │ │  ┌────┐  │     │
+│  │  │Libs│  │ │  │Libs│  │ │  │Libs│  │     │
+│  │  └────┘  │ │  └────┘  │ │  └────┘  │     │
+│  └──────────┘ └──────────┘ └──────────┘     │
+│                                             │
+│  ┌─────────────────────────────────────┐    │
+│  │          Docker Engine              │    │
+│  └─────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────┐    │
+│  │         Host OS (kernel)            │    │
+│  └─────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────┐    │
+│  │           Hardware                  │    │
+│  └─────────────────────────────────────┘    │
+└─────────────────────────────────────────────┘
+
+✅ Alohida OS yo'q — 10-100 MB, sekundlarda ishga tushadi
+```
+
+> Alohida OS yo'q — 10-100 MB, sekundlarda ishga tushadi
+
+### VM vs Container solishtirish
+
+| Xususiyat | Virtual Machine | Docker Container |
+|-----------|----------------|-----------------|
+| Ishga tushish vaqti | 1-3 daqiqa | 1-5 sekund |
+| Hajmi | 1-10 GB | 10-500 MB |
+| RAM sarfi | 512MB-2GB (har bir VM) | 5-50 MB (har bir konteyner) |
+| Izolyatsiya | To'liq (alohida OS) | Process-level (shared kernel) |
+| Portativlik | Past (hypervisor-ga bog'liq) | Yuqori (istalgan joyda ishlaydi) |
+| Bitta serverda soni | 5-20 ta VM | 100+ konteyner |
+| OS | Har bir VM o'z OS | Host OS kernel baham ko'radi |
+
+<Callout type="info" emoji="">
+**Qachon VM, qachon konteyner?**
+- **VM** — turli operatsion tizimlar kerak bo'lganda (masalan, Linux serverda Windows ishga tushirish), yoki to'liq izolyatsiya talab qilinganda
+- **Konteyner** — microservice'lar, CI/CD pipeline'lar, dasturni tez deploy qilish, development muhitini standartlashtirish uchun
+</Callout>
+
+---
+
+## Docker Arxitekturasi
+
+Docker **client-server** arxitekturasida ishlaydi. Buni tushunish Docker bilan samarali ishlash uchun juda muhim.
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                     Docker Arxitekturasi                      │
+│                                                               │
+│  ┌──────────────┐         ┌──────────────────────────────┐    │
+│  │   Docker     │  REST   │       Docker Daemon          │    │
+│  │   Client     │  API    │       (dockerd)              │    │
+│  │              ┼────────►│                              │    │
+│  │  docker run  │         │  ┌────────────────────────┐  │    │
+│  │  docker build│         │  │     Container Runtime  │  │    │
+│  │  docker pull │         │  │      (containerd)      │  │    │
+│  │  docker push │         │  └────────────────────────┘  │    │
+│  │              │         │                              │    │
+│  └──────────────┘         │  ┌────────┐  ┌────────┐      │    │
+│                           │  │  Img 1 │  │  Img 2 │      │    │
+│                           │  └────────┘  └────────┘      │    │
+│                           │                              │    │
+│                           │  ┌──────┐ ┌──────┐ ┌──────┐  │    │
+│                           │  │Cont 1│ │Cont 2│ │Cont 3│  │    │
+│                           │  └──────┘ └──────┘ └──────┘  │    │
+│                           └──────────────────────────────┘    │
+│                                          │                    │
+│                                          ▼                    │
+│                           ┌──────────────────────────────┐    │
+│                           │      Docker Registry         │    │
+│                           │   (Docker Hub, Harbor, etc.) │    │
+│                           └──────────────────────────────┘    │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### Docker Engine
+
+Docker Engine — bu Docker platformasining asosiy qismi. U uch komponentdan iborat:
+
+**1. Docker Daemon (`dockerd`)**
+
+Docker Daemon — bu background'da ishlaydigan server process. U Docker API so'rovlarini qabul qilib, imagelar, konteynerlar, networklar va volumelarni boshqaradi.
+
+```bash
+# Docker Daemon statusi
+sudo systemctl status docker
+
+# Docker Daemon restart qilish
+sudo systemctl restart docker
+```
+
+Docker Daemon quyidagi vazifalarni bajaradi:
+- Image'larni build qilish va saqlash
+- Konteynerlarni yaratish, ishga tushirish va to'xtatish
+- Docker network'larni boshqarish
+- Volume'larni boshqarish
+
+**2. Docker Client (`docker`)**
+
+Docker Client — bu foydalanuvchi Docker bilan muloqot qiladigan CLI (Command Line Interface) tool. Siz terminalda `docker` buyruqlarini yozganingizda, Client bu buyruqlarni REST API orqali Docker Daemon'ga yuboradi.
+
+```bash
+# Client orqali Daemon bilan muloqot
+docker version    # Client va Server versiyasi
+docker info       # Docker tizimi haqida batafsil ma'lumot
+```
+
+**3. Docker Registry**
+
+Docker Registry — imagelarni saqlash va tarqatish uchun markaziy ombor. **Docker Hub** eng katta public registry hisoblanadi. Bundan tashqari private registry'lar ham mavjud:
+
+| Registry | Turi | Tavsif |
+|----------|------|--------|
+| **Docker Hub** | Public/Private | Eng mashhur, standart registry |
+| **Harbor** | Private (self-hosted) | CNCF loyihasi, enterprise uchun |
+| **Nexus** | Private (self-hosted) | Ko'p formatli artifact manager |
+| **GCR** | Private (cloud) | Google Cloud Container Registry |
+| **ECR** | Private (cloud) | AWS Elastic Container Registry |
+| **ACR** | Private (cloud) | Azure Container Registry |
+| **GHCR** | Public/Private | GitHub Container Registry |
+
+---
+
+## Docker Image
+
+**Docker Image** — bu konteyner yaratish uchun ishlatiladigan **read-only** shablon. Image ichida dastur kodi, runtime, kutubxonalar, environment o'zgaruvchilari va konfiguratsiya fayllari bo'ladi.
+
+### Image Layerlari
+
+Docker image'lari **layer** tizimida qurilgan. Har bir Dockerfile instruksiyasi yangi layer yaratadi. Layerlar **read-only** bo'lib, ular cache'lanadi va qayta ishlatiladi.
+
+```
+┌─────────────────────────────────────┐
+│         Docker Image                │
+│                                     │
+│  ┌───────────────────────────────┐  │
+│  │ Layer 5: COPY app/ /app/      │  │  ← Sizning kodingiz
+│  ├───────────────────────────────┤  │
+│  │ Layer 4: RUN npm install      │  │  ← Dependency'lar
+│  ├───────────────────────────────┤  │
+│  │ Layer 3: COPY package.json    │  │  ← Package fayli
+│  ├───────────────────────────────┤  │
+│  │ Layer 2: RUN apt-get update   │  │  ← Tizim paketlari
+│  ├───────────────────────────────┤  │
+│  │ Layer 1: FROM node:20-alpine  │  │  ← Base image
+│  └───────────────────────────────┘  │
+│                                     │
+│  Barcha layerlar READ-ONLY          │
+└─────────────────────────────────────┘
+```
+
+<Callout type="info" emoji="">
+**Layer caching afzalligi:** Agar siz faqat dastur kodini o'zgartirsangiz (Layer 5), Docker pastdagi layerlarni (1-4) cache'dan oladi va faqat o'zgargan layerni qayta build qiladi. Bu build jarayonini **10-100 marta** tezlashtiradi.
+</Callout>
+
+### Image nomlash konvensiyasi
+
+Docker image'larining to'liq nomi quyidagi formatda bo'ladi:
+
+```
+[registry-url/][namespace/]image-name[:tag]
+```
+
+Real misollar:
+
+```bash
+# Docker Hub'dan (registry-url tushirib qoldiriladi)
+nginx:latest                          # Official image, latest tag
+node:20-alpine                        # Official image, aniq versiya
+ismoilovdev/my-app:v1.2.3            # User namespace, custom image
+
+# Private registry'dan
+harbor.helm.uz/devops/my-app:v1.0    # Harbor registry
+gcr.io/my-project/api-server:latest  # Google Container Registry
+ghcr.io/username/my-app:main         # GitHub Container Registry
+```
+
+### Image tag'lar
+
+Tag'lar image versiyasini belgilash uchun ishlatiladi:
+
+| Tag turi | Misol | Ishlatilishi |
+|----------|-------|-------------|
+| `latest` | `nginx:latest` | Default tag, lekin **production'da ishlatmang** |
+| Semantic versioning | `node:20.11.1` | Aniq versiya, ishonchli |
+| Major versiya | `python:3` | 3.x.x oralig'idagi eng yangi |
+| OS varianti | `node:20-alpine` | Alpine Linux asosida (kichik hajm) |
+| Slim varianti | `python:3.12-slim` | Keraksiz paketlarsiz |
+| Custom | `my-app:v1.2.3-rc1` | O'zingizning versiyalaringiz |
+
+<Callout type="warning" emoji="">
+**`latest` tag haqida ogohlantirish:** `latest` — bu "eng yangi" degani emas, bu shunchaki **default tag nomi**. Agar siz `docker build -t myapp .` desangiz, image `myapp:latest` tag'ini oladi. Production muhitda **doimo aniq versiya** ishlating: `myapp:v1.2.3`.
+</Callout>
+
+### Amaliy misol: Image bilan ishlash
+
+```bash
+# Docker Hub'dan image pull qilish
+docker pull nginx:1.25-alpine
+
+# Tizimda mavjud imagelarni ko'rish
+docker images
+
+# Image haqida batafsil ma'lumot
+docker inspect nginx:1.25-alpine
+
+# Image layerlarini ko'rish
+docker history nginx:1.25-alpine
+
+# Image'ni o'chirish
+docker rmi nginx:1.25-alpine
+```
+
+---
+
+## Docker Container
+
+**Docker Container** — bu image'ning ishga tushirilgan nusxasi (running instance). Image read-only shablon bo'lsa, konteyner esa image ustiga **yozish mumkin bo'lgan qatlamni** (writable layer) qo'shadi.
+
+### Image va Container farqi
+
+```
+Docker Image (shablon)          Docker Container (ishga tushgan)
+┌─────────────────────┐         ┌─────────────────────┐
+│                     │         │  Writable Layer     │ ← Yangi
+│  Read-only Layers   │  run    │─────────────────────│
+│                     │ ──────► │                     │
+│  App + Libs + OS    │         │  Read-only Layers   │ ← Image'dan
+│                     │         │  App + Libs + OS    │
+└─────────────────────┘         └─────────────────────┘
+
+Bitta image → ko'p konteyner yaratish mumkin
+
+                   ┌──────────────┐
+                   │ Container 1  │
+┌──────────┐       ├──────────────┤
+│  nginx   │──────►│ Container 2  │
+│  image   │       ├──────────────┤
+└──────────┘       │ Container 3  │
+                   └──────────────┘
+```
+
+### Container Lifecycle (hayot sikli)
+
+Docker konteynerining hayot sikli quyidagi bosqichlardan iborat:
+
+```
+                    docker create
+                  ┌──────────────────┐
+                  │                  │
+                  ▼                  │
+┌────────┐   docker run  ┌──────────────┐   docker stop ┌───────────┐
+│  Image │──────────────►│   Running    │──────────────►│ Stopped   │
+└────────┘               │  (ishlayapti)│               │(to'xtagan)│
+                         └──────┬───────┘               └────┬──────┘
+                                │                            │
+                          docker pause                   docker start
+                                │                            │
+                          ┌─────▼────────┐                   │
+                          │   Paused     │            ┌──────▼──────┐
+                          │ (pauza)      │            │  Running    │
+                          └──────────────┘            └─────────────┘
+
+                          docker rm → konteyner o'chiriladi (faqat stopped holatda)
+```
+
+| Holat | Tavsif | Buyruq |
+|-------|--------|--------|
+| **Created** | Konteyner yaratilgan, lekin ishga tushmagan | `docker create` |
+| **Running** | Konteyner ishlayapti | `docker start` / `docker run` |
+| **Paused** | Jarayonlar to'xtatilgan, lekin xotirada | `docker pause` |
+| **Stopped** | Konteyner to'xtatilgan | `docker stop` / `docker kill` |
+| **Removed** | Konteyner o'chirilgan | `docker rm` |
+
+### Amaliy misol: Container bilan ishlash
+
+```bash
+# Konteyner yaratish va ishga tushirish (run = create + start)
+docker run -d --name my-nginx -p 8080:80 nginx:1.25-alpine
+
+# Ishlayotgan konteynerlarni ko'rish
+docker ps
+
+# Konteyner ichiga kirish
+docker exec -it my-nginx /bin/sh
+
+# Konteyner loglarini ko'rish
+docker logs -f my-nginx
+
+# Konteynerni to'xtatish
+docker stop my-nginx
+
+# Konteynerni qayta ishga tushirish
+docker start my-nginx
+
+# Konteynerni o'chirish (avval to'xtatish kerak)
+docker stop my-nginx && docker rm my-nginx
+```
+
+<Callout type="info" emoji="">
+**`docker run` nima qiladi?** `docker run` aslida bir nechta operatsiyani bajaradi:
+1. Image tizimda borligini tekshiradi (yo'q bo'lsa, `docker pull` qiladi)
+2. Konteyner yaratadi (`docker create`)
+3. Writable layer qo'shadi
+4. Network interface yaratadi va IP beradi
+5. Konteynerni ishga tushiradi (`docker start`)
+</Callout>
+
+---
+
+## Dockerfile
+
+**Dockerfile** — bu Docker image yaratish uchun yoziladigan matnli fayl. U image qanday qurilishini bosqichma-bosqich ko'rsatib beradi. Har bir instruksiya yangi **layer** yaratadi.
+
+### Dockerfile instruksiyalari
+
+| Instruksiya | Vazifasi | Misol |
+|-------------|----------|-------|
+| `FROM` | Base image tanlash (har doim birinchi) | `FROM node:20-alpine` |
+| `WORKDIR` | Ishchi(working) directory belgilash | `WORKDIR /app` |
+| `COPY` | Host'dan image'ga fayl nusxalash | `COPY package.json .` |
+| `ADD` | COPY + URL va arxiv ochish | `ADD app.tar.gz /app/` |
+| `RUN` | Build vaqtida buyruq bajarish | `RUN npm install` |
+| `CMD` | Konteyner ishga tushganda bajariladigan default buyruq | `CMD ["node", "server.js"]` |
+| `ENTRYPOINT` | Konteynerning asosiy jarayoni | `ENTRYPOINT ["python"]` |
+| `ENV` | Environment o'zgaruvchi belgilash | `ENV NODE_ENV=production` |
+| `ARG` | Build vaqtida argument qabul qilish | `ARG VERSION=1.0` |
+| `EXPOSE` | Container port'ini hujjatlashtirish | `EXPOSE 3000` |
+| `VOLUME` | Ma'lumot saqlash nuqtasi | `VOLUME ["/data"]` |
+| `USER` | Qaysi foydalanuvchi sifatida ishlash | `USER node` |
+| `LABEL` | Image'ga metadata qo'shish | `LABEL version="1.0"` |
+| `HEALTHCHECK` | Konteyner sog'ligini tekshirish | `HEALTHCHECK CMD curl -f http://localhost/` |
+
+### CMD va ENTRYPOINT farqi
+
+Bu ikki instruksiya ko'p chalkashlik keltirib chiqaradi. Farqini tushunish muhim:
+
+```dockerfile
+# CMD — default buyruq, docker run da o'zgartirilishi mumkin
+FROM ubuntu:24.04
+CMD ["echo", "Salom Dunyo"]
+```
+
+```bash
+docker run my-image                  # Natija: "Salom Dunyo"
+docker run my-image echo "Boshqa"    # Natija: "Boshqa" (CMD o'zgartirildi)
+```
+
+```dockerfile
+# ENTRYPOINT — har doim bajariladi, o'zgartirilmaydi
+FROM ubuntu:24.04
+ENTRYPOINT ["echo"]
+CMD ["Salom Dunyo"]
+```
+
+```bash
+docker run my-image                  # Natija: "Salom Dunyo"
+docker run my-image "Boshqa"         # Natija: "Boshqa" (CMD o'zgardi, lekin ENTRYPOINT saqlandi)
+```
+
+<Callout type="info" emoji="">
+**Qoida:** `ENTRYPOINT` — konteynerning **asosiy dasturi**, `CMD` — unga beriladigan **default argumentlar**. Real misolda: `ENTRYPOINT ["python"]` + `CMD ["app.py"]` — default'da `python app.py` ishlaydi, lekin `docker run my-image test.py` desangiz `python test.py` ishlaydi.
+</Callout>
+
+### Real Dockerfile misollari
+
+**1. Node.js (Express) dasturi uchun:**
+
+```dockerfile filename="Dockerfile"
+# 1. Base image — Alpine varianti kichik hajmda
+FROM node:20-alpine
+
+# 2. Working directory belgilash
+WORKDIR /app
+
+# 3. Avval faqat package fayllarini nusxalash (layer caching uchun)
+COPY package.json package-lock.json ./
+
+# 4. Dependency'larni o'rnatish
+RUN npm ci --only=production
+
+# 5. Dastur kodini nusxalash
+COPY . .
+
+# 6. Non-root user ishlatish (xavfsizlik)
+USER node
+
+# 7. Port hujjatlashtirish
+EXPOSE 3000
+
+# 8. Health check
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+
+# 9. Dasturni ishga tushirish
+CMD ["node", "server.js"]
+```
+
+**2. Python (Flask/Django) dasturi uchun:**
+
+```dockerfile filename="Dockerfile"
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Tizim dependency'lari
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python dependency'lari (layer caching)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Dastur kodi
+COPY . .
+
+# Non-root user yaratish va ishlatish
+RUN useradd --create-home appuser
+USER appuser
+
+EXPOSE 8000
+
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"]
+```
+
+**3. Go dasturi uchun (multi-stage build):**
+
+```dockerfile filename="Dockerfile"
+# ======= Build stage =======
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /build
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/server .
+
+# ======= Production stage =======
+FROM alpine:3.19
+
+RUN apk --no-cache add ca-certificates
+
+WORKDIR /app
+
+# Builder stage'dan faqat binary nusxalash
+COPY --from=builder /app/server .
+
+RUN adduser -D -g '' appuser
+USER appuser
+
+EXPOSE 8080
+
+ENTRYPOINT ["./server"]
+```
+
+<Callout type="info" emoji="">
+**Multi-stage build** — bu image hajmini keskin kamaytirish usuli. Yuqoridagi Go misolda build stage'da Go compiler va barcha toollar bo'ladi (~800MB), lekin production stage'da faqat compilyatsiya qilingan binary bo'ladi (~15MB). Natija: **800MB o'rniga 15MB** image.
+</Callout>
+
+### Dockerfile best practice'lar
+
+**1. Layer tartibini optimallashtiring** — kam o'zgaradigan fayllarni yuqorida, ko'p o'zgaradiganlarni pastda joylashtiring:
+
+```dockerfile
+# ✅ To'g'ri — dependency'lar kamdan-kam o'zgaradi
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .    # Kod tez-tez o'zgaradi — eng oxirida
+
+# ❌ Noto'g'ri — har safar kod o'zgarganda npm install qaytadan ishlaydi
+COPY . .
+RUN npm ci
+```
+
+**2. `.dockerignore` fayl ishlating** — keraksiz fayllarni image'ga kiritishning oldini oling:
+
+```text filename=".dockerignore"
+node_modules
+.git
+.env
+*.md
+Dockerfile
+docker-compose.yml
+.dockerignore
+```
+
+**3. Kichik base image tanlang:**
+
+| Base Image | Hajmi | Ishlatish |
+|-----------|-------|-----------|
+| `ubuntu:24.04` | ~78 MB | To'liq Linux muhit kerak bo'lganda |
+| `debian:bookworm-slim` | ~74 MB | Slim varianti — kamroq paketlar |
+| `alpine:3.19` | ~7 MB | Minimal image, ko'p hollarda yetarli |
+| `node:20` | ~1.1 GB | Development uchun (katta) |
+| `node:20-alpine` | ~130 MB | Production uchun (tavsiya etiladi) |
+| `scratch` | 0 MB | Faqat static binary uchun (Go, Rust) |
+
+**4. Non-root user ishlating:**
+
+```dockerfile
+# Xavfsizlik uchun root bilan ishlamaslik kerak
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+```
+
+**5. RUN buyruqlarini birlashtiring** — layer sonini kamaytirish uchun:
+
+```dockerfile
+# ✅ Bitta layer — tozalash ham shu layer'da
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl wget git \
+    && rm -rf /var/lib/apt/lists/*
+
+# ❌ Uchta alohida layer — keraksiz cache qoladi
+RUN apt-get update
+RUN apt-get install -y curl wget git
+RUN rm -rf /var/lib/apt/lists/*
+```
+
+---
+
+## Docker Volume
+
+Docker konteynerlar **ephemeral** (vaqtinchalik) — konteyner o'chirilganda undagi barcha ma'lumotlar yo'qoladi. **Volume** bu muammoni hal qiladi — ma'lumotlarni konteynerdan tashqarida saqlash imkonini beradi.
+
+### Volume turlari
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                    Host Server                             │
+│                                                            │
+│  Named Volume          Bind Mount          tmpfs Mount     │
+│  (Docker boshqaradi)   (Host path)         (RAM'da)        │
+│                                                            │
+│  /var/lib/docker/      /home/user/         tmpfs           │
+│  volumes/mydata/       project/            (xotirada)      │
+│       │                    │                    │          │
+│       ▼                    ▼                    ▼          │
+│  ┌──────────────────────────────────────────────────┐      │
+│  │              Docker Container                    │      │
+│  │                                                  │      │
+│  │    /data          /app              /tmp/secret  │      │
+│  └──────────────────────────────────────────────────┘      │
+└────────────────────────────────────────────────────────────┘
+```
+
+| Turi | Buyruq | Ishlatilishi |
+|------|--------|-------------|
+| **Named Volume** | `-v mydata:/data` | Production — Docker boshqaradi, backup oson |
+| **Bind Mount** | `-v /host/path:/container/path` | Development — host fayl tizimi bilan sinxron |
+| **tmpfs** | `--tmpfs /tmp` | Vaqtinchalik ma'lumot — faqat RAM'da, diskka yozilmaydi |
+
+### Real misol: PostgreSQL ma'lumotlarini saqlash
+
+```bash
+# Named volume yaratish
+docker volume create postgres-data
+
+# PostgreSQL konteynerini volume bilan ishga tushirish
+docker run -d \
+  --name my-postgres \
+  -e POSTGRES_PASSWORD=mysecretpassword \
+  -e POSTGRES_DB=myapp \
+  -v postgres-data:/var/lib/postgresql/data \
+  -p 5432:5432 \
+  postgres:16-alpine
+
+# Konteynerni o'chirsak ham ma'lumotlar saqlanadi
+docker stop my-postgres && docker rm my-postgres
+
+# Yangi konteyner — eski ma'lumotlar mavjud!
+docker run -d \
+  --name my-postgres-new \
+  -e POSTGRES_PASSWORD=mysecretpassword \
+  -v postgres-data:/var/lib/postgresql/data \
+  -p 5432:5432 \
+  postgres:16-alpine
+```
+
+<Callout type="warning" emoji="">
+**Muhim:** Volume ishlatmasdan database konteynerini o'chirsangiz, barcha ma'lumotlar **qaytarib bo'lmas tarzda yo'qoladi**. Production muhitda doimo volume ishlating!
+</Callout>
+
+---
+
+## Docker Network
+
+Docker network'lari konteynerlar orasidagi aloqani(communication) boshqaradi. Default'da Docker bir nechta network drayverlarini taqdim etadi.
+
+### Network drayverlari
+
+```
+┌─────────────────────────────────────────────────────┐
+│                                                     │
+│  Bridge Network (default)                           │
+│  ┌──────────┐   ┌──────────┐   ┌──────────┐         │
+│  │   App    │   │   DB     │   │  Cache   │         │
+│  │ :3000    │◄─►│ :5432    │◄─►│ :6379    │         │
+│  └──────────┘   └──────────┘   └──────────┘         │
+│       ▲              DNS orqali nom bilan           │
+│       │              bir-birini topadi              │
+│       │                                             │
+│  ─────┼──────────────────────────────────────       │
+│       │                                             │
+│       ▼                                             │
+│  Host:8080 ──► Container:3000                       │
+│  (port mapping orqali tashqi dunyo kiradi)          │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+| Drayver | Tavsif | Ishlatilishi |
+|---------|--------|-------------|
+| `bridge` | Default network. Bir host'dagi konteynerlar o'zaro aloqa qiladi | Eng ko'p ishlatiladigan |
+| `host` | Konteyner to'g'ridan-to'g'ri host network'ini ishlatadi | Port mapping kerak emas, yuqori performance |
+| `none` | Network yo'q. Konteyner tashqi dunyo bilan aloqa qilmaydi | Xavfsizlik talab qilingan hollarda |
+| `overlay` | Ko'p host'li network (Docker Swarm) | Cluster'dagi konteynerlar uchun |
+| `macvlan` | Konteynerga o'z MAC adresi beriladi | Fizik network'ga to'g'ridan-to'g'ri ulash |
+
+### Real misol: Dastur + Database network
+
+```bash
+# Custom network yaratish
+docker network create app-network
+
+# PostgreSQL — app-network'da
+docker run -d \
+  --name postgres \
+  --network app-network \
+  -e POSTGRES_PASSWORD=secret \
+  -e POSTGRES_DB=myapp \
+  postgres:16-alpine
+
+# Dastur — app-network'da (postgres ni nom orqali topadi)
+docker run -d \
+  --name my-app \
+  --network app-network \
+  -e DATABASE_URL=postgresql://postgres:secret@postgres:5432/myapp \
+  -p 3000:3000 \
+  my-app:latest
+```
+
+<Callout type="info" emoji="">
+**DNS resolution:** Bir xil network'dagi konteynerlar bir-birini **konteyner nomi** orqali topadi. Yuqoridagi misolda `my-app` konteyneri `postgres` nomli konteynerga `postgres:5432` orqali ulanadi — IP manzil kerak emas!
+</Callout>
+
+---
+
+## Docker Compose
+
+Ko'p hollarda dastur bir nechta service'dan iborat bo'ladi — web server, database, cache, message queue va hokazo. Har birini alohida `docker run` bilan ishga tushirish noqulay. **Docker Compose** barcha service'larni bitta `docker-compose.yml` faylida belgilab, bitta buyruq bilan boshqarish imkonini beradi.
+
+### docker-compose.yml tuzilishi
+
+```yaml filename="docker-compose.yml"
+# Real misol: Full-stack dastur
+version: "3.8"
+
+services:
+  # Frontend — React dasturi
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Backend — Python API
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:secret@db:5432/myapp
+      - REDIS_URL=redis://cache:6379
+    depends_on:
+      - db
+      - cache
+    restart: unless-stopped
+
+  # Database — PostgreSQL
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: myapp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  # Cache — Redis
+  cache:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+```
+
+### Docker Compose buyruqlari
+
+```bash
+# Barcha service'larni ishga tushirish (background'da)
+docker compose up -d
+
+# Service'lar holatini ko'rish
+docker compose ps
+
+# Barcha loglarni ko'rish
+docker compose logs -f
+
+# Faqat backend loglarini ko'rish
+docker compose logs -f backend
+
+# Barcha service'larni to'xtatish va o'chirish
+docker compose down
+
+# Service'larni to'xtatish + volume'larni ham o'chirish
+docker compose down -v
+```
+
+<Callout type="info" emoji="">
+**`depends_on` haqida:** `depends_on` faqat konteynerlarning **ishga tushish tartibini** belgilaydi. U database'ning tayyor bo'lishini **kutmaydi**. Production'da **healthcheck** yoki **wait-for-it** script'lardan foydalaning.
+</Callout>
+
+---
 
 ## Docker Hub
 
-Docker Hub - bu repositoriyalar servisi va u cloudga asoslangan service bo'lib, odamlar Docker konteyner imagelarini push qilishadi, shuningdek Docker konteyner imagelarini Docker Hub-dan istalgan vaqtda yoki istalgan joyda internet orqali olishadi. Umuman olganda, bu imagelarni topish va qayta ishlatishni osonlashtiradi. U Docker imagelarini saqlash va almashish mumkin bo'lgan private yoki public registr sifatida imagelaringizni push qilish kabi xususiyatlarni taqdim etadi
+**Docker Hub** — bu Docker imagelarini saqlash va almashish uchun eng katta public registry. U GitHub'ga o'xshaydi, lekin Docker image'lar uchun.
 
-Asosan DevOps jamoasi Docker Hub-dan foydalanadi. Bu open source tool va barcha operatsion tizimlar uchun bepul. Bu biz imagelarni saqlaydigan va kerak bo'lganda imagelarni pull qilib tortib oladigan xotiraga o'xshaydi. Biror kishi Docker Hub-dan imagelarni pull/push-ni xohlasa, u Docker haqida asosiy bilimga ega bo'lishi kerak. 
+### Docker Hub bilan ishlash
 
-## Docker Engine
+```bash
+# Docker Hub'ga kirish
+docker login -u username
 
-Konteynerlarni joylashtiradigan(deploy qiladigan) dastur **Docker Engine** deb ataladi. **Docker Engine** - bu client-serverga asoslangan dastur. Docker engine 3 ta asosiy komponentdan iborat:
+# Image'ni tag'lash (Docker Hub formatida)
+docker tag my-app:latest username/my-app:v1.0
 
-* **Server:** U Docker-da Docker imagelari, konteynerlari, tarmoqlari va volumelarini yaratish va boshqarish uchun javobgardir. Bu daemon process deb ataladi.
-* **REST API:** U ilovalarning Server bilan qanday ishlashi mumkinligini belgilaydi va unga nima qilishni buyuradi.
-* **Client** Client bu docker command-line interfeysi (CLI) bo'lib, u bizga docker buyruqlari yordamida Docker bilan o'zaro ishlash imkonini beradi.
+# Image'ni push qilish
+docker push username/my-app:v1.0
 
+# Image'ni pull qilish
+docker pull username/my-app:v1.0
 
-![docker](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/3.webp)
+# Docker Hub'dan chiqish
+docker logout
+```
 
-## Docker Swarm
+### Official vs User Image
 
-Docker `Docker Swarm` deb nomlangan clusterni yaratish uchun serverlarni birlashtirishni osonlashtiradi. Swarm manageri yoki leaderini yaratganingizdan so'ng va leaderga nodelarni biriktirganingizdan so'ng, konteynerni deploy qilishni kengaytirishingiz mumkin. Leader kerakli holatni(stateni) saqlab qolish uchun vazifalarni(task) qo'shish yoki olib tashlash orqali clusterni avtomatik ravishda moslashtiradi. Node - bu Swarm-da ishtirok etadigan Docker enginening yagona nusxasi. Swarm menejeri Swarmga taqdim etilishi mumkin bo'lgan servicelarni ochish uchun kirish yukini muvozanatlashdan foydalanadi.
+| Turi | Format | Misol | Ishonchliligi |
+|------|--------|-------|--------------|
+| **Official** | `image:tag` | `nginx:latest`, `postgres:16` | Docker tomonidan tekshirilgan, xavfsiz |
+| **User** | `user/image:tag` | `ismoilovdev/my-app:v1` | Foydalanuvchi yaratgan |
+| **Organization** | `org/image:tag` | `bitnami/postgresql:16` | Tashkilot tomonidan |
+
+<Callout type="warning" emoji="">
+**Xavfsizlik:** Docker Hub'dan image pull qilganda doimo **Official** yoki ishonchli manbadan foydalaning. Noma'lum image'lar ichida zararli kod bo'lishi mumkin!
+</Callout>
+
+---
+
+## Docker real hayotda qanday ishlatiladi?
+
+### 1. Development muhiti
+
+Yangi developer jamoaga qo'shilganda, butun muhitni Docker bilan sekundlarda sozlaydi:
+
+```bash
+# Yangi developer birinchi kuni:
+git clone https://github.com/company/project.git
+cd project
+docker compose up -d
+
+# Tamom! Database, Redis, API — hammasi tayyor
+```
+
+### 2. CI/CD Pipeline
+
+Har bir `git push` da Docker image avtomatik build va deploy qilinadi:
+
+```
+Developer → git push → CI Server → docker build → docker push → Deploy
+                                                                  │
+                        ┌─────────────────────────────────────────┘
+                        ▼
+              ┌─────────────────┐
+              │   Production    │
+              │   Server        │
+              │                 │
+              │  docker pull    │
+              │  docker run     │
+              └─────────────────┘
+```
+
+### 3. Microservice arxitektura
+
+Katta dastur kichik, mustaqil service'larga bo'linadi:
+
+```
+┌────────────────────────────────────────────────────┐
+│                  Kubernetes Cluster                │
+│                                                    │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
+│  │  Auth    │  │  Orders  │  │ Payments │          │
+│  │ Service  │  │ Service  │  │ Service  │          │
+│  │ (Go)     │  │ (Python) │  │ (Java)   │          │
+│  └──────────┘  └──────────┘  └──────────┘          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
+│  │  Email   │  │  Search  │  │   API    │          │
+│  │ Service  │  │ Service  │  │ Gateway  │          │
+│  │ (Node)   │  │ (Rust)   │  │ (Nginx)  │          │
+│  └──────────┘  └──────────┘  └──────────┘          │
+│                                                    │
+│  Har bir service o'z Docker container'ida ishlaydi │
+└────────────────────────────────────────────────────┘
+```
+
+### 4. Testing va QA
+
+```bash
+# Turli versiyalarni parallel test qilish
+docker run -d -p 8001:80 my-app:v1.0
+docker run -d -p 8002:80 my-app:v2.0-beta
+docker run -d -p 8003:80 my-app:v2.0-rc1
+
+# Testlar tugagach — hammasi tozalanadi
+docker stop $(docker ps -q) && docker rm $(docker ps -aq)
+```
+
+---
+
+## Docker ekotizimi
+
+Docker atrofida katta ekotizim shakllangan. Quyidagi toollar bilan tanishish foydali:
+
+| Tool | Vazifasi |
+|------|----------|
+| **Docker Compose** | Ko'p konteynerli dasturlarni boshqarish |
+| **Docker Swarm** | Docker'ning o'z cluster orchestration tool'i |
+| **Kubernetes (K8s)** | Eng mashhur konteyner orchestration platformasi |
+| **Harbor** | Private container registry (CNCF loyihasi) |
+| **Podman** | Docker'ga alternativa (daemonless, rootless) |
+| **Buildah** | OCI image'larini build qilish tool'i |
+| **Skopeo** | Container image'larni nusxalash va inspekt qilish |
+| **Trivy** | Container image vulnerability scanner |
+| **Dive** | Docker image layer'larini analiz qilish |
+
+---
+
+## Xulosa
+
+Docker — zamonaviy dasturiy ta'minot ishlab chiqish va deploy qilishning asosiy tool'laridan biri. Bu qo'llanmada siz Docker'ning asosiy tushunchalarini o'rgandingiz:
+
+- **Konteynerizatsiya** — dasturlarni izolyatsiya qilingan muhitda ishga tushirish
+- **Docker Image** — konteyner yaratish uchun read-only shablon
+- **Docker Container** — image'ning ishga tushirilgan nusxasi
+- **Dockerfile** — image yaratish uchun instruksiyalar
+- **Docker Volume** — ma'lumotlarni doimiy saqlash
+- **Docker Network** — konteynerlar orasidagi aloqa
+- **Docker Compose** — ko'p service'li dasturlarni boshqarish
+
+Keyingi qadamlar:
+1. **[Linux serverlarga Docker o'rnatish](https://devops-journey.uz/guides/konteyner/docker-ornatish)** — Docker o'rnatib, amaliyotni boshlang
+2. **[Dockerfile yozish](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)** — o'z image'laringizni yarating
+3. **[Docker buyruqlari](https://devops-journey.uz/guides/konteyner/docker-asoslari)** — Docker CLI'ni to'liq o'rganing
+
+## Qo'shimcha
+
+<Callout type="info" emoji="">
+
+Qo'shimcha resurslar
+ * [**Docker rasmiy hujjatlari**](https://docs.docker.com/)
+ * [**Docker Hub**](https://hub.docker.com/)
+ * [**Docker rasmiy GitHub**](https://github.com/moby/moby)
+ * [**Play with Docker (brauzerda Docker)**](https://labs.play-with-docker.com/)
+ * [**Linux serverlarga Docker o'rnatish**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+ * [**Dockerfile yozish**](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)
+ * [**Docker buyruqlari bilan ishlash**](https://devops-journey.uz/guides/konteyner/docker-asoslari)
+
+**Sana:** 2024.01.10(2024-yil 10-yanvar)
+
+**Oxirgi yangilanish:** 2026.02.12(2026-yil 12-fevral)
+
+**Muallif: Otabek Ismoilov**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>

@@ -1,6 +1,1195 @@
 ---
-title: "docker asoslari"
+image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/banner.png
+description: "Mastering Docker: Complete Guide to Working with Commands"
+---
+import { Callout } from "nextra-theme-docs";
+
+# Mastering Docker: Complete Guide to Working with Commands
+
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/banner.png)
+
+**Docker** is a platform that enables running applications in isolated containers and is widely adopted in modern software development. Docker containers are used to rapidly and reliably run, deploy, and manage applications. Containers leverage the same operating system kernel while providing isolated environments for application execution.
+
+This guide covers the most commonly used commands when working with Docker — managing images, controlling containers, configuring networks and volumes, Docker Compose, working with registries, and cleaning up system resources. Understanding these commands will help you work efficiently and effectively with Docker.
+
+<Callout type="info" emoji="">
+* Before reading this guide, you should be familiar with Docker. If you are not, we recommend reading the following guide first — **[Introduction to Docker](https://devops-journey.uz/guides/konteyner/dockerga-kirish)**.
+
+* To fully follow along with this guide, you need to have Docker installed. If it is not yet installed, review this guide to set it up — **[Installing Docker on Linux Servers](https://devops-journey.uz/guides/konteyner/docker-ornatish)**
+
+* Knowledge of writing Dockerfiles will also be beneficial for this guide — **[Writing a Dockerfile](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)**
+</Callout>
+
+
+## Essential Docker Commands
+
+### docker version
+
+This command is used to check the installed version of Docker. It displays version information for both the **Docker Client** and the **Server (Docker daemon)**.
+
+```bash
+docker version
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/1.png)
+
+The output includes the following information:
+* Client and Server version numbers
+* API version
+* Git commit hash
+* Go version
+* Build date and OS (operating system)
+
+### docker info
+
+This command provides detailed information about the Docker daemon.
+
+```bash
+docker info
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/2.png)
+
+The output includes the following information:
+* Docker version
+* Number of available containers and images
+* Docker Engine operational status and memory limits
+* Information about networks, volumes, and storage drivers
+
+### docker --help
+
+This command is used to obtain help information for any Docker command. If you want to learn all the parameters and options for a specific command, this will provide the additional details you need.
+
+```bash
+docker --help
+
+# Help for a specific command
+docker run --help
+docker build --help
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/3.png)
+
 ---
 
-> This article has not been translated to English yet.
-> Please read the [Uzbek version](/guides/konteyner/docker-asoslari) or help us translate it on [GitHub](https://github.com/ismoilovdevml/devops-journey).
+## Working with Images
+
+### docker images
+
+This command displays a list of all Docker images available on the current system.
+
+```bash
+docker images
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/4.png)
+
+The output shows the following columns for each image:
+* **REPOSITORY** — image name
+* **TAG** — version tag
+* **IMAGE ID** — unique identifier of the image
+* **CREATED** — creation time
+* **SIZE** — image size
+
+```bash
+# Show only image IDs
+docker images -q
+
+# All images (including intermediate layers)
+docker images -a
+
+# With filter
+docker images --filter "dangling=true"
+```
+
+### docker pull
+
+This command is used to download an image from Docker Hub or another registry. If no tag is specified, Docker automatically pulls the image with the `latest` tag.
+
+```bash
+docker pull image-name:tag
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/5.png)
+
+The output shows:
+* Information about the download progress of each image layer
+* A confirmation message upon successful download
+
+### docker search
+
+This command is used to search for images on Docker Hub.
+
+```bash
+# Search for an image
+docker search nginx
+
+# Official images only
+docker search --filter is-official=true nginx
+
+# Filter by star count
+docker search --filter stars=100 nginx
+```
+
+### docker build
+
+This command is used to build an image based on a **Dockerfile**. It points to the directory containing the Dockerfile and creates a new image from it.
+
+```bash
+docker build -t image-name:tag .
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/6.png)
+
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/7.png)
+
+If the Dockerfile is not in the current working directory, specify its path using the `-f` flag:
+
+```bash
+docker build -f /path/to/Dockerfile -t image-name:tag .
+```
+
+The output shows:
+* Reading the Dockerfile and the execution status for each layer
+* Image creation success and its identifier (sha256)
+
+Useful flags:
+
+```bash
+# Build without cache
+docker build --no-cache -t image-name:tag .
+
+# Pass a build argument
+docker build --build-arg VERSION=1.0 -t image-name:tag .
+
+# Target stage (multi-stage build)
+docker build --target builder -t image-name:tag .
+```
+
+### docker tag
+
+This command is used to assign a new name and tag to an image. It does not clone the image; it simply creates a new reference (alias).
+
+```bash
+docker tag image-name new-image-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/8.png)
+
+```bash
+# Tag for a registry
+docker tag myapp:latest registry.example.com/myapp:v1.0
+```
+
+### docker rmi
+
+This command is used to remove an image from the system. If the image is currently in use by a container, it cannot be removed.
+
+```bash
+docker rmi image-name:tag
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/9.png)
+
+```bash
+# Force removal
+docker rmi -f image-name:tag
+
+# Remove multiple images
+docker rmi image1:tag image2:tag
+
+# Remove all images
+docker rmi $(docker images -q)
+```
+
+### docker save and docker load
+
+**`docker save`** — used to export an image as a `.tar` archive file.
+
+```bash
+docker save -o image-file.tar image-name:tag
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/10.png)
+
+This command is commonly used to transfer images as `.tar` archives to air-gapped servers that lack internet connectivity.
+
+**`docker load`** — used to import a previously saved `.tar` file back as a Docker image.
+
+```bash
+docker load -i image-file.tar
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/11.png)
+
+```bash
+# Can also be used via pipe
+docker save myapp:latest | gzip > myapp.tar.gz
+gunzip -c myapp.tar.gz | docker load
+```
+
+### docker history
+
+This command allows you to view the history of layers used to build an image. Each layer corresponds to a single instruction in the Dockerfile.
+
+```bash
+docker history image-name:tag
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/12.png)
+
+```bash
+# View full commands (without truncation)
+docker history --no-trunc image-name:tag
+```
+
+### docker inspect
+
+This command is used to obtain detailed technical information about an image or container. The result is returned in **JSON** format.
+
+```bash
+docker inspect image-name:tag
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/13.png)
+
+```bash
+# Retrieve specific information (Go template)
+docker inspect --format='{{.Config.ExposedPorts}}' image-name
+
+# View image size
+docker inspect --format='{{.Size}}' image-name
+```
+
+---
+
+## Working with Containers
+
+### docker ps
+
+This command displays a list of currently running containers.
+
+```bash
+docker ps
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/14.png)
+
+The output shows the following columns for each container: **ID**, **IMAGE**, **COMMAND**, **CREATED**, **STATUS**, **PORTS**, and **NAMES**.
+
+To display all containers (both running and stopped), use the `-a` flag:
+
+```bash
+docker ps -a
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/15.png)
+
+The output now also includes stopped containers. In this case, `redis` is a stopped container.
+
+```bash
+# Show only container IDs
+docker ps -q
+
+# Last created container
+docker ps -l
+
+# With filter
+docker ps --filter "status=exited"
+docker ps --filter "name=redis"
+
+# Custom format
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+```
+
+### docker run
+
+This command is used to create and start a new container from an image. If the image is not available locally, it is automatically pulled from Docker Hub via `docker pull` by default.
+
+```bash
+docker run image-name:tag
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/16.png)
+
+The container is created and attached to your terminal.
+
+#### Detached mode (-d)
+
+To run a container in the background (detached), use the `-d` flag — the container runs without being attached to the terminal.
+
+```bash
+docker run -d image-name:tag
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/17.png)
+
+The container starts in the background and its **ID** is displayed in the terminal. You can verify it is running using `docker ps`.
+
+#### Interactive mode (-it)
+
+Launches the container in interactive mode and attaches the terminal to it. A console session is opened inside the container.
+
+```bash
+docker run -it image-name /bin/bash
+# or
+docker run -it image-name /bin/sh
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/18.png)
+
+An interactive session is opened inside the container, allowing you to execute commands directly within it.
+
+#### Port mapping (-p)
+
+Map a host port to a container port:
+
+```bash
+# host_port:container_port
+docker run -d -p 8080:80 nginx
+
+# Multiple ports
+docker run -d -p 8080:80 -p 8443:443 nginx
+
+# Bind to localhost only
+docker run -d -p 127.0.0.1:8080:80 nginx
+
+# Random host port
+docker run -d -p 80 nginx
+```
+
+#### Volume mount (-v)
+
+Attach a volume to a container:
+
+```bash
+docker run -v volume:/path image-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/26.png)
+
+#### Environment variables (-e)
+
+Set environment variables when starting a container:
+
+```bash
+docker run --name mysql-server -e MYSQL_ROOT_PASSWORD=FL20315dl2w132 -d mysql:latest
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/28.png)
+
+`-e MYSQL_ROOT_PASSWORD=FL20315dl2w132` — sets the password for the MySQL root user.
+
+```bash
+# Multiple environment variables
+docker run -e DB_HOST=localhost -e DB_PORT=5432 image-name
+
+# Load environment variables from a file
+docker run --env-file .env image-name
+```
+
+<Callout type="info" emoji="">
+The `--env-file` flag is extremely useful — in production environments, it is much safer to load passwords and secrets from an `.env` file rather than exposing them directly on the command line.
+</Callout>
+
+#### Name (--name)
+
+Assign a name to a container:
+
+```bash
+docker run -d --name my-redis redis:latest
+```
+
+#### Restart policy (--restart)
+
+Defines the behavior when a container stops:
+
+```bash
+docker run -d --restart always image-name
+```
+
+| Policy | Description |
+|--------|-------------|
+| `no` | Does not restart (default) |
+| `on-failure` | Restarts only if the container exits with an error |
+| `on-failure:5` | Restarts a maximum of 5 times |
+| `always` | Always restarts (including when the Docker daemon restarts) |
+| `unless-stopped` | Same as `always`, but does not restart if manually stopped |
+
+#### Auto-remove (--rm)
+
+Automatically removes the container when it stops — very useful for testing and temporary tasks:
+
+```bash
+docker run --rm -it ubuntu:24.04 /bin/bash
+```
+
+#### Resource limits
+
+Set CPU and memory limits for a container:
+
+```bash
+docker run -d --cpus 2 --memory 512m --memory-swap 1g image-name
+```
+
+#### Advanced docker run examples
+
+```bash
+sudo docker run -d -p 3000:3000 --name devops-journey --restart always devopsjourneyuz/devops-journey-uz:latest
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/27.png)
+
+This command utilizes several parameters:
+
+* `-d` — runs the container in the background
+* `-p 3000:3000` — maps port 3000 on the local machine to port 3000 in the container
+* `--name devops-journey` — assigns the name "devops-journey" to the container
+* `--restart always` — automatically restarts the container if it stops
+* `devopsjourneyuz/devops-journey-uz:latest` — pulls and runs the `devops-journey-uz:latest` image from Docker Hub
+
+---
+
+Advanced example with a volume:
+
+This command utilizes several parameters:
+
+* `-d (detach mode)` — runs the container in the background
+* `-p 8081:8081` — maps port 8081 on the local host to port 8081 inside the container. This allows you to access the container's web interface at `http://localhost:8081` on your host system
+* `--name nexus` — assigns the name `nexus` to the container
+* `-v /mnt/nexus-data:/nexus-data` — mounts the `/mnt/nexus-data` directory on the host system to the `/nexus-data` directory inside the container. This ensures persistent storage — data is preserved even when the container is removed
+* `sonatype/nexus3` — the image for version 3 of Nexus Repository Manager
+
+### docker stop / docker start / docker restart
+
+**`docker stop`** — used to gracefully stop a running container. A `SIGTERM` signal is sent to the container, allowing it to perform a graceful shutdown.
+
+```bash
+docker stop container-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/19.png)
+
+```bash
+# With timeout (default is 10 seconds)
+docker stop -t 30 container-name
+
+# Stop multiple containers
+docker stop container1 container2 container3
+
+# Stop all running containers
+docker stop $(docker ps -q)
+```
+
+**`docker start`** — used to restart a stopped container.
+
+```bash
+docker start container-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/20.png)
+
+The container resumes running in an active state.
+
+**`docker restart`** — used to restart a container (stop + start).
+
+```bash
+docker restart container-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/21.png)
+
+The container is stopped and immediately restarted.
+
+### docker kill
+
+Used to forcefully and immediately stop a container. This command sends a `SIGKILL` signal — the container is terminated without a graceful shutdown.
+
+```bash
+docker kill container-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/22.png)
+
+<Callout type="info" emoji="">
+**Difference between `docker stop` and `docker kill`:**
+- `docker stop` — sends `SIGTERM`, giving the container time to perform a graceful shutdown (default 10 seconds). If the container does not stop within that time, `SIGKILL` is sent
+- `docker kill` — immediately sends `SIGKILL`, forcefully terminating the container
+- In general, `docker stop` is the preferred approach. `docker kill` should only be used when the container becomes unresponsive
+</Callout>
+
+### docker rm
+
+Used to remove a stopped container from the system. A running container cannot be removed — it must first be stopped using `docker stop` or `docker kill`.
+
+```bash
+docker rm container-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/23.png)
+
+```bash
+# Force removal (even if running)
+docker rm -f container-name
+
+# Remove all stopped containers
+docker rm $(docker ps -aq --filter "status=exited")
+```
+
+### docker exec
+
+Allows you to enter a running container and execute commands inside it. If `bash` is not available in the container, use `sh` instead.
+
+```bash
+docker exec -it container-name /bin/bash
+# or
+docker exec -it container-name /bin/sh
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/24.png)
+
+An interactive terminal session is opened inside the container.
+
+```bash
+# Execute a single command (non-interactive)
+docker exec container-name ls -la /app
+
+# Enter as root
+docker exec -u root -it container-name /bin/bash
+
+# With an environment variable
+docker exec -e MY_VAR=hello container-name env
+
+# Set working directory
+docker exec -w /app container-name pwd
+```
+
+### docker logs
+
+Allows you to view the logs of a container. This command is essential when an application stops working or when debugging is required.
+
+```bash
+docker logs container-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/25.png)
+
+The image shows the logs for the `redis` container.
+
+```bash
+# Follow logs in real-time
+docker logs -f container-name
+
+# Last N lines
+docker logs --tail 100 container-name
+
+# Filter by time
+docker logs --since 2h container-name
+docker logs --since "2024-01-01T00:00:00" container-name
+
+# With timestamps
+docker logs -t container-name
+
+# Follow + tail combination
+docker logs -f --tail 50 container-name
+```
+
+<Callout type="info" emoji="">
+**`docker logs -f`** — the most commonly used option. Extremely useful for monitoring container logs in real-time. Press `Ctrl+C` to exit.
+</Callout>
+
+### docker port
+
+Used to view the port mappings of a container:
+
+```bash
+docker port container-name
+```
+
+The output shows which container ports are mapped to which host ports.
+
+---
+
+## Working with Volumes
+
+Volumes provide persistent storage for Docker containers. Volumes preserve data even when containers are removed or restarted.
+
+### docker volume ls
+
+Displays a list of all volumes created on the system.
+
+```bash
+docker volume ls
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/29.png)
+
+### docker volume create
+
+Used to create a new volume.
+
+```bash
+docker volume create volume-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/30.png)
+
+### docker volume rm
+
+Used to remove an existing volume from the system. If the volume is currently in use by a container, it cannot be removed.
+
+```bash
+docker volume rm volume-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/31.png)
+
+### docker volume prune
+
+Removes unused volumes. If a volume is not being used by any container, it is removed from the system.
+
+```bash
+docker volume prune
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/32.png)
+
+To remove all volumes:
+
+```bash
+docker volume rm $(docker volume ls -q)
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/33.png)
+
+### docker volume inspect
+
+Displays technical information about a volume, including its location and mountpoints.
+
+```bash
+docker volume inspect volume-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/34.png)
+
+### Mounting a Volume to a Container
+
+#### Named volume
+
+Creating a named volume and mounting it to a container — the recommended approach:
+
+```bash
+docker run -v volume-name:/data busybox
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/35.png)
+
+In this example, the `mysql-volume` volume is mounted to the `/var/lib/mysql` directory inside the container, and all data within the container is persisted in the volume.
+
+#### Bind mount (Host Path)
+
+A bind mount is used to mount a directory on the host to a directory inside the container:
+
+```bash
+docker run -v /host/path:/container/path image-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/26.png)
+
+In this case, the `/mnt/nexus-data` directory on the host system is mounted to the `/nexus-data` directory inside the container. Using bind mounts, you can establish real-time data exchange between the container and the host system.
+
+<Callout type="info" emoji="">
+**Named volume vs Bind mount:**
+- **Named volume** — managed by Docker, portable, easy to back up. Recommended for production environments
+- **Bind mount** — directly linked to the host filesystem, convenient for mounting source code during development
+- **Read-only mount**: `-v /host/path:/container/path:ro` — the container can only read from the mount
+</Callout>
+
+---
+
+## Working with Docker Networks
+
+Docker networks are used to facilitate communication between containers and to run applications in isolated environments.
+
+<Callout type="info" emoji="">
+For a thorough understanding of Docker networking, I recommend watching the following video tutorial — **[Docker Networking Tutorial (Bridge - None - Host - IPvlan - Macvlan - Overlay)](https://youtu.be/fBRgw5dyBd4?si=_XyPZ-SHrtQpPVrD)**
+</Callout>
+
+### Docker network drivers
+
+| Driver | Description |
+|--------|-------------|
+| `bridge` | Default network. Containers on a single host communicate with each other |
+| `host` | Container uses the host's network directly (no port mapping required) |
+| `none` | No network. Container has no external connectivity |
+| `overlay` | Multi-host network (Docker Swarm). Containers across different servers can communicate |
+| `macvlan` | Container is assigned its own MAC address and connects directly to the physical network |
+
+### docker network ls
+
+Displays a list of all networks available on the system.
+
+```bash
+docker network ls
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/36.png)
+
+The output shows each network's **NETWORK ID**, name (**NAME**), type (**DRIVER**), and scope.
+
+### docker network create
+
+Used to create a new network.
+
+```bash
+docker network create network-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/37.png)
+
+```bash
+# Create with a subnet
+docker network create --subnet=172.20.0.0/16 network-name
+
+# Specify a driver
+docker network create --driver overlay network-name
+```
+
+### docker network inspect
+
+Provides detailed technical information about a network — including the list of connected containers and network configuration.
+
+```bash
+docker network inspect network-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/38.png)
+
+The output displays the Docker network's technical details in **JSON** format, including connected containers and other configuration specifics.
+
+### docker network connect / disconnect
+
+Connect a container to an existing network:
+
+```bash
+docker network connect network-name container-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/39.png)
+
+As a result, the `redis` container is connected to the `redis-network` network. You can verify this using `docker network inspect network-name`.
+
+Disconnect a container from a network:
+
+```bash
+docker network disconnect network-name container-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/40.png)
+
+As a result, the `redis` container is disconnected from the `redis-network` network.
+
+### docker network rm
+
+Used to remove an unused network from the system.
+
+```bash
+docker network rm network-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/41.png)
+
+### Starting a Container with a Network
+
+```bash
+# Start a container on a specific network
+docker run -d --name redis --network my-network redis:latest
+
+# Assign a static IP to a container
+docker run -d --name redis --network my-network --ip 172.20.0.10 redis:latest
+```
+
+<Callout type="info" emoji="">
+**Important:** Containers on the same network can discover each other by **container name** (DNS resolution). For example, if a container named `redis` exists on the `my-network` network, another container can connect to it via `redis:6379`.
+</Callout>
+
+---
+
+## Working with Docker Compose
+
+**Docker Compose** is used to manage multiple services simultaneously. With Docker Compose, you can orchestrate all components of your application (e.g., web, database, cache) from a single configuration.
+
+<Callout type="info" emoji="">
+For a thorough understanding of Docker Compose, I recommend watching the following video tutorial — **[Docker Compose Tutorial for Beginners (Networks - Volumes - Secrets - Postgres - Letsencrypt)](https://youtu.be/YMBT1NguJJw?si=GuZZTuiqtnx9cYFi)**
+</Callout>
+
+### docker compose up
+
+Starts all services defined in the `docker-compose.yml` file. Images are built and containers are launched. This command must be executed in the directory containing the `docker-compose.yml` file.
+
+```bash
+docker compose up
+
+# Start in the background
+docker compose up -d
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/42.png)
+
+The output confirms that the services defined in your `docker-compose.yml` are up and running.
+
+```bash
+# Start a specific service only
+docker compose up -d redis
+
+# Rebuild images and start
+docker compose up -d --build
+
+# Scale a service
+docker compose up -d --scale web=3
+```
+
+### docker compose down
+
+Stops all services and removes their containers. Networks are also removed, but volumes are preserved.
+
+```bash
+docker compose down
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/43.png)
+
+```bash
+# Also remove volumes
+docker compose down -v
+
+# Also remove images
+docker compose down --rmi all
+```
+
+### docker compose ps
+
+Displays all active service containers.
+
+```bash
+docker compose ps
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/44.png)
+
+### docker compose logs
+
+Allows you to view the logs of all containers.
+
+```bash
+docker compose logs
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/45.png)
+
+```bash
+# Real-time follow
+docker compose logs -f
+
+# Logs for a specific service
+docker compose logs -f web
+
+# Last N lines
+docker compose logs --tail 50
+```
+
+### docker compose exec
+
+Allows you to enter a specific service container and execute commands inside it.
+
+```bash
+docker compose exec web /bin/bash
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/46.png)
+
+### docker compose stop
+
+Used to stop all services. Containers are preserved, but the services are halted.
+
+```bash
+docker compose stop
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/47.png)
+
+### docker compose build
+
+Build images for services:
+
+```bash
+# Build all services
+docker compose build
+
+# Build a specific service
+docker compose build web
+
+# Build without cache
+docker compose build --no-cache
+```
+
+### docker compose pull
+
+Update images from the registry:
+
+```bash
+docker compose pull
+```
+
+### docker compose config
+
+Validate the `docker-compose.yml` file and view the final resolved configuration:
+
+```bash
+docker compose config
+```
+
+This command is extremely useful for detecting YAML syntax errors.
+
+---
+
+## Working with Docker Registry
+
+Docker Registry is a system designed for storing, distributing, and consuming Docker images. Docker Hub is the most popular public Docker registry, but you can also set up a private Docker registry — such as Harbor, Nexus, or cloud provider registries (GCR, ECR, ACR).
+
+### docker login
+
+Used to authenticate with a Docker registry. You will be prompted for your username and password.
+
+```bash
+docker login -u user-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/54.png)
+
+For a private container registry:
+
+```bash
+docker login registry.example.com -u user-name
+```
+
+### docker logout
+
+Used to log out from a Docker registry.
+
+```bash
+docker logout
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/55.png)
+
+### docker push
+
+Used to push a Docker image to a registry. The image name must follow the `registry/repository:tag` format.
+
+```bash
+docker push registry/repo-name/image-name:tag
+```
+
+The image below demonstrates tagging the `redis:latest` image as `ismoilovdev/redis-test:latest` and pushing it to Docker Hub:
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/57.png)
+
+Pushing a Docker image to a container registry:
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/56.png)
+
+After pushing the Docker image, it should appear in the container registry — in our case, Docker Hub:
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/58.png)
+
+### docker pull (From Registry)
+
+Used to pull an image from a Docker registry. If no tag is specified, the `latest` tag is pulled.
+
+```bash
+docker pull repo-name/image-name:tag
+```
+
+Pulling from Docker Hub:
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/59.png)
+
+Pulling from GCR (Google Container Registry) — using the `registry-address/repo-name/image-name:tag` format:
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/60.png)
+
+---
+
+## Docker Cleanup
+
+Docker provides several commands for cleaning up unused or unnecessary resources from the system. These commands are used to optimize the system and free up disk space.
+
+### docker system prune
+
+Used to clean up all unnecessary resources from the Docker system — stopped containers, unused images, and networks.
+
+```bash
+docker system prune
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/48.png)
+
+### docker container prune
+
+Removes all stopped containers from the system.
+
+```bash
+docker container prune
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/49.png)
+
+### docker volume prune
+
+Used to remove unused volumes.
+
+```bash
+docker volume prune
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/50.png)
+
+### docker image prune
+
+Removes unused images from the system.
+
+```bash
+docker image prune
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/51.png)
+
+### docker network prune
+
+Used to remove unused networks.
+
+```bash
+docker network prune
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/52.png)
+
+### docker system prune -af
+
+To perform a complete cleanup of all unnecessary resources — containers, images, volumes, and networks:
+
+* `-a (all)` — removes all unused images (not just dangling ones, but all unused images)
+* `-f (force)` — executes without a confirmation prompt
+
+```bash
+docker system prune -af
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/53.png)
+
+This command maximizes the amount of freed disk space, but does not affect running containers or their associated resources.
+
+<Callout type="warning" emoji="">
+**Caution!** `docker system prune -af` removes all unused images. If you do not want to re-download your images, verify them first using `docker images`.
+</Callout>
+
+---
+
+## Additional Useful Commands
+
+### docker stats
+
+Provides real-time monitoring of container performance metrics — CPU, memory, network, and disk I/O.
+
+```bash
+docker stats
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/61.png)
+
+```bash
+# Specific container
+docker stats container-name
+
+# View once (without streaming)
+docker stats --no-stream
+```
+
+### docker top
+
+Displays the processes running inside a container.
+
+```bash
+docker top container-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/62.png)
+
+### docker cp
+
+Used to copy files and directories from a container to the host system or from the host to a container.
+
+```bash
+# From container to host
+docker cp container-name:/app/data /home/user/path
+
+# From host to container
+docker cp /home/user/file.txt container-name:/app/
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/63.png)
+
+### docker rename
+
+Used to rename a running container.
+
+```bash
+docker rename old-container-name new-container-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/64.png)
+
+### docker pause / docker unpause
+
+**`docker pause`** — temporarily suspends all processes in a container. A `SIGSTOP` signal is sent to the processes — they remain in memory but cease consuming CPU.
+
+```bash
+docker pause container-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/65.png)
+
+**`docker unpause`** — resumes a previously paused container. A `SIGCONT` signal is sent to the processes.
+
+```bash
+docker unpause container-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/66.png)
+
+### docker update
+
+Used to update resource limits on a running container.
+
+```bash
+docker update --cpus 2 --memory 2g --memory-swap 3g container-name
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/67.png)
+
+```bash
+# Update restart policy
+docker update --restart unless-stopped container-name
+```
+
+### docker system df
+
+View the disk space consumed by Docker resources (images, containers, networks, volumes):
+
+```bash
+docker system df
+```
+![docker-commands](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-commands/68.png)
+
+```bash
+# Detailed information
+docker system df -v
+```
+
+### docker diff
+
+Displays files that have changed in a container relative to the host filesystem:
+
+```bash
+docker diff container-name
+```
+
+The output uses the following indicators:
+* `A` — Added file
+* `C` — Changed file
+* `D` — Deleted file
+
+### docker events
+
+Monitor Docker daemon events in real-time:
+
+```bash
+# Real-time events
+docker events
+
+# Filter by time
+docker events --since 1h
+
+# Container events
+docker events --filter type=container
+```
+
+### docker wait
+
+Waits until a container stops and returns its exit code:
+
+```bash
+docker wait container-name
+```
+
+This command is useful in CI/CD pipelines or scripts for waiting on container completion.
+
+---
+
+## Additional Resources
+
+<Callout type="info" emoji="">
+
+Additional Resources
+ * [**Docker Official Documentation**](https://docs.docker.com/)
+ * [**Docker CLI Reference**](https://docs.docker.com/reference/cli/docker/)
+ * [**Docker Compose Reference**](https://docs.docker.com/compose/reference/)
+ * [**Introduction to Docker**](https://devops-journey.uz/guides/konteyner/dockerga-kirish)
+ * [**Installing Docker on Linux Servers**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+ * [**Writing a Dockerfile**](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)
+ * [**Docker Compose**](https://devops-journey.uz/guides/konteyner/docker-compose)
+
+**Date:** 2024.10.19 (October 19, 2024)
+
+**Last updated:** 2026.02.12 (February 12, 2026)
+
+**Author: Otabek Ismoilov**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>
