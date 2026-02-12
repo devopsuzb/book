@@ -1,75 +1,524 @@
 ---
 image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/1.webp
-description: "Docker Compose yordamida Code Server ko'tarish"
+description: "Code Server o'rnatish va sozlash bo'yicha to'liq qo'llanma"
 ---
 
 import { Callout } from "nextra-theme-docs";
 
-# Docker Compose yordamida Code Server ko'tarish
+# Code Server — Brauzerda VS Code
 
-![docker](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/1.webp)
+![code-server](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/1.webp)
 
-Code Serveri serverda Visual Studio Code (VS Code) ni ishga tushirish imkonini beruvchi vositadir, ya'ni siz internetga ulangan holda istalgan kompyuterdan, istalgan joydan VS Code muhitingizga kirishingiz mumkin. Ushbu serverga yo'naltirilgan o'rnatish hamkorlikdagi loyihalar, ta'lim sozlamalari yoki turli joylardan foydalanish mumkin bo'lgan development environment xohlagan har qanday senariy uchun idealdir.
+## Kirish
 
-## Qulayliklar
+**[code-server](https://github.com/coder/code-server)** — bu Visual Studio Code'ni serverda ishga tushirib, brauzer orqali foydalanish imkonini beruvchi open-source loyiha. Oddiy qilib aytganda, siz kuchli serverdagi VS Code'ga istalgan qurilmadan — noutbuk, planshet yoki hatto telefondan kirishingiz mumkin.
 
-**Foydalanish imkoniyati:** Development environmentga istalgan joydan kiring.
-**Hamkorlik(Collaborative):** Bir xil development environment sozlamalarini bo'lishib, boshqalar bilan hamkorlik qilishni osonlashtiradi.
-**Muvofiqlik:** Turli xil sozlamalardan foydalangan holda turli dasturchilardan kelib chiqadigan muammolarni yumshatish.
-**Resurslarni optimallashtirish:** Server resurslaridan samarali foydalaning, local kompyuteringizda resurslarni tejang.
+**Oxirgi barqaror versiya:** `v4.108.2` (2026-yil 26-yanvar, VS Code 1.108.2 asosida)
 
-## O'rnatish va Sozlash
-Ushbu bo'limda biz sizni Docker Compose yordamida sozlash jarayoni bo'yicha yo'l-yo'riq beramiz, sozlash jarayonini soddalashtirish uchun oldindan belgilangan `docker-compose.yml` faylidan foydalanamiz.
+### Nima uchun code-server kerak?
 
-1. Serverimizda `code-server` nomli jild ochib olamiz va uni ichiga `docker-compose.yml` fayl ochamiz.
+- **Istalgan joydan kirish** — internetga ulangan har qanday qurilmadan o'z development muhitingizga kirasiz. Uyda boshlagan ishni yo'lda davom ettirishingiz mumkin.
+- **Server quvvatidan foydalanish** — og'ir build, test va kompilyatsiya jarayonlari serverda bajariladi. Sizning local kompyuteringiz faqat brauzer ochadi.
+- **Bir xil muhit** — jamoangizning barcha a'zolari bir xil muhitda ishlaydi. "Mening kompyuterimda ishladi" muammosi yo'qoladi.
+- **Batareya tejash** — barcha hisoblash server tomonida amalga oshiriladi, qurilmangizning batareyasi uzoq yashaydi.
+- **Xavfsizlik** — kod serverda qoladi, local qurilmaga yuklanmaydi. Noutbuk yo'qolsa ham kod xavfsiz.
+
+### Minimal tizim talablari
+
+| Resurs | Minimal | Tavsiya etiladi |
+|--------|---------|-----------------|
+| RAM | 1 GB | 2+ GB |
+| CPU | 2 vCPU | 4+ vCPU |
+| OS | Linux (WebSocket qo'llab-quvvatlashi) | Ubuntu 22.04+, Debian 12+ |
+| Disk | 5 GB | 20+ GB |
+
+## O'rnatish usullari
+
+### 1-usul: Install script (eng oson)
+
+code-server'ning rasmiy install scripti tizimingiz uchun eng mos usulni avtomatik aniqlaydi.
+
+Avval qanday buyruqlar bajarilishini ko'rish uchun dry-run rejimda ishga tushiring:
 
 ```bash
-mkdir code-server
-nano docker-compose.yml
+curl -fsSL https://code-server.dev/install.sh | sh -s -- --dry-run
 ```
 
-2. nano matn muhharri orqali ochilgan oynaga quyidagi kodni nusxalang va o'zingizga moslab sozlab oling.
+Hamma narsa to'g'ri bo'lsa, o'rnatishni boshlang:
 
-```yaml filename="code-server/docker-compose.yml"
----
-version: "2.1"
-services:
-  code-server:
-    image: lscr.io/linuxserver/code-server:latest
-    container_name: code-server
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-      - PASSWORD=linux #ixtiyoriy
-      - HASHED_PASSWORD= #ixtiyoriy
-      - SUDO_PASSWORD=password #ixtiyoriy
-      - SUDO_PASSWORD_HASH= #ixtiyoriy
-      - PROXY_DOMAIN=code-server.my.domain #ixtiyoriy
-      - DEFAULT_WORKSPACE=/config/workspace #ixtiyoriy
-    volumes:
-      - /path/to/appdata/config:/config
-    ports:
-      - 8443:8443
-    restart: unless-stopped
+```bash
+curl -fsSL https://code-server.dev/install.sh | sh
 ```
+
+O'rnatgandan so'ng systemd servisi yoqiladi:
+
+```bash
+sudo systemctl enable --now code-server@$USER
+```
+
+Brauzerda `http://127.0.0.1:8080` manzilga kiring. Parol `~/.config/code-server/config.yaml` faylida joylashgan.
+
 <Callout type="info" emoji="">
-Serveringizda Docker va Docker Compose o'rnatilgan bo'lishi talab qilinadi
+Install script qo'shimcha parametrlarni qo'llab-quvvatlaydi:
+
+- `--method=standalone` — tizim paket menejerisiz o'rnatadi
+- `--prefix=/usr/local` — o'rnatish papkasini belgilaydi
+- `--version=4.108.2` — aniq versiya o'rnatadi
 </Callout>
 
-Environment o'zgaruvchilarini ehtiyojlaringizga qarab sozlang. Bu yerda har bir o'zgaruvchining qisqacha izohi:
+### 2-usul: Debian/Ubuntu (deb paket)
 
-* `PUID` va `PGID`: Foydalanuvchi va guruh identifikatorlari fayl ruxsatlari to'g'ri o'rnatilganligiga ishonch hosil qilish uchun.
-* `TZ:` Server uchun vaqt mintaqasi.
-* `PASSWORD` & `HASHED_PASSWORD:` Code serveriga kirish uchun parollar (yoki ochiq matn yoki xeshlangan).
-* `SUDO_PASSWORD` va `SUDO_PASSWORD_HASH:` sudo-ga kirishni ta'minlash uchun parollar (yoki ochiq matn yoki xeshlangan).
-* `PROXY_DOMAIN:` Agar proksi-serverdan foydalanayotgan bo'lsangiz, bu yerda domenni belgilang.
-* `DEFAULT_WORKSPACE:` standart ish maydoni jildi.
+```bash
+# Paketni yuklab olish (versiyani o'zgartiring)
+export VERSION=4.108.2
+curl -fOL https://github.com/coder/code-server/releases/download/v$VERSION/code-server_${VERSION}_amd64.deb
 
-3. Code seerverni o'rnatish uchun docker composeni ishga tushiramiz.
+# O'rnatish
+sudo dpkg -i code-server_${VERSION}_amd64.deb
+
+# Serverni yoqish
+sudo systemctl enable --now code-server@$USER
+```
+
+### 3-usul: Fedora/CentOS/RHEL (rpm paket)
+
+```bash
+export VERSION=4.108.2
+curl -fOL https://github.com/coder/code-server/releases/download/v$VERSION/code-server-$VERSION-amd64.rpm
+
+sudo rpm -i code-server-$VERSION-amd64.rpm
+sudo systemctl enable --now code-server@$USER
+```
+
+### 4-usul: macOS (Homebrew)
+
+```bash
+brew install code-server
+brew services start code-server
+```
+
+### 5-usul: Docker
+
+```bash
+mkdir -p ~/.config
+
+docker run -it --name code-server \
+  -p 127.0.0.1:8080:8080 \
+  -v "$HOME/.local:/home/coder/.local" \
+  -v "$HOME/.config:/home/coder/.config" \
+  -v "$PWD:/home/coder/project" \
+  -u "$(id -u):$(id -g)" \
+  -e "DOCKER_USER=$USER" \
+  codercom/code-server:latest
+```
+
+<Callout type="info" emoji="">
+**Volume'lar nima uchun kerak?**
+- `$HOME/.local` — code-server'ning ichki ma'lumotlari (extension'lar va boshqalar)
+- `$HOME/.config` — konfiguratsiya fayllari (config.yaml, parol)
+- `$PWD` — sizning loyihangiz papkasi
+</Callout>
+
+### 6-usul: Docker Compose (tavsiya etiladi)
+
+Serverda doimiy ishlatish uchun Docker Compose eng qulay usul.
+
+```bash
+mkdir -p ~/code-server && cd ~/code-server
+```
+
+`docker-compose.yml` faylini yarating:
+
+```yaml filename="docker-compose.yml"
+services:
+  code-server:
+    image: codercom/code-server:4.108.2
+    container_name: code-server
+    restart: unless-stopped
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      - DOCKER_USER=${USER:-coder}
+    volumes:
+      - ./config:/home/coder/.config
+      - ./local:/home/coder/.local
+      - ./project:/home/coder/project
+    ports:
+      - "127.0.0.1:8080:8080"
+```
+
+<Callout type="warning" emoji="">
+**LinuxServer.io image haqida:**
+
+Eski maqolalarda `lscr.io/linuxserver/code-server` image ishlatilgan. Bu image hali ham ishlaydi, lekin rasmiy `codercom/code-server` image'ni ishlatish tavsiya etiladi — u to'g'ridan-to'g'ri loyiha muallifi tomonidan qo'llab-quvvatlanadi va yangilanishlar tezroq keladi.
+</Callout>
+
+Ishga tushirish:
 
 ```bash
 docker compose up -d
 ```
 
-4. Tabrikalymiz siz Code Serverni muvafaqqiyatlari serveringizga o'rnatdingiz. Docker containerlar ro'yxati orqali code-server containerni ko'rishingiz mumkin. Code Server `8443` portda ishlab turibti. Brauzeringiz orqali `SERVER_IP:8443` ga kirsangiz Code Server ochiladi va agar parol o'rnatgan bo'lsangiz sizdan parol so'raydi. Bu konfigratsiyada parolga `- PASSWORD=linux #ixtiyoriy` qo'yilgan.
+Konteyner holatini tekshirish:
+
+```bash
+docker compose ps
+docker compose logs code-server
+```
+
+Dastlabki parolni ko'rish:
+
+```bash
+docker compose exec code-server cat /home/coder/.config/code-server/config.yaml
+```
+
+#### LinuxServer.io image bilan Docker Compose
+
+Agar LinuxServer.io image'ni afzal ko'rsangiz:
+
+```yaml filename="docker-compose.yml"
+services:
+  code-server:
+    image: lscr.io/linuxserver/code-server:latest
+    container_name: code-server
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Tashkent
+      - PASSWORD=xavfsiz_parol_qoying
+      - SUDO_PASSWORD=sudo_parol
+      - DEFAULT_WORKSPACE=/config/workspace
+    volumes:
+      - ./config:/config
+    ports:
+      - "8443:8443"
+```
+
+Bu image'ning environment o'zgaruvchilari:
+
+| O'zgaruvchi | Tavsif |
+|-------------|--------|
+| `PUID` / `PGID` | Foydalanuvchi va guruh ID — fayl huquqlari uchun |
+| `TZ` | Timezone (masalan, `Asia/Tashkent`) |
+| `PASSWORD` | Web interfeys paroli (ochiq matn) |
+| `HASHED_PASSWORD` | Hashed password (`PASSWORD` o'rniga) |
+| `SUDO_PASSWORD` | Terminal ichida sudo paroli |
+| `PROXY_DOMAIN` | Reverse proxy domain |
+| `DEFAULT_WORKSPACE` | Standart ish papkasi |
+
+## Konfiguratsiya
+
+code-server barcha sozlamalarni `~/.config/code-server/config.yaml` faylida saqlaydi. Birinchi ishga tushirishda bu fayl avtomatik yaratiladi.
+
+### config.yaml
+
+```yaml filename="~/.config/code-server/config.yaml"
+bind-addr: 127.0.0.1:8080
+auth: password
+password: sizning_parolingiz
+cert: false
+```
+
+Asosiy parametrlar:
+
+| Parametr | Tavsif | Misol |
+|----------|--------|-------|
+| `bind-addr` | Listening address va port | `127.0.0.1:8080`, `0.0.0.0:443` |
+| `auth` | Authentication usuli | `password` yoki `none` |
+| `password` | Kirish paroli | Plain text parol |
+| `hashed-password` | Hashed password | argon2 hash |
+| `cert` | HTTPS sertifikat | `true`, `false` yoki sertifikat fayl yo'li |
+| `cert-key` | Certificate key | `/path/to/key.pem` |
+
+### Password hashing
+
+Parolni plain text o'rniga hashed holda saqlash xavfsizroq:
+
+```bash
+# argon2 o'rnatish
+sudo apt install argon2
+
+# Parolni hash qilish
+echo -n "sizning_parolingiz" | argon2 saltSOMESALT -e
+
+# Natijani config.yaml ga qo'ying
+# hashed-password: "$argon2i$v=19$m=4096,t=3,p=1$..."
+```
+
+### Buyruq qatori parametrlari
+
+config.yaml o'rniga yoki unga qo'shimcha ravishda buyruq qatoridan ham sozlash mumkin:
+
+```bash
+# Boshqa portda ishga tushirish
+code-server --bind-addr 0.0.0.0:9090
+
+# Parolsiz (faqat reverse proxy bilan!)
+code-server --auth none
+
+# HTTPS bilan
+code-server --cert /path/to/cert.pem --cert-key /path/to/key.pem
+```
+
+## HTTPS sozlash
+
+<Callout type="warning" emoji="">
+**code-server'ni hech qachon HTTPS yoki autentifikatsiyasiz internetga ochmang!** code-server orqali terminal va fayl tizimiga kirish mumkin — bu sizning serveringizga to'liq kirish demak.
+</Callout>
+
+### Self-signed sertifikat
+
+Eng oddiy usul — code-server'ning o'zi sertifikat yaratadi:
+
+```yaml filename="config.yaml"
+bind-addr: 0.0.0.0:443
+auth: password
+password: kuchli_parol
+cert: true
+```
+
+Sertifikat `~/.local/share/code-server/self-signed.crt` da saqlanadi.
+
+443-portni ochish uchun qo'shimcha ruxsat berish kerak:
+
+```bash
+sudo setcap cap_net_bind_service=+ep /usr/lib/code-server/lib/node
+sudo systemctl restart code-server@$USER
+```
+
+<Callout type="info" emoji="">
+Self-signed sertifikat brauzerda ogohlantirish beradi. Bu test muhit uchun yetarli, lekin production uchun Let's Encrypt ishlatiladi.
+</Callout>
+
+### Let's Encrypt bilan bepul HTTPS
+
+Production muhitda Let's Encrypt sertifikat olish uchun **Caddy** yoki **Nginx + Certbot** ishlatiladi. Bu haqda keyingi bo'limda batafsil yozilgan.
+
+## Reverse Proxy sozlash
+
+Production muhitda code-server to'g'ridan-to'g'ri internetga ochilmaydi. Uning o'rniga reverse proxy ishlatiladi — bu HTTPS, domain nomi va qo'shimcha xavfsizlikni ta'minlaydi.
+
+### Caddy bilan (eng oson)
+
+Caddy avtomatik ravishda Let's Encrypt sertifikatini oladi va yangilaydi — hech qanday qo'shimcha sozlash kerak emas.
+
+```bash
+# Caddy o'rnatish (Ubuntu/Debian)
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install caddy
+```
+
+Caddyfile yarating:
+
+```text filename="/etc/caddy/Caddyfile"
+code.sizning-domain.uz {
+    reverse_proxy 127.0.0.1:8080
+}
+```
+
+```bash
+sudo systemctl reload caddy
+```
+
+Tamom! Caddy avtomatik HTTPS sertifikat oladi va `code.sizning-domain.uz` manzilida code-server ochiladi.
+
+<Callout type="info" emoji="">
+Caddy bilan subpath ham ishlatish mumkin:
+
+```text
+sizning-domain.uz {
+    redir /code /code/ 308
+    handle_path /code/* {
+        reverse_proxy 127.0.0.1:8080
+    }
+}
+```
+</Callout>
+
+### Nginx + Let's Encrypt bilan
+
+```bash
+# Nginx va Certbot o'rnatish
+sudo apt install nginx certbot python3-certbot-nginx
+```
+
+Nginx konfiguratsiya fayli:
+
+```nginx filename="/etc/nginx/sites-available/code-server"
+server {
+    listen 80;
+    listen [::]:80;
+    server_name code.sizning-domain.uz;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080/;
+        proxy_set_header Host $http_host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection upgrade;
+        proxy_set_header Accept-Encoding gzip;
+    }
+}
+```
+
+<Callout type="warning" emoji="">
+**WebSocket headerlari muhim!** `Upgrade` va `Connection` headerlari bo'lmasa, code-server to'g'ri ishlamaydi. VS Code brauzerdagi real-time aloqa uchun WebSocket'lardan foydalanadi.
+</Callout>
+
+Konfiguratsiyani yoqish va sertifikat olish:
+
+```bash
+# Saytni yoqish
+sudo ln -s /etc/nginx/sites-available/code-server /etc/nginx/sites-enabled/
+
+# Konfiguratsiyani tekshirish
+sudo nginx -t
+
+# Nginx'ni qayta yuklash
+sudo systemctl reload nginx
+
+# Let's Encrypt sertifikat olish
+sudo certbot --nginx -d code.sizning-domain.uz
+```
+
+Certbot avtomatik ravishda Nginx konfiguratsiyasini HTTPS'ga yangilaydi va sertifikatni har 90 kunda yangilab turadi.
+
+## SSH Port Forwarding
+
+Agar domain yoki sertifikat sozlash imkoningiz bo'lmasa, eng xavfsiz va oddiy usul — SSH tunnel.
+
+```bash
+# Local kompyuterdan serverga tunnel ochish
+ssh -N -L 8080:127.0.0.1:8080 user@server-ip
+```
+
+Endi brauzerda `http://127.0.0.1:8080` manzilga kiring. Barcha trafik SSH orqali shifrlangan.
+
+Doimiy SSH tunnel uchun `~/.ssh/config` ga qo'shing:
+
+```text filename="~/.ssh/config"
+Host code-server
+    HostName server-ip
+    User sizning-foydalanuvchi
+    LocalForward 8080 127.0.0.1:8080
+    ServerAliveInterval 5
+    ExitOnForwardFailure yes
+```
+
+Endi shunchaki quyidagi buyruqni bajaring:
+
+```bash
+ssh -N code-server
+```
+
+## code-server'ni yangilash
+
+### Systemd o'rnatilgan bo'lsa
+
+```bash
+curl -fsSL https://code-server.dev/install.sh | sh
+sudo systemctl restart code-server@$USER
+```
+
+### Docker Compose bilan
+
+```bash
+cd ~/code-server
+
+# Yangi image'ni tortish
+docker compose pull
+
+# Konteynerlarni qayta ishga tushirish
+docker compose up -d
+
+# Eski image'larni tozalash
+docker image prune -f
+```
+
+## Xavfsizlik bo'yicha tavsiyalar
+
+<Callout type="warning" emoji="">
+**Muhim xavfsizlik qoidalari:**
+
+1. **Hech qachon code-server'ni autentifikatsiya va shifrlanishsiz internetga ochmang.** Terminal orqali serveringizga to'liq kirish mumkin.
+
+2. **Kuchli parol ishlating.** code-server parolni brute-force hujumdan himoya qiladi (daqiqada 2 ta, soatiga qo'shimcha 12 ta urinish), lekin kuchli parol barcha holatlarda muhim.
+
+3. **HTTPS ishlatiladi** — quyidagi usullardan birini tanlang:
+   - Caddy (avtomatik Let's Encrypt)
+   - Nginx + Certbot
+   - SSH tunnel
+   - `cert: true` (self-signed — faqat test uchun)
+
+4. **Firewall sozlang.** code-server portini (8080) faqat localhost yoki reverse proxy'ga oching.
+
+```bash
+# UFW bilan faqat SSH va HTTPS ochish
+sudo ufw allow ssh
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+```
+
+5. **Tashqi autentifikatsiya** qo'shimcha himoya sifatida ishlatilishi mumkin:
+   - [Cloudflare Access](https://www.cloudflare.com/teams/access/)
+   - [oauth2-proxy](https://github.com/oauth2-proxy/oauth2-proxy)
+   - [Pomerium](https://www.pomerium.com/)
+</Callout>
+
+## Foydali maslahatlar
+
+### Extension'lar o'rnatish
+
+code-server VS Code extension'larini qo'llab-quvvatlaydi. Extension'larni VS Code ichidagi Extension paneli orqali yoki buyruq qatoridan o'rnatish mumkin:
+
+```bash
+# Extension o'rnatish
+code-server --install-extension ms-python.python
+code-server --install-extension dbaeumer.vscode-eslint
+
+# O'rnatilgan extension'lar ro'yxati
+code-server --list-extensions
+```
+
+<Callout type="info" emoji="">
+code-server [Open VSX](https://open-vsx.org/) marketplace'dan foydalanadi (Microsoft marketplace emas). Ko'pchilik mashhur extension'lar mavjud, lekin ba'zilari faqat Microsoft marketplace'da bo'lishi mumkin.
+</Callout>
+
+### Web service'larni proxy qilish
+
+code-server ichida ishlab turgan web ilovalar (masalan, React dev server, API server) ga tashqaridan kirish uchun:
+
+**Subdomain usuli (tavsiya etiladi):**
+
+```bash
+code-server --proxy-domain sizning-domain.uz
+```
+
+Endi 3000-portda ishlab turgan ilova `3000.sizning-domain.uz` manzilida ochiladi.
+
+**Subpath usuli:**
+
+code-server avtomatik ravishda `/proxy/<port>/` yo'lini taqdim etadi. Masalan, 3000-portda ishlab turgan ilova `https://code.sizning-domain.uz/proxy/3000/` manzilida ochiladi.
+
+## Qo'shimcha
+
+<Callout type="info" emoji="">
+
+Qo'shimcha Resurslar
+ * [**code-server rasmiy GitHub**](https://github.com/coder/code-server)
+ * [**code-server rasmiy dokumentatsiya**](https://coder.com/docs/code-server)
+ * [**O'rnatish qo'llanma**](https://coder.com/docs/code-server/install)
+ * [**Xavfsizlik va sozlash qo'llanma**](https://coder.com/docs/code-server/guide)
+ * [**Linux Serverlarga Docker o'rnatish**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+
+**Sana:** 2023.12.20(2023-yil 20-dekabr)
+
+**Oxirgi yangilanish:** 2026.02.12(2026-yil 12-fevral)
+
+**Muallif: Otabek Ismoilov**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>

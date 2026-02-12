@@ -1,6 +1,524 @@
 ---
-title: "code server"
+image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/1.webp
+description: "Полное руководство по установке и настройке Code Server"
 ---
 
-> Эта статья ещё не переведена на русский язык.
-> Пожалуйста, прочитайте [версию на узбекском](/guides/konteyner/code-server) или помогите нам с переводом на [GitHub](https://github.com/ismoilovdevml/devops-journey).
+import { Callout } from "nextra-theme-docs";
+
+# Code Server — VS Code в браузере
+
+![code-server](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/1.webp)
+
+## Введение
+
+**[code-server](https://github.com/coder/code-server)** — это open-source проект, позволяющий запустить Visual Studio Code на сервере и работать с ним через браузер. Простыми словами, вы получаете доступ к VS Code на мощном сервере с любого устройства — ноутбука, планшета или даже телефона.
+
+**Последняя стабильная версия:** `v4.108.2` (26 января 2026 г., на основе VS Code 1.108.2)
+
+### Зачем нужен code-server?
+
+- **Доступ откуда угодно** — подключайтесь к своей среде разработки с любого устройства, подключённого к интернету. Начните работу дома и продолжите в дороге.
+- **Мощность сервера** — тяжёлые сборки, тесты и компиляция выполняются на сервере. Ваш локальный компьютер лишь открывает браузер.
+- **Единая среда** — все участники команды работают в одинаковом окружении. Проблема «у меня на компьютере работает» исчезает.
+- **Экономия заряда** — все вычисления происходят на сервере, батарея вашего устройства расходуется медленнее.
+- **Безопасность** — код остаётся на сервере и не загружается на локальные устройства. Даже при потере ноутбука код в безопасности.
+
+### Минимальные системные требования
+
+| Ресурс | Минимум | Рекомендуется |
+|--------|---------|---------------|
+| RAM | 1 ГБ | 2+ ГБ |
+| CPU | 2 vCPU | 4+ vCPU |
+| ОС | Linux (поддержка WebSocket) | Ubuntu 22.04+, Debian 12+ |
+| Диск | 5 ГБ | 20+ ГБ |
+
+## Способы установки
+
+### Способ 1: Install-скрипт (самый простой)
+
+Официальный install-скрипт code-server автоматически определяет оптимальный способ установки для вашей системы.
+
+Сначала запустите в режиме dry-run, чтобы увидеть, какие команды будут выполнены:
+
+```bash
+curl -fsSL https://code-server.dev/install.sh | sh -s -- --dry-run
+```
+
+Если всё в порядке, запустите установку:
+
+```bash
+curl -fsSL https://code-server.dev/install.sh | sh
+```
+
+После установки включите systemd-сервис:
+
+```bash
+sudo systemctl enable --now code-server@$USER
+```
+
+Откройте в браузере `http://127.0.0.1:8080`. Пароль находится в файле `~/.config/code-server/config.yaml`.
+
+<Callout type="info" emoji="">
+Install-скрипт поддерживает дополнительные параметры:
+
+- `--method=standalone` — установка без системного пакетного менеджера
+- `--prefix=/usr/local` — указание директории установки
+- `--version=4.108.2` — установка конкретной версии
+</Callout>
+
+### Способ 2: Debian/Ubuntu (deb-пакет)
+
+```bash
+# Скачивание пакета (измените версию при необходимости)
+export VERSION=4.108.2
+curl -fOL https://github.com/coder/code-server/releases/download/v$VERSION/code-server_${VERSION}_amd64.deb
+
+# Установка
+sudo dpkg -i code-server_${VERSION}_amd64.deb
+
+# Включение сервиса
+sudo systemctl enable --now code-server@$USER
+```
+
+### Способ 3: Fedora/CentOS/RHEL (rpm-пакет)
+
+```bash
+export VERSION=4.108.2
+curl -fOL https://github.com/coder/code-server/releases/download/v$VERSION/code-server-$VERSION-amd64.rpm
+
+sudo rpm -i code-server-$VERSION-amd64.rpm
+sudo systemctl enable --now code-server@$USER
+```
+
+### Способ 4: macOS (Homebrew)
+
+```bash
+brew install code-server
+brew services start code-server
+```
+
+### Способ 5: Docker
+
+```bash
+mkdir -p ~/.config
+
+docker run -it --name code-server \
+  -p 127.0.0.1:8080:8080 \
+  -v "$HOME/.local:/home/coder/.local" \
+  -v "$HOME/.config:/home/coder/.config" \
+  -v "$PWD:/home/coder/project" \
+  -u "$(id -u):$(id -g)" \
+  -e "DOCKER_USER=$USER" \
+  codercom/code-server:latest
+```
+
+<Callout type="info" emoji="">
+**Зачем нужны тома (volumes)?**
+- `$HOME/.local` — внутренние данные code-server (расширения и т.д.)
+- `$HOME/.config` — файлы конфигурации (config.yaml, пароль)
+- `$PWD` — директория вашего проекта
+</Callout>
+
+### Способ 6: Docker Compose (рекомендуется)
+
+Docker Compose — самый удобный способ для постоянного использования на сервере.
+
+```bash
+mkdir -p ~/code-server && cd ~/code-server
+```
+
+Создайте файл `docker-compose.yml`:
+
+```yaml filename="docker-compose.yml"
+services:
+  code-server:
+    image: codercom/code-server:4.108.2
+    container_name: code-server
+    restart: unless-stopped
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      - DOCKER_USER=${USER:-coder}
+    volumes:
+      - ./config:/home/coder/.config
+      - ./local:/home/coder/.local
+      - ./project:/home/coder/project
+    ports:
+      - "127.0.0.1:8080:8080"
+```
+
+<Callout type="warning" emoji="">
+**О LinuxServer.io образе:**
+
+В старых руководствах используется образ `lscr.io/linuxserver/code-server`. Он по-прежнему работает, но рекомендуется использовать официальный образ `codercom/code-server` — он поддерживается непосредственно авторами проекта и обновляется быстрее.
+</Callout>
+
+Запуск:
+
+```bash
+docker compose up -d
+```
+
+Проверка состояния контейнера:
+
+```bash
+docker compose ps
+docker compose logs code-server
+```
+
+Просмотр начального пароля:
+
+```bash
+docker compose exec code-server cat /home/coder/.config/code-server/config.yaml
+```
+
+#### Docker Compose с образом LinuxServer.io
+
+Если вы предпочитаете образ LinuxServer.io:
+
+```yaml filename="docker-compose.yml"
+services:
+  code-server:
+    image: lscr.io/linuxserver/code-server:latest
+    container_name: code-server
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Moscow
+      - PASSWORD=безопасный_пароль
+      - SUDO_PASSWORD=sudo_пароль
+      - DEFAULT_WORKSPACE=/config/workspace
+    volumes:
+      - ./config:/config
+    ports:
+      - "8443:8443"
+```
+
+Переменные окружения этого образа:
+
+| Переменная | Описание |
+|------------|----------|
+| `PUID` / `PGID` | ID пользователя и группы — для прав доступа к файлам |
+| `TZ` | Часовой пояс (например, `Europe/Moscow`) |
+| `PASSWORD` | Пароль веб-интерфейса (открытый текст) |
+| `HASHED_PASSWORD` | Хешированный пароль (вместо `PASSWORD`) |
+| `SUDO_PASSWORD` | Пароль sudo в терминале |
+| `PROXY_DOMAIN` | Домен для reverse proxy |
+| `DEFAULT_WORKSPACE` | Рабочая директория по умолчанию |
+
+## Конфигурация
+
+code-server хранит все настройки в файле `~/.config/code-server/config.yaml`. Этот файл создаётся автоматически при первом запуске.
+
+### config.yaml
+
+```yaml filename="~/.config/code-server/config.yaml"
+bind-addr: 127.0.0.1:8080
+auth: password
+password: ваш_пароль
+cert: false
+```
+
+Основные параметры:
+
+| Параметр | Описание | Пример |
+|----------|----------|--------|
+| `bind-addr` | Адрес и порт прослушивания | `127.0.0.1:8080`, `0.0.0.0:443` |
+| `auth` | Метод аутентификации | `password` или `none` |
+| `password` | Пароль доступа | Пароль открытым текстом |
+| `hashed-password` | Хешированный пароль | хеш argon2 |
+| `cert` | HTTPS-сертификат | `true`, `false` или путь к файлу сертификата |
+| `cert-key` | Ключ сертификата | `/path/to/key.pem` |
+
+### Хеширование пароля
+
+Хранить пароль в хешированном виде безопаснее, чем открытым текстом:
+
+```bash
+# Установка argon2
+sudo apt install argon2
+
+# Хеширование пароля
+echo -n "ваш_пароль" | argon2 saltSOMESALT -e
+
+# Добавьте результат в config.yaml
+# hashed-password: "$argon2i$v=19$m=4096,t=3,p=1$..."
+```
+
+### Параметры командной строки
+
+Настройки можно задавать и через командную строку — вместо или в дополнение к config.yaml:
+
+```bash
+# Запуск на другом порту
+code-server --bind-addr 0.0.0.0:9090
+
+# Без пароля (только с reverse proxy!)
+code-server --auth none
+
+# С HTTPS
+code-server --cert /path/to/cert.pem --cert-key /path/to/key.pem
+```
+
+## Настройка HTTPS
+
+<Callout type="warning" emoji="">
+**Никогда не открывайте code-server в интернет без HTTPS и аутентификации!** Через code-server доступны терминал и файловая система — это означает полный доступ к вашему серверу.
+</Callout>
+
+### Самоподписанный сертификат
+
+Самый простой способ — code-server сам генерирует сертификат:
+
+```yaml filename="config.yaml"
+bind-addr: 0.0.0.0:443
+auth: password
+password: надёжный_пароль
+cert: true
+```
+
+Сертификат сохраняется в `~/.local/share/code-server/self-signed.crt`.
+
+Для привязки к порту 443 необходимы дополнительные права:
+
+```bash
+sudo setcap cap_net_bind_service=+ep /usr/lib/code-server/lib/node
+sudo systemctl restart code-server@$USER
+```
+
+<Callout type="info" emoji="">
+Самоподписанный сертификат вызовет предупреждение в браузере. Для тестирования этого достаточно, но для продакшена используйте Let's Encrypt.
+</Callout>
+
+### Бесплатный HTTPS с Let's Encrypt
+
+В продакшене для получения сертификатов Let's Encrypt используйте **Caddy** или **Nginx + Certbot**. Подробности — в следующем разделе.
+
+## Настройка Reverse Proxy
+
+В продакшене code-server не открывается напрямую в интернет. Вместо этого используется reverse proxy — он обеспечивает HTTPS, поддержку доменного имени и дополнительную безопасность.
+
+### С Caddy (самый простой)
+
+Caddy автоматически получает и обновляет сертификаты Let's Encrypt — никакая дополнительная настройка не требуется.
+
+```bash
+# Установка Caddy (Ubuntu/Debian)
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install caddy
+```
+
+Создайте Caddyfile:
+
+```text filename="/etc/caddy/Caddyfile"
+code.ваш-домен.com {
+    reverse_proxy 127.0.0.1:8080
+}
+```
+
+```bash
+sudo systemctl reload caddy
+```
+
+Готово! Caddy автоматически получит HTTPS-сертификат, и code-server будет доступен по адресу `code.ваш-домен.com`.
+
+<Callout type="info" emoji="">
+С Caddy также можно использовать подпуть:
+
+```text
+ваш-домен.com {
+    redir /code /code/ 308
+    handle_path /code/* {
+        reverse_proxy 127.0.0.1:8080
+    }
+}
+```
+</Callout>
+
+### С Nginx + Let's Encrypt
+
+```bash
+# Установка Nginx и Certbot
+sudo apt install nginx certbot python3-certbot-nginx
+```
+
+Файл конфигурации Nginx:
+
+```nginx filename="/etc/nginx/sites-available/code-server"
+server {
+    listen 80;
+    listen [::]:80;
+    server_name code.ваш-домен.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080/;
+        proxy_set_header Host $http_host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection upgrade;
+        proxy_set_header Accept-Encoding gzip;
+    }
+}
+```
+
+<Callout type="warning" emoji="">
+**Заголовки WebSocket критически важны!** Без заголовков `Upgrade` и `Connection` code-server не будет работать корректно. VS Code использует WebSocket для связи в реальном времени в браузере.
+</Callout>
+
+Включение конфигурации и получение сертификата:
+
+```bash
+# Включение сайта
+sudo ln -s /etc/nginx/sites-available/code-server /etc/nginx/sites-enabled/
+
+# Проверка конфигурации
+sudo nginx -t
+
+# Перезагрузка Nginx
+sudo systemctl reload nginx
+
+# Получение сертификата Let's Encrypt
+sudo certbot --nginx -d code.ваш-домен.com
+```
+
+Certbot автоматически обновит конфигурацию Nginx для HTTPS и будет обновлять сертификат каждые 90 дней.
+
+## SSH Port Forwarding
+
+Если нет возможности настроить домен или сертификат, самый безопасный и простой способ — SSH-туннель.
+
+```bash
+# Открытие туннеля с локальной машины на сервер
+ssh -N -L 8080:127.0.0.1:8080 user@server-ip
+```
+
+Теперь откройте в браузере `http://127.0.0.1:8080`. Весь трафик шифруется через SSH.
+
+Для постоянного SSH-туннеля добавьте в `~/.ssh/config`:
+
+```text filename="~/.ssh/config"
+Host code-server
+    HostName server-ip
+    User ваш-пользователь
+    LocalForward 8080 127.0.0.1:8080
+    ServerAliveInterval 5
+    ExitOnForwardFailure yes
+```
+
+Теперь просто выполните:
+
+```bash
+ssh -N code-server
+```
+
+## Обновление code-server
+
+### При установке через systemd
+
+```bash
+curl -fsSL https://code-server.dev/install.sh | sh
+sudo systemctl restart code-server@$USER
+```
+
+### С Docker Compose
+
+```bash
+cd ~/code-server
+
+# Получение нового образа
+docker compose pull
+
+# Перезапуск контейнеров
+docker compose up -d
+
+# Очистка старых образов
+docker image prune -f
+```
+
+## Рекомендации по безопасности
+
+<Callout type="warning" emoji="">
+**Важные правила безопасности:**
+
+1. **Никогда не открывайте code-server в интернет без аутентификации и шифрования.** Через терминал можно получить полный доступ к серверу.
+
+2. **Используйте надёжный пароль.** code-server защищает от брутфорса (2 попытки в минуту плюс 12 дополнительных в час), но надёжный пароль важен в любом случае.
+
+3. **Всегда используйте HTTPS** — выберите один из способов:
+   - Caddy (автоматический Let's Encrypt)
+   - Nginx + Certbot
+   - SSH-туннель
+   - `cert: true` (самоподписанный — только для тестирования)
+
+4. **Настройте файрвол.** Открывайте порт code-server (8080) только для localhost или reverse proxy.
+
+```bash
+# Разрешить только SSH и HTTPS через UFW
+sudo ufw allow ssh
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+```
+
+5. **Внешняя аутентификация** может использоваться как дополнительный уровень защиты:
+   - [Cloudflare Access](https://www.cloudflare.com/teams/access/)
+   - [oauth2-proxy](https://github.com/oauth2-proxy/oauth2-proxy)
+   - [Pomerium](https://www.pomerium.com/)
+</Callout>
+
+## Полезные советы
+
+### Установка расширений
+
+code-server поддерживает расширения VS Code. Их можно установить через панель расширений внутри VS Code или из командной строки:
+
+```bash
+# Установка расширения
+code-server --install-extension ms-python.python
+code-server --install-extension dbaeumer.vscode-eslint
+
+# Список установленных расширений
+code-server --list-extensions
+```
+
+<Callout type="info" emoji="">
+code-server использует маркетплейс [Open VSX](https://open-vsx.org/) (не Microsoft marketplace). Большинство популярных расширений доступны, но некоторые могут быть только в Microsoft marketplace.
+</Callout>
+
+### Проксирование веб-сервисов
+
+Для доступа извне к веб-приложениям, работающим внутри code-server (например, React dev server, API server):
+
+**Метод поддоменов (рекомендуется):**
+
+```bash
+code-server --proxy-domain ваш-домен.com
+```
+
+Приложение на порту 3000 будет доступно по адресу `3000.ваш-домен.com`.
+
+**Метод подпути:**
+
+code-server автоматически предоставляет путь `/proxy/<port>/`. Например, приложение на порту 3000 доступно по адресу `https://code.ваш-домен.com/proxy/3000/`.
+
+## Дополнительные ресурсы
+
+<Callout type="info" emoji="">
+
+Дополнительные ресурсы
+ * [**Официальный GitHub code-server**](https://github.com/coder/code-server)
+ * [**Официальная документация code-server**](https://coder.com/docs/code-server)
+ * [**Руководство по установке**](https://coder.com/docs/code-server/install)
+ * [**Руководство по безопасности и настройке**](https://coder.com/docs/code-server/guide)
+ * [**Установка Docker на серверы Linux**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+
+**Дата:** 20.12.2023 (20 декабря 2023 г.)
+
+**Последнее обновление:** 12.02.2026 (12 февраля 2026 г.)
+
+**Автор: Отабек Исмоилов**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>

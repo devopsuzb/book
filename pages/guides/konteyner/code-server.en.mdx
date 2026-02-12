@@ -1,6 +1,524 @@
 ---
-title: "code server"
+image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/1.webp
+description: "A Complete Guide to Installing and Configuring Code Server"
 ---
 
-> This article has not been translated to English yet.
-> Please read the [Uzbek version](/guides/konteyner/code-server) or help us translate it on [GitHub](https://github.com/ismoilovdevml/devops-journey).
+import { Callout } from "nextra-theme-docs";
+
+# Code Server — VS Code in the Browser
+
+![code-server](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/1.webp)
+
+## Introduction
+
+**[code-server](https://github.com/coder/code-server)** is an open-source project that lets you run Visual Studio Code on a server and access it through a browser. In simple terms, you can access VS Code on a powerful server from any device — a laptop, tablet, or even a phone.
+
+**Latest stable version:** `v4.108.2` (January 26, 2026, based on VS Code 1.108.2)
+
+### Why use code-server?
+
+- **Access from anywhere** — connect to your development environment from any internet-connected device. Start work at home and continue it on the go.
+- **Leverage server power** — heavy builds, tests, and compilation run on the server. Your local machine only needs to open a browser.
+- **Consistent environment** — all team members work in the same environment. The "it works on my machine" problem disappears.
+- **Battery savings** — all computation happens server-side, preserving your device's battery life.
+- **Security** — code stays on the server and is never downloaded to local devices. Even if a laptop is lost, the code remains safe.
+
+### Minimum System Requirements
+
+| Resource | Minimum | Recommended |
+|----------|---------|-------------|
+| RAM | 1 GB | 2+ GB |
+| CPU | 2 vCPU | 4+ vCPU |
+| OS | Linux (WebSocket support) | Ubuntu 22.04+, Debian 12+ |
+| Disk | 5 GB | 20+ GB |
+
+## Installation Methods
+
+### Method 1: Install Script (Easiest)
+
+The official code-server install script automatically detects the best installation method for your system.
+
+First, run in dry-run mode to see what commands will be executed:
+
+```bash
+curl -fsSL https://code-server.dev/install.sh | sh -s -- --dry-run
+```
+
+If everything looks good, proceed with the installation:
+
+```bash
+curl -fsSL https://code-server.dev/install.sh | sh
+```
+
+After installation, enable the systemd service:
+
+```bash
+sudo systemctl enable --now code-server@$USER
+```
+
+Open `http://127.0.0.1:8080` in your browser. The password is located in `~/.config/code-server/config.yaml`.
+
+<Callout type="info" emoji="">
+The install script supports additional parameters:
+
+- `--method=standalone` — installs without the system package manager
+- `--prefix=/usr/local` — sets the installation directory
+- `--version=4.108.2` — installs a specific version
+</Callout>
+
+### Method 2: Debian/Ubuntu (deb package)
+
+```bash
+# Download the package (change the version as needed)
+export VERSION=4.108.2
+curl -fOL https://github.com/coder/code-server/releases/download/v$VERSION/code-server_${VERSION}_amd64.deb
+
+# Install
+sudo dpkg -i code-server_${VERSION}_amd64.deb
+
+# Enable the service
+sudo systemctl enable --now code-server@$USER
+```
+
+### Method 3: Fedora/CentOS/RHEL (rpm package)
+
+```bash
+export VERSION=4.108.2
+curl -fOL https://github.com/coder/code-server/releases/download/v$VERSION/code-server-$VERSION-amd64.rpm
+
+sudo rpm -i code-server-$VERSION-amd64.rpm
+sudo systemctl enable --now code-server@$USER
+```
+
+### Method 4: macOS (Homebrew)
+
+```bash
+brew install code-server
+brew services start code-server
+```
+
+### Method 5: Docker
+
+```bash
+mkdir -p ~/.config
+
+docker run -it --name code-server \
+  -p 127.0.0.1:8080:8080 \
+  -v "$HOME/.local:/home/coder/.local" \
+  -v "$HOME/.config:/home/coder/.config" \
+  -v "$PWD:/home/coder/project" \
+  -u "$(id -u):$(id -g)" \
+  -e "DOCKER_USER=$USER" \
+  codercom/code-server:latest
+```
+
+<Callout type="info" emoji="">
+**Why are volumes needed?**
+- `$HOME/.local` — code-server internal data (extensions, etc.)
+- `$HOME/.config` — configuration files (config.yaml, password)
+- `$PWD` — your project directory
+</Callout>
+
+### Method 6: Docker Compose (Recommended)
+
+Docker Compose is the most convenient method for persistent server deployments.
+
+```bash
+mkdir -p ~/code-server && cd ~/code-server
+```
+
+Create a `docker-compose.yml` file:
+
+```yaml filename="docker-compose.yml"
+services:
+  code-server:
+    image: codercom/code-server:4.108.2
+    container_name: code-server
+    restart: unless-stopped
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      - DOCKER_USER=${USER:-coder}
+    volumes:
+      - ./config:/home/coder/.config
+      - ./local:/home/coder/.local
+      - ./project:/home/coder/project
+    ports:
+      - "127.0.0.1:8080:8080"
+```
+
+<Callout type="warning" emoji="">
+**About the LinuxServer.io image:**
+
+Older guides use the `lscr.io/linuxserver/code-server` image. While it still works, the official `codercom/code-server` image is recommended — it is maintained directly by the project authors and receives updates faster.
+</Callout>
+
+Start the service:
+
+```bash
+docker compose up -d
+```
+
+Check container status:
+
+```bash
+docker compose ps
+docker compose logs code-server
+```
+
+View the initial password:
+
+```bash
+docker compose exec code-server cat /home/coder/.config/code-server/config.yaml
+```
+
+#### Docker Compose with LinuxServer.io Image
+
+If you prefer the LinuxServer.io image:
+
+```yaml filename="docker-compose.yml"
+services:
+  code-server:
+    image: lscr.io/linuxserver/code-server:latest
+    container_name: code-server
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - PASSWORD=your_secure_password
+      - SUDO_PASSWORD=sudo_password
+      - DEFAULT_WORKSPACE=/config/workspace
+    volumes:
+      - ./config:/config
+    ports:
+      - "8443:8443"
+```
+
+Environment variables for this image:
+
+| Variable | Description |
+|----------|-------------|
+| `PUID` / `PGID` | User and group ID — for file permissions |
+| `TZ` | Timezone (e.g., `Etc/UTC`) |
+| `PASSWORD` | Web interface password (plain text) |
+| `HASHED_PASSWORD` | Hashed password (instead of `PASSWORD`) |
+| `SUDO_PASSWORD` | sudo password inside the terminal |
+| `PROXY_DOMAIN` | Reverse proxy domain |
+| `DEFAULT_WORKSPACE` | Default workspace directory |
+
+## Configuration
+
+code-server stores all settings in `~/.config/code-server/config.yaml`. This file is automatically created on the first run.
+
+### config.yaml
+
+```yaml filename="~/.config/code-server/config.yaml"
+bind-addr: 127.0.0.1:8080
+auth: password
+password: your_password
+cert: false
+```
+
+Key parameters:
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `bind-addr` | Listening address and port | `127.0.0.1:8080`, `0.0.0.0:443` |
+| `auth` | Authentication method | `password` or `none` |
+| `password` | Access password | Plain text password |
+| `hashed-password` | Hashed password | argon2 hash |
+| `cert` | HTTPS certificate | `true`, `false`, or path to certificate file |
+| `cert-key` | Certificate key | `/path/to/key.pem` |
+
+### Password Hashing
+
+Storing the password in hashed form is more secure than plain text:
+
+```bash
+# Install argon2
+sudo apt install argon2
+
+# Hash the password
+echo -n "your_password" | argon2 saltSOMESALT -e
+
+# Add the result to config.yaml
+# hashed-password: "$argon2i$v=19$m=4096,t=3,p=1$..."
+```
+
+### Command Line Parameters
+
+You can also configure code-server from the command line, either instead of or in addition to config.yaml:
+
+```bash
+# Run on a different port
+code-server --bind-addr 0.0.0.0:9090
+
+# No password (only with a reverse proxy!)
+code-server --auth none
+
+# With HTTPS
+code-server --cert /path/to/cert.pem --cert-key /path/to/key.pem
+```
+
+## HTTPS Setup
+
+<Callout type="warning" emoji="">
+**Never expose code-server to the internet without HTTPS and authentication!** code-server provides access to the terminal and file system — this means full access to your server.
+</Callout>
+
+### Self-Signed Certificate
+
+The simplest approach — code-server generates its own certificate:
+
+```yaml filename="config.yaml"
+bind-addr: 0.0.0.0:443
+auth: password
+password: strong_password
+cert: true
+```
+
+The certificate is stored at `~/.local/share/code-server/self-signed.crt`.
+
+Additional permissions are needed to bind to port 443:
+
+```bash
+sudo setcap cap_net_bind_service=+ep /usr/lib/code-server/lib/node
+sudo systemctl restart code-server@$USER
+```
+
+<Callout type="info" emoji="">
+A self-signed certificate will trigger a browser warning. This is fine for testing, but use Let's Encrypt for production.
+</Callout>
+
+### Free HTTPS with Let's Encrypt
+
+In production, use **Caddy** or **Nginx + Certbot** to obtain Let's Encrypt certificates. This is covered in detail in the next section.
+
+## Reverse Proxy Setup
+
+In production, code-server should not be exposed directly to the internet. Instead, a reverse proxy is used to provide HTTPS, domain name support, and additional security.
+
+### With Caddy (Easiest)
+
+Caddy automatically obtains and renews Let's Encrypt certificates — no additional configuration needed.
+
+```bash
+# Install Caddy (Ubuntu/Debian)
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update && sudo apt install caddy
+```
+
+Create a Caddyfile:
+
+```text filename="/etc/caddy/Caddyfile"
+code.your-domain.com {
+    reverse_proxy 127.0.0.1:8080
+}
+```
+
+```bash
+sudo systemctl reload caddy
+```
+
+Done! Caddy automatically obtains an HTTPS certificate and code-server is available at `code.your-domain.com`.
+
+<Callout type="info" emoji="">
+You can also use a subpath with Caddy:
+
+```text
+your-domain.com {
+    redir /code /code/ 308
+    handle_path /code/* {
+        reverse_proxy 127.0.0.1:8080
+    }
+}
+```
+</Callout>
+
+### With Nginx + Let's Encrypt
+
+```bash
+# Install Nginx and Certbot
+sudo apt install nginx certbot python3-certbot-nginx
+```
+
+Nginx configuration file:
+
+```nginx filename="/etc/nginx/sites-available/code-server"
+server {
+    listen 80;
+    listen [::]:80;
+    server_name code.your-domain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080/;
+        proxy_set_header Host $http_host;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection upgrade;
+        proxy_set_header Accept-Encoding gzip;
+    }
+}
+```
+
+<Callout type="warning" emoji="">
+**WebSocket headers are critical!** Without the `Upgrade` and `Connection` headers, code-server will not work correctly. VS Code uses WebSockets for real-time communication in the browser.
+</Callout>
+
+Enable the configuration and obtain a certificate:
+
+```bash
+# Enable the site
+sudo ln -s /etc/nginx/sites-available/code-server /etc/nginx/sites-enabled/
+
+# Test the configuration
+sudo nginx -t
+
+# Reload Nginx
+sudo systemctl reload nginx
+
+# Obtain a Let's Encrypt certificate
+sudo certbot --nginx -d code.your-domain.com
+```
+
+Certbot automatically updates the Nginx configuration for HTTPS and renews the certificate every 90 days.
+
+## SSH Port Forwarding
+
+If you cannot set up a domain or certificate, the safest and simplest method is an SSH tunnel.
+
+```bash
+# Open a tunnel from your local machine to the server
+ssh -N -L 8080:127.0.0.1:8080 user@server-ip
+```
+
+Now open `http://127.0.0.1:8080` in your browser. All traffic is encrypted via SSH.
+
+For a persistent SSH tunnel, add this to `~/.ssh/config`:
+
+```text filename="~/.ssh/config"
+Host code-server
+    HostName server-ip
+    User your-username
+    LocalForward 8080 127.0.0.1:8080
+    ServerAliveInterval 5
+    ExitOnForwardFailure yes
+```
+
+Now simply run:
+
+```bash
+ssh -N code-server
+```
+
+## Upgrading code-server
+
+### With Systemd
+
+```bash
+curl -fsSL https://code-server.dev/install.sh | sh
+sudo systemctl restart code-server@$USER
+```
+
+### With Docker Compose
+
+```bash
+cd ~/code-server
+
+# Pull the new image
+docker compose pull
+
+# Restart containers
+docker compose up -d
+
+# Clean up old images
+docker image prune -f
+```
+
+## Security Recommendations
+
+<Callout type="warning" emoji="">
+**Essential security rules:**
+
+1. **Never expose code-server to the internet without authentication and encryption.** The terminal provides full access to your server.
+
+2. **Use a strong password.** code-server protects against brute-force attacks (2 attempts per minute plus 12 additional per hour), but a strong password is critical in all cases.
+
+3. **Always use HTTPS** — choose one of these methods:
+   - Caddy (automatic Let's Encrypt)
+   - Nginx + Certbot
+   - SSH tunnel
+   - `cert: true` (self-signed — testing only)
+
+4. **Configure a firewall.** Only open the code-server port (8080) to localhost or the reverse proxy.
+
+```bash
+# Allow only SSH and HTTPS with UFW
+sudo ufw allow ssh
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+```
+
+5. **External authentication** can be used as an additional layer of protection:
+   - [Cloudflare Access](https://www.cloudflare.com/teams/access/)
+   - [oauth2-proxy](https://github.com/oauth2-proxy/oauth2-proxy)
+   - [Pomerium](https://www.pomerium.com/)
+</Callout>
+
+## Useful Tips
+
+### Installing Extensions
+
+code-server supports VS Code extensions. You can install extensions via the Extension panel inside VS Code or from the command line:
+
+```bash
+# Install an extension
+code-server --install-extension ms-python.python
+code-server --install-extension dbaeumer.vscode-eslint
+
+# List installed extensions
+code-server --list-extensions
+```
+
+<Callout type="info" emoji="">
+code-server uses the [Open VSX](https://open-vsx.org/) marketplace (not the Microsoft marketplace). Most popular extensions are available, but some may only be found on the Microsoft marketplace.
+</Callout>
+
+### Proxying Web Services
+
+To access web applications running inside code-server (such as a React dev server or API server) from outside:
+
+**Subdomain method (recommended):**
+
+```bash
+code-server --proxy-domain your-domain.com
+```
+
+An application running on port 3000 will be available at `3000.your-domain.com`.
+
+**Subpath method:**
+
+code-server automatically provides the `/proxy/<port>/` path. For example, an application running on port 3000 is available at `https://code.your-domain.com/proxy/3000/`.
+
+## Additional Resources
+
+<Callout type="info" emoji="">
+
+Additional Resources
+ * [**code-server official GitHub**](https://github.com/coder/code-server)
+ * [**code-server official documentation**](https://coder.com/docs/code-server)
+ * [**Installation guide**](https://coder.com/docs/code-server/install)
+ * [**Security and configuration guide**](https://coder.com/docs/code-server/guide)
+ * [**Installing Docker on Linux Servers**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+
+**Date:** 2023.12.20 (December 20, 2023)
+
+**Last updated:** 2026.02.12 (February 12, 2026)
+
+**Author: Otabek Ismoilov**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>

@@ -23,7 +23,7 @@ Ushbu qo'llanmada biz Dockerfile'ning barcha asosiy instruksiyalarini, multi-sta
 
 ## Dockerfile instruksiyalari
 
-### FROM — Asosiy image tanlash
+### FROM — Base image tanlash
 
 Har bir Dockerfile `FROM` bilan boshlanadi. Bu instruksiya imagengiz qaysi asosiy imagega asoslanishini belgilaydi.
 
@@ -68,9 +68,9 @@ LABEL description="DevOps Journey API service"
 Image labellarini ko'rish uchun: `docker inspect --format='{{json .Config.Labels}}' image_name`
 </Callout>
 
-### WORKDIR — Ishchi papka
+### WORKDIR — Working directory
 
-`WORKDIR` konteyner ichidagi ishchi papkani belgilaydi. Bundan keyingi barcha `RUN`, `COPY`, `CMD` va boshqa instruksiyalar shu papkada bajariladi.
+`WORKDIR` konteyner ichidagi working directory'ni belgilaydi. Bundan keyingi barcha `RUN`, `COPY`, `CMD` va boshqa instruksiyalar shu directory'da bajariladi.
 
 ```dockerfile
 FROM python:3.12-slim
@@ -87,7 +87,7 @@ RUN pip install -r requirements.txt
 Agar papka mavjud bo'lmasa, Docker uni avtomatik yaratadi.
 </Callout>
 
-### COPY va ADD — Fayllarni ko'chirish
+### COPY va ADD — Fayllarni copy qilish
 
 **`COPY`** — host mashinadagi fayllarni image ichiga ko'chiradi. Oddiy va tushunarli.
 
@@ -118,7 +118,7 @@ ADD https://example.com/config.json /app/
 **Qoida:** Agar arxiv ochish yoki URL'dan yuklash kerak bo'lmasa — **doimo `COPY` ishlatiladi**. `ADD` ning "yashirin" funksiyalari kutilmagan natijalar berishi mumkin. Ko'pchilik hollarda `COPY` yetarli va xavfsizroq.
 </Callout>
 
-### RUN — Buyruq bajarish
+### RUN — Command bajarish
 
 `RUN` instruksiyasi image build jarayonida buyruqlarni bajaradi — paket o'rnatish, fayllarni tayyorlash, kompilyatsiya qilish va boshqalar.
 
@@ -149,9 +149,9 @@ Dockerfile'dagi har bir instruksiya (`RUN`, `COPY`, `ADD`) image'ga yangi **laye
 3. Keraksiz fayllarni o'sha layer ichida o'chiring (keyingi layerda o'chirish hajmni kamaytirmaydi!)
 </Callout>
 
-### ENV — Environment variable
+### ENV — Environment variables
 
-`ENV` konteyner ichidagi muhit o'zgaruvchilarini belgilaydi. Bu qiymatlar build jarayonida ham, konteyner ishlayotganda ham mavjud bo'ladi.
+`ENV` konteyner ichidagi environment variable'larni belgilaydi. Bu qiymatlar build jarayonida ham, konteyner ishlayotganda ham mavjud bo'ladi.
 
 ```dockerfile
 FROM node:20-alpine
@@ -168,9 +168,9 @@ CMD ["node", "server.js"]
 `ENV` bilan belgilangan qiymatlar konteyner ishlayotganda `docker run -e PORT=4000` orqali override qilinishi mumkin.
 </Callout>
 
-### ARG — Build-time o'zgaruvchilar
+### ARG — Build-time variables
 
-`ARG` faqat **build jarayonida** mavjud bo'lgan o'zgaruvchilarni belgilaydi. Konteyner ishlayotganda ular mavjud bo'lmaydi.
+`ARG` faqat **build jarayonida** mavjud bo'lgan variable'larni belgilaydi. Konteyner ishlayotganda ular mavjud bo'lmaydi.
 
 ```dockerfile
 # Default qiymat bilan ARG
@@ -196,7 +196,7 @@ docker build --build-arg NODE_VERSION=18 --build-arg APP_VERSION=2.0.0 -t myapp 
 **Hech qachon `ARG` orqali maxfiy ma'lumotlar (parol, token) bermang!** Build tarixida (`docker history`) ko'rinib qoladi.
 </Callout>
 
-### CMD va ENTRYPOINT — Konteyner ishga tushishi
+### CMD va ENTRYPOINT — Container startup
 
 Bu ikki instruksiya konteyner ishga tushganda qaysi buyruq bajarilishini belgilaydi.
 
@@ -257,7 +257,7 @@ docker run mynginx -c /custom/nginx.conf
 - **Faqat `ENTRYPOINT`** — konteyner faqat bitta aniq dasturni bajarishi kerak bo'lganda
 </Callout>
 
-### EXPOSE — Port dokumentatsiyasi
+### EXPOSE — Port documentation
 
 `EXPOSE` Docker'ga konteyner qaysi portlarni tinglashini bildiradi. Lekin bu **portni ochmaydi** — faqat dokumentatsiya sifatida xizmat qiladi.
 
@@ -277,9 +277,9 @@ docker run -p 8080:3000 myapp
 docker run -P myapp
 ```
 
-### VOLUME — Doimiy ma'lumotlar
+### VOLUME — Persistent data
 
-`VOLUME` konteyner ichida doimiy (persistent) ma'lumotlarni saqlash uchun mount point yaratadi. Konteyner o'chirilsa ham, volume'dagi ma'lumotlar saqlanib qoladi.
+`VOLUME` konteyner ichida persistent data saqlash uchun mount point yaratadi. Konteyner o'chirilsa ham, volume'dagi ma'lumotlar saqlanib qoladi.
 
 ```dockerfile
 FROM postgres:16-alpine
@@ -306,7 +306,7 @@ docker run -v pgdata:/var/lib/postgresql/data postgres
 - Konteynerlar o'rtasida almashiladigan ma'lumotlar
 </Callout>
 
-### USER — Xavfsiz foydalanuvchi
+### USER — Secure user
 
 `USER` instruksiyasi konteyner ichida qaysi foydalanuvchi nomidan buyruqlar bajarilishini belgilaydi.
 
@@ -330,7 +330,7 @@ CMD ["node", "server.js"]
 Agar konteynerda xavfsizlik zaifligi topilsa, root huquqli konteyner buzg'unchiga host serverga ham kirish imkonini berishi mumkin. Doimo `USER` instruksiyasi orqali root'siz foydalanuvchiga o'ting.
 </Callout>
 
-### HEALTHCHECK — Konteyner sog'lig'ini tekshirish
+### HEALTHCHECK — Container health check
 
 `HEALTHCHECK` Docker'ga konteyner ichidagi ilova to'g'ri ishlayotganini tekshirish usulini beradi.
 
@@ -356,7 +356,7 @@ Parametrlar:
 - `--retries=3` — 3 marta muvaffaqiyatsiz bo'lsa, konteyner `unhealthy` deb belgilanadi
 
 ```bash
-# Konteyner sog'lig'ini ko'rish
+# Container health status ko'rish
 docker ps
 # STATUS ustunida: healthy, unhealthy yoki starting
 ```
@@ -367,7 +367,7 @@ docker ps
 Konteyner "ishlab turgan" bo'lishi mumkin, lekin ichidagi ilova xato berishi yoki to'xtab qolishi mumkin. HEALTHCHECK orqali Docker (va orchestratorlar — Kubernetes, Docker Swarm) muammo borligini aniqlaydi va konteyneringizni qayta ishga tushiradi.
 </Callout>
 
-## .dockerignore — Keraksiz fayllarni chiqarib tashlash
+## .dockerignore — Fayllarni exclude qilish
 
 `.dockerignore` fayli Docker build kontekstiga kirmasligi kerak bo'lgan fayllarni belgilaydi. Bu `.gitignore` bilan bir xil ishlaydi.
 
@@ -689,12 +689,12 @@ ENTRYPOINT ["./myapp"]
 |-------|-------|--------|
 | Base image | `FROM node` | `FROM node:20-alpine` |
 | Layer caching | `COPY . .` keyin `RUN npm install` | `COPY package*.json .` keyin `RUN npm ci` |
-| Foydalanuvchi | root (default) | `USER appuser` |
+| User | root (default) | `USER appuser` |
 | Build | Single-stage | Multi-stage build |
-| Sog'lik | HEALTHCHECK yo'q | `HEALTHCHECK --interval=30s ...` |
-| Hajm | Keshni tozalamagan | `rm -rf /var/lib/apt/lists/*` |
-| Maxfiylik | `.env` imageda | `.dockerignore` + runtime env |
-| Instruksiyalar | Ko'p `RUN` qatorlar | `&&` bilan birlashtirilgan |
+| Health check | HEALTHCHECK yo'q | `HEALTHCHECK --interval=30s ...` |
+| Image size | Cache tozalanmagan | `rm -rf /var/lib/apt/lists/*` |
+| Secrets | `.env` imageda | `.dockerignore` + runtime env |
+| Instructions | Ko'p `RUN` qatorlar | `&&` bilan birlashtirilgan |
 
 Qo'shimcha Dockerfile namunalarini **[devops-tools](https://github.com/ismoilovdevml/devops-tools/tree/master/Docker)** repositoriyasidan topishingiz mumkin.
 
@@ -710,7 +710,7 @@ Qo'shimcha Resurslar
 
 **Sana:** 2023.11.25(2023-yil 25-noyabr)
 
-**Oxirgi yangilanish:** 2026.02.11(2026-yil 11-fevral)
+**Oxirgi yangilanish:** 2026.02.12(2026-yil 12-fevral)
 
 **Muallif: Otabek Ismoilov**
 
