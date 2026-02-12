@@ -84,7 +84,8 @@
     },
     "overrides": {
       "react": "$react",
-      "react-dom": "$react-dom"
+      "react-dom": "$react-dom",
+      "next-mdx-remote": "6.0.0"
     }
   }
 }
