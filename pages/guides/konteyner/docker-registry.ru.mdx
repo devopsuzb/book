@@ -1,6 +1,1185 @@
 ---
-title: "docker registry"
+image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-registry.png
+description: "Docker Registry: Установка и управление приватным реестром контейнеров"
 ---
 
-> Эта статья ещё не переведена на русский язык.
-> Пожалуйста, прочитайте [версию на узбекском](/guides/konteyner/docker-registry) или помогите нам с переводом на [GitHub](https://github.com/ismoilovdevml/devops-journey).
+import { Callout } from "nextra-theme-docs";
+
+# Docker Registry
+
+![docker-registry](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-registry.png)
+
+## Введение
+
+В современной разработке программного обеспечения надёжное, безопасное и быстрое хранение и распространение Docker-образов — одна из ключевых задач инфраструктуры. **Docker Registry** — это сервис, который решает именно эту задачу, позволяя хранить, версионировать и распространять Docker-образы.
+
+Большинство разработчиков работают с **Docker Hub** — самым популярным публичным реестром. Однако в production-среде компании часто разворачивают **приватный (private) реестр**, потому что:
+
+- Конфиденциальный код и конфигурации не должны быть публичными
+- Скорость pull/push образов важна (реестр в локальной сети значительно быстрее)
+- Необходим полный контроль над безопасностью и управлением доступом
+- Регуляторные требования (HIPAA, GDPR, PCI DSS) обязывают к этому
+
+<Callout type="info" emoji="">
+Docker Registry — это open-source проект под [лицензией Apache 2.0](https://en.wikipedia.org/wiki/Apache_License). Исходный код доступен на [GitHub](https://github.com/distribution/distribution). Официальная документация: [docs.docker.com/registry](https://docs.docker.com/registry/)
+</Callout>
+
+---
+
+## Что такое Registry и как он работает?
+
+Docker Registry — это **stateless** (без состояния) **серверное** приложение, которое хранит Docker-образы и работает по спецификации OCI (Open Container Initiative) Distribution. Проще говоря — это **файловый сервер** для образов.
+
+### Архитектура Registry
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                     Архитектура Docker Registry                  │
+│                                                                  │
+│  ┌──────────────┐         ┌──────────────────────────────────┐   │
+│  │   Docker     │  HTTPS  │         Docker Registry          │   │
+│  │   Client     │  API    │         (distribution)           │   │
+│  │              ┼────────►│                                  │   │
+│  │  docker push │         │  ┌────────────────────────────┐  │   │
+│  │  docker pull │         │  │     HTTP API (v2)          │  │   │
+│  │  docker tag  │         │  │     /v2/_catalog           │  │   │
+│  │              │         │  │     /v2/<name>/manifests/  │  │   │
+│  └──────────────┘         │  │     /v2/<name>/blobs/      │  │   │
+│                           │  └────────────────────────────┘  │   │
+│  ┌──────────────┐         │              │                   │   │
+│  │   CI/CD      │  HTTPS  │              ▼                   │   │
+│  │  (Jenkins,   ┼────────►│  ┌────────────────────────────┐  │   │
+│  │   GitLab CI) │         │  │     Storage Backend        │  │   │
+│  └──────────────┘         │  │  ┌──────┐ ┌──────┐         │  │   │
+│                           │  │  │ Лок. │ │  S3  │ ...     │  │   │
+│                           │  │  │ Диск │ │      │         │  │   │
+│                           │  │  └──────┘ └──────┘         │  │   │
+│                           │  └────────────────────────────┘  │   │
+│                           └──────────────────────────────────┘   │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │              Слой аутентификации                         │    │
+│  │          (htpasswd, LDAP, OAuth2, token)                 │    │
+│  └──────────────────────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Структура хранения образов
+
+Как хранится Docker-образ? Внутри реестра образ состоит из **манифеста** и **слоёв (blob)**:
+
+```
+┌──────────────────────────────────────────────┐
+│              Docker Image                    │
+│                                              │
+│  ┌────────────────────────────────────────┐  │
+│  │           Image Manifest               │  │
+│  │  ┌──────────────────────────────────┐  │  │
+│  │  │ mediaType: application/vnd...    │  │  │
+│  │  │ config:   sha256:abc123...       │  │  │
+│  │  │ layers:                          │  │  │
+│  │  │   - sha256:layer1...             │  │  │
+│  │  │   - sha256:layer2...             │  │  │
+│  │  │   - sha256:layer3...             │  │  │
+│  │  └──────────────────────────────────┘  │  │
+│  └────────────────────────────────────────┘  │
+│                                              │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐      │
+│  │  Слой 1  │ │  Слой 2  │ │  Слой 3  │      │
+│  │  (blob)  │ │  (blob)  │ │  (blob)  │      │
+│  │ базовая  │ │ пакеты   │ │ код      │      │
+│  │ ОС       │ │          │ │ прилож.  │      │
+│  └──────────┘ └──────────┘ └──────────┘      │
+│                                              │
+│  Каждый слой идентифицируется                │
+│  по хешу SHA256                              │
+└──────────────────────────────────────────────┘
+```
+
+При **push** Docker-клиент сначала загружает каждый слой как blob, затем отправляет манифест. При **pull** сначала получается манифест, затем загружается каждый слой. Если слой уже существует (от другого образа), он не загружается повторно — это называется **content-addressable storage**.
+
+---
+
+## Типы реестров
+
+Для хранения Docker-образов существуют различные реестры. У каждого свои преимущества и недостатки.
+
+### Публичные реестры
+
+| Реестр | Описание | Бесплатный план |
+|--------|----------|----------------|
+| **Docker Hub** | Самый популярный, реестр по умолчанию. `docker pull nginx` на самом деле `docker.io/library/nginx` | Публичные образы без ограничений, 1 приватный репо |
+| **GitHub Container Registry (ghcr.io)** | Интеграция с GitHub, быстрый в GitHub Actions | Публичные образы бесплатно |
+| **Quay.io** | Управляется Red Hat, сканирование безопасности | Публичные образы бесплатно |
+
+### Реестры облачных провайдеров
+
+| Реестр | Провайдер | Преимущество |
+|--------|-----------|-------------|
+| **Amazon ECR** | AWS | Глубокая интеграция с ECS/EKS, аутентификация через IAM |
+| **Google Artifact Registry** | GCP | Интеграция с GKE, мультиформат (Docker, npm, Maven) |
+| **Azure Container Registry** | Azure | Интеграция с AKS, гео-репликация |
+| **Yandex Container Registry** | Yandex Cloud | Низкая задержка в регионе СНГ |
+
+### Self-hosted (на своём сервере) реестры
+
+| Реестр | Описание | Сложность |
+|--------|----------|-----------|
+| **Docker Registry** | Официальный open-source реестр, минимальный функционал | Простой |
+| **Harbor** | CNCF graduated проект, сканирование уязвимостей, RBAC, репликация | Средний |
+| **GitLab Container Registry** | Поставляется вместе с GitLab, интеграция CI/CD | Средний |
+| **Nexus Repository** | Мультиформат (Docker, Maven, npm, PyPI), корпоративный | Сложный |
+| **JFrog Artifactory** | Enterprise-уровень, универсальный менеджер пакетов | Сложный |
+
+### Какой выбрать?
+
+```
+Какой у вас проект? ──► Личный/Маленький проект
+                         └──► Docker Hub или ghcr.io (бесплатно)
+
+                    ──► Стартап/Средняя компания
+                         └──► Реестр облачного провайдера (ECR, GCR, ACR)
+                         └──► Harbor (если нужен self-hosted)
+
+                    ──► Enterprise/Крупная компания
+                         └──► Harbor + Trivy (сканирование безопасности)
+                         └──► Nexus/Artifactory (если нужен мультиформат)
+
+                    ──► Air-gapped среда (без интернета)
+                         └──► Docker Registry или Harbor (self-hosted)
+```
+
+---
+
+## Установка Docker Registry
+
+### 1. Минимальная установка (для тестирования)
+
+Самый простой способ — запустить реестр одной командой:
+
+```bash
+docker run -d \
+  -p 5000:5000 \
+  --name registry \
+  --restart=always \
+  registry:2
+```
+
+Эта команда:
+- `registry:2` — запускает версию 2 официального образа Docker Registry
+- `-p 5000:5000` — пробрасывает порт 5000 на хост
+- `--restart=always` — реестр автоматически запускается при перезагрузке сервера
+- `-d` — работает в фоновом режиме
+
+Проверка:
+
+```bash
+# Работает ли реестр?
+curl http://localhost:5000/v2/
+
+# Ответ: {} — значит работает
+```
+
+<Callout type="warning" emoji="">
+Этот способ подходит только для **тестирования**! В production необходимы **TLS**, **аутентификация** и **постоянное хранилище (volume)**. Ниже рассмотрим production-ready установку.
+</Callout>
+
+### 2. Production-ready установка (с Docker Compose)
+
+Для production полная конфигурация включает 4 компонента:
+
+1. **Docker Registry** — хранение образов
+2. **Nginx** — reverse proxy, TLS-терминация
+3. **htpasswd** — аутентификация
+4. **Volume** — постоянное хранилище
+
+#### Структура проекта
+
+```bash
+mkdir -p docker-registry/{auth,certs,data,nginx}
+cd docker-registry
+```
+
+```
+docker-registry/
+├── docker-compose.yml      # Основная конфигурация
+├── auth/
+│   └── htpasswd            # Пароли пользователей
+├── certs/
+│   ├── domain.crt          # TLS-сертификат
+│   └── domain.key          # TLS-ключ
+├── data/                   # Где хранятся образы
+└── nginx/
+    └── nginx.conf          # Конфигурация Nginx
+```
+
+#### Создание TLS-сертификата
+
+В production используйте **Let's Encrypt** или другой CA-сертификат. Для тестирования можно создать самоподписанный сертификат:
+
+```bash
+# Самоподписанный сертификат (для тестирования)
+openssl req -newkey rsa:4096 -nodes -sha256 \
+  -keyout certs/domain.key \
+  -x509 -days 365 \
+  -out certs/domain.crt \
+  -subj "/CN=registry.example.com" \
+  -addext "subjectAltName=DNS:registry.example.com,IP:192.168.1.100"
+```
+
+<Callout type="info" emoji="">
+Для получения бесплатного SSL-сертификата от **Let's Encrypt** можно использовать **Certbot** или **Traefik**. Не используйте самоподписанные сертификаты в production!
+</Callout>
+
+#### Создание пользователей (htpasswd)
+
+```bash
+# Создание файла htpasswd (первый пользователь)
+docker run --entrypoint htpasswd registry:2 \
+  -Bbn admin S3cur3P@ssw0rd > auth/htpasswd
+
+# Добавление дополнительного пользователя
+docker run --entrypoint htpasswd registry:2 \
+  -Bbn developer DevP@ss123 >> auth/htpasswd
+
+# Отдельный пользователь для CI/CD
+docker run --entrypoint htpasswd registry:2 \
+  -Bbn cicd-bot C1CdB0tP@ss >> auth/htpasswd
+```
+
+<Callout type="warning" emoji="">
+`>` перезаписывает файл, `>>` дописывает в него. После первого пользователя используйте `>>`, иначе предыдущие пользователи будут удалены!
+</Callout>
+
+#### Конфигурация Nginx
+
+```nginx filename="nginx/nginx.conf"
+upstream docker-registry {
+    server registry:5000;
+}
+
+## HTTP -> HTTPS перенаправление
+server {
+    listen 80;
+    server_name registry.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name registry.example.com;
+
+    # TLS-сертификаты
+    ssl_certificate     /etc/nginx/certs/domain.crt;
+    ssl_certificate_key /etc/nginx/certs/domain.key;
+
+    # Настройки безопасности TLS
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+
+    # Увеличение лимита загрузки для больших образов
+    client_max_body_size 2G;
+
+    # Chunked transfer encoding
+    chunked_transfer_encoding on;
+
+    location /v2/ {
+        # Проксирование Docker V2 API только на реестр
+        if ($http_user_agent ~ "^(docker\/1\.(3|4|5(?!\.[0-9]-hierarchical))|Go ).*$" ) {
+            return 404;
+        }
+
+        proxy_pass                          http://docker-registry;
+        proxy_set_header  Host              $http_host;
+        proxy_set_header  X-Real-IP         $remote_addr;
+        proxy_set_header  X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header  X-Forwarded-Proto $scheme;
+        proxy_read_timeout                  900;
+    }
+}
+```
+
+#### Файл Docker Compose
+
+```yaml filename="docker-compose.yml"
+version: "3.8"
+
+services:
+  registry:
+    image: registry:2
+    restart: always
+    environment:
+      # Настройки аутентификации
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: "Docker Registry"
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      # Настройки хранилища
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /var/lib/registry
+      # Для сборки мусора
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volumes:
+      - ./auth:/auth:ro
+      - ./data:/var/lib/registry
+    networks:
+      - registry-net
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - registry
+    networks:
+      - registry-net
+
+volumes:
+  registry-data:
+
+networks:
+  registry-net:
+    driver: bridge
+```
+
+#### Запуск
+
+```bash
+# Запустить реестр
+docker compose up -d
+
+# Проверить логи
+docker compose logs -f
+
+# Проверка
+curl -u admin:S3cur3P@ssw0rd https://registry.example.com/v2/_catalog
+```
+
+---
+
+## Настройка Docker Daemon
+
+Docker-клиент необходимо настроить для работы с приватным реестром.
+
+### Работа с самоподписанным сертификатом
+
+Если вы используете самоподписанный сертификат, необходимо указать Docker daemon доверять ему:
+
+**Способ 1:** Скопировать сертификат в директорию сертификатов Docker (рекомендуется):
+
+```bash
+# Создать директорию сертификатов
+sudo mkdir -p /etc/docker/certs.d/registry.example.com:443
+
+# Скопировать сертификат
+sudo cp certs/domain.crt /etc/docker/certs.d/registry.example.com:443/ca.crt
+```
+
+**Способ 2:** Добавить как небезопасный реестр (только для тестирования!):
+
+```bash
+sudo nano /etc/docker/daemon.json
+```
+
+```json filename="/etc/docker/daemon.json"
+{
+  "insecure-registries": ["registry.example.com:5000"]
+}
+```
+
+```bash
+# Перезапустить Docker daemon
+sudo systemctl restart docker
+```
+
+<Callout type="warning" emoji="">
+Используйте `insecure-registries` только в **тестовой среде**! Это отключает проверку TLS и делает вас уязвимым для **man-in-the-middle** атак. В production всегда используйте правильные TLS-сертификаты.
+</Callout>
+
+---
+
+## Работа с реестром
+
+### Вход/Выход
+
+```bash
+# Войти в реестр
+docker login registry.example.com
+# Username: admin
+# Password: S3cur3P@ssw0rd
+
+# Проверить статус входа
+cat ~/.docker/config.json
+
+# Выйти из реестра
+docker logout registry.example.com
+```
+
+### Push образов
+
+Чтобы отправить образ в реестр, сначала нужно **тегировать** его адресом реестра:
+
+```bash
+# 1. Создать или получить образ
+docker pull nginx:alpine
+
+# 2. Тегировать образ адресом реестра
+docker tag nginx:alpine registry.example.com/web/nginx:alpine
+docker tag nginx:alpine registry.example.com/web/nginx:1.25
+docker tag nginx:alpine registry.example.com/web/nginx:latest
+
+# 3. Отправить
+docker push registry.example.com/web/nginx:alpine
+docker push registry.example.com/web/nginx:1.25
+docker push registry.example.com/web/nginx:latest
+```
+
+```
+Процесс push:
+
+┌──────────┐     tag      ┌──────────────────────────┐     push     ┌─────────────┐
+│  nginx   │────────────► │ registry.example.com/    │────────────► │  Registry   │
+│  :alpine │              │ web/nginx:alpine         │              │  Server     │
+└──────────┘              └──────────────────────────┘              │             │
+                                                                    │ Слой 1 ✓    │
+                                                                    │ Слой 2 ✓    │
+                                                                    │ Манифест ✓  │
+                                                                    └─────────────┘
+```
+
+### Pull образов
+
+```bash
+# Скачать образ из реестра
+docker pull registry.example.com/web/nginx:alpine
+
+# Скачать с другого сервера (укажите полный адрес реестра)
+docker pull registry.example.com/web/nginx:1.25
+```
+
+### Стратегия именования тегов (naming convention)
+
+Систематическое именование тегов образов очень важно. Хорошая стратегия именования:
+
+```
+registry.example.com/<проект>/<сервис>:<версия>
+
+Примеры:
+  registry.example.com/backend/api:v1.2.3
+  registry.example.com/backend/api:latest
+  registry.example.com/backend/api:main-abc1234
+  registry.example.com/frontend/web:v2.0.0-rc1
+  registry.example.com/infra/nginx:1.25-custom
+  registry.example.com/ml/model-server:2024.01
+```
+
+| Формат тега | Использование | Пример |
+|-------------|--------------|--------|
+| `v1.2.3` (SemVer) | Релизные версии | `api:v1.2.3` |
+| `latest` | Последняя стабильная версия | `api:latest` |
+| `<branch>-<sha>` | CI/CD сборки | `api:main-abc1234` |
+| `<date>` | Ежедневные сборки | `model:2024.01.15` |
+| `<env>` | По среде | `api:staging`, `api:production` |
+
+<Callout type="warning" emoji="">
+В production **никогда** не полагайтесь только на тег `latest`! Всегда используйте конкретные номера версий (`v1.2.3`). Тег `latest` может измениться и привести к неожиданным деплоям.
+</Callout>
+
+---
+
+## Registry HTTP API (v2)
+
+С Docker Registry можно взаимодействовать напрямую через HTTP API. Это полезно для мониторинга, автоматизированных скриптов и интеграции CI/CD.
+
+### Основные API-эндпоинты
+
+```bash
+# Проверить версию реестра
+curl -u admin:pass https://registry.example.com/v2/
+
+# Список всех репозиториев
+curl -u admin:pass https://registry.example.com/v2/_catalog
+# Ответ: {"repositories":["web/nginx","backend/api","frontend/web"]}
+
+# Список тегов конкретного репозитория
+curl -u admin:pass https://registry.example.com/v2/web/nginx/tags/list
+# Ответ: {"name":"web/nginx","tags":["alpine","1.25","latest"]}
+
+# Получить манифест образа
+curl -u admin:pass \
+  -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+  https://registry.example.com/v2/web/nginx/manifests/alpine
+```
+
+### Удаление образов (через API)
+
+```bash
+# 1. Получить дайджест образа
+DIGEST=$(curl -s -u admin:pass \
+  -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+  -I https://registry.example.com/v2/web/nginx/manifests/alpine \
+  | grep -i docker-content-digest | awk '{print $2}' | tr -d '\r')
+
+# 2. Удалить манифест
+curl -u admin:pass -X DELETE \
+  https://registry.example.com/v2/web/nginx/manifests/$DIGEST
+
+# 3. Очистить удалённые слои с диска (сборка мусора)
+docker exec registry bin/registry garbage-collect \
+  /etc/docker/registry/config.yml
+```
+
+### Полезный скрипт: список всех образов
+
+```bash
+#!/bin/bash
+# list-images.sh — показать все образы и теги в реестре
+
+REGISTRY="https://registry.example.com"
+USER="admin"
+PASS="S3cur3P@ssw0rd"
+
+echo "=== Registry: $REGISTRY ==="
+echo ""
+
+# Получить список репозиториев
+REPOS=$(curl -s -u $USER:$PASS $REGISTRY/v2/_catalog | \
+  python3 -c "import sys,json; print('\n'.join(json.load(sys.stdin)['repositories']))")
+
+for repo in $REPOS; do
+  # Получить теги для каждого репо
+  TAGS=$(curl -s -u $USER:$PASS $REGISTRY/v2/$repo/tags/list | \
+    python3 -c "import sys,json; tags=json.load(sys.stdin).get('tags',[]); print(' '.join(tags or ['<no tags>']))")
+  echo "  $repo"
+  echo "   Теги: $TAGS"
+  echo ""
+done
+```
+
+---
+
+## Garbage Collection (сборка мусора)
+
+Со временем старые образы и неиспользуемые слои занимают дисковое пространство. **Garbage collection (GC)** — это процесс удаления blob'ов, на которые больше не ссылается ни один манифест, для освобождения дискового пространства.
+
+### Как работает GC?
+
+```
+До GC:                                 После GC:
+
+┌────────────┐  ┌────────────┐         ┌────────────┐
+│ Image v1.0 │  │ Image v2.0 │         │ Image v2.0 │
+│ (удалён)   │  │ (активен)  │         │ (активен)  │
+├────────────┤  ├────────────┤         ├────────────┤
+│ Слой A     │  │ Слой A     ┼────┐    │ Слой A     │  Сохранён (используется v2.0)
+│ Слой B     │  │ Слой C     │    │    │ Слой C     │  Сохранён
+│ Слой C     │  └────────────┘    │    └────────────┘
+└────────────┘                    │
+      │                           │    Удалено:
+      └─── Слой B ────────────────┘    └─ Слой B  (никем не используется)
+```
+
+### Запуск GC
+
+```bash
+# Dry-run (посмотреть, что будет удалено, без фактического удаления)
+docker exec registry bin/registry garbage-collect \
+  --dry-run /etc/docker/registry/config.yml
+
+# Фактическая сборка мусора
+docker exec registry bin/registry garbage-collect \
+  /etc/docker/registry/config.yml
+
+# Перезапустить реестр после GC (рекомендуется)
+docker restart registry
+```
+
+### Автоматический GC (с cron)
+
+```bash
+# Добавить в crontab: GC запускается ежедневно в 3:00
+crontab -e
+```
+
+```
+# Ежедневная сборка мусора в 03:00
+0 3 * * * docker exec registry bin/registry garbage-collect /etc/docker/registry/config.yml >> /var/log/registry-gc.log 2>&1
+```
+
+<Callout type="info" emoji="">
+Рекомендуется **остановить операции записи** в реестр перед запуском GC. Иначе загружаемые в данный момент слои могут быть ошибочно удалены. В production планируйте GC на время минимального трафика (ночью).
+</Callout>
+
+---
+
+## Storage Backend'ы
+
+Docker Registry поддерживает различные системы хранения. По умолчанию — **локальная файловая система**, но для production рекомендуется **объектное хранилище**.
+
+### Доступные backend'ы
+
+| Backend | Описание | Использование |
+|---------|----------|--------------|
+| **filesystem** | Локальный диск | По умолчанию, для небольших сред |
+| **s3** | Amazon S3 (или S3-совместимый) | AWS-среда, также работает с MinIO |
+| **gcs** | Google Cloud Storage | GCP-среда |
+| **azure** | Azure Blob Storage | Azure-среда |
+
+### Конфигурация S3 backend
+
+```yaml filename="config.yml"
+version: 0.1
+storage:
+  s3:
+    accesskey: AKIAIOSFODNN7EXAMPLE
+    secretkey: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+    region: us-east-1
+    bucket: my-docker-registry
+    rootdirectory: /registry
+  delete:
+    enabled: true
+  cache:
+    blobdescriptor: inmemory
+```
+
+### С MinIO (self-hosted S3)
+
+MinIO — это self-hosted S3-совместимое объектное хранилище. Отлично подходит для больших объёмов образов:
+
+```yaml filename="docker-compose.yml"
+version: "3.8"
+
+services:
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  registry:
+    image: registry:2
+    restart: always
+    environment:
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: "Docker Registry"
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      REGISTRY_STORAGE: s3
+      REGISTRY_STORAGE_S3_ACCESSKEY: minioadmin
+      REGISTRY_STORAGE_S3_SECRETKEY: minioadmin123
+      REGISTRY_STORAGE_S3_REGION: us-east-1
+      REGISTRY_STORAGE_S3_BUCKET: docker-registry
+      REGISTRY_STORAGE_S3_REGIONENDPOINT: http://minio:9000
+      REGISTRY_STORAGE_S3_FORCEPATHSTYLE: "true"
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volumes:
+      - ./auth:/auth:ro
+    ports:
+      - "5000:5000"
+    depends_on:
+      - minio
+
+volumes:
+  minio-data:
+```
+
+---
+
+## Практические Use Case'ы
+
+### Use Case 1: Интеграция с CI/CD Pipeline
+
+Самый распространённый сценарий — сборка образов в CI/CD pipeline, push в реестр и деплой в production.
+
+```
+┌──────────┐     ┌──────────┐     ┌──────────────┐     ┌──────────────┐
+│   Git    │────►│  CI/CD   │────►│   Приватный  │────►│  Production  │
+│  Push    │     │  Сборка  │     │   Реестр     │     │   Сервер     │
+└──────────┘     └──────────┘     └──────────────┘     └──────────────┘
+                  docker build     docker push           docker pull
+                  docker tag                              docker run
+```
+
+#### Пример GitLab CI
+
+```yaml filename=".gitlab-ci.yml"
+variables:
+  REGISTRY: registry.example.com
+  IMAGE_NAME: $REGISTRY/backend/api
+
+stages:
+  - build
+  - deploy
+
+build:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  before_script:
+    - echo "$REGISTRY_PASSWORD" | docker login $REGISTRY -u $REGISTRY_USER --password-stdin
+  script:
+    - docker build -t $IMAGE_NAME:$CI_COMMIT_SHORT_SHA .
+    - docker tag $IMAGE_NAME:$CI_COMMIT_SHORT_SHA $IMAGE_NAME:latest
+    - docker push $IMAGE_NAME:$CI_COMMIT_SHORT_SHA
+    - docker push $IMAGE_NAME:latest
+  after_script:
+    - docker logout $REGISTRY
+
+deploy:
+  stage: deploy
+  script:
+    - ssh deploy@production "docker pull $IMAGE_NAME:$CI_COMMIT_SHORT_SHA"
+    - ssh deploy@production "docker compose up -d"
+  only:
+    - main
+```
+
+#### Пример GitHub Actions
+
+```yaml filename=".github/workflows/build.yml"
+name: Build and Push
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to private registry
+        run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | \
+          docker login registry.example.com -u ${{ secrets.REGISTRY_USER }} --password-stdin
+
+      - name: Build and push
+        run: |
+          IMAGE=registry.example.com/backend/api
+          docker build -t $IMAGE:${{ github.sha }} .
+          docker tag $IMAGE:${{ github.sha }} $IMAGE:latest
+          docker push $IMAGE:${{ github.sha }}
+          docker push $IMAGE:latest
+```
+
+#### Пример Jenkins Pipeline
+
+```groovy filename="Jenkinsfile"
+pipeline {
+    agent any
+
+    environment {
+        REGISTRY = 'registry.example.com'
+        IMAGE = "${REGISTRY}/backend/api"
+        REGISTRY_CREDS = credentials('docker-registry-creds')
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                sh "docker build -t ${IMAGE}:${BUILD_NUMBER} ."
+                sh "docker tag ${IMAGE}:${BUILD_NUMBER} ${IMAGE}:latest"
+            }
+        }
+
+        stage('Push') {
+            steps {
+                sh "echo ${REGISTRY_CREDS_PSW} | docker login ${REGISTRY} -u ${REGISTRY_CREDS_USR} --password-stdin"
+                sh "docker push ${IMAGE}:${BUILD_NUMBER}"
+                sh "docker push ${IMAGE}:latest"
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh "ssh deploy@production 'docker pull ${IMAGE}:${BUILD_NUMBER}'"
+                sh "ssh deploy@production 'cd /opt/app && docker compose up -d'"
+            }
+        }
+    }
+
+    post {
+        always {
+            sh "docker logout ${REGISTRY}"
+        }
+    }
+}
+```
+
+### Use Case 2: Air-gapped (без интернета) среда
+
+В некоторых средах (военные, финансовые, государственные системы) нет подключения к интернету. В таких случаях приватный реестр становится единственным источником образов.
+
+```
+Среда с интернетом:                Air-gapped среда:
+
+┌──────────┐   pull    ┌────────┐  USB/DVD    ┌──────────────┐   pull    ┌─────────┐
+│ Docker   │─────────► │ Экспорт│──────────►  │  Приватный   │─────────► │ Сервер  │
+│ Hub      │           │ образов│  перенос    │   Реестр     │           │ Деплой  │
+└──────────┘           └────────┘             └──────────────┘           └─────────┘
+```
+
+```bash
+# === В среде с интернетом ===
+
+# 1. Скачать необходимые образы
+docker pull nginx:alpine
+docker pull postgres:16
+docker pull redis:7
+
+# 2. Экспортировать образы в tar-файл
+docker save nginx:alpine postgres:16 redis:7 | gzip > images.tar.gz
+
+# 3. Экспортировать также образ реестра
+docker save registry:2 | gzip > registry-image.tar.gz
+
+# === Перенос в air-gapped среду через USB/DVD ===
+
+# === В air-gapped среде ===
+
+# 4. Загрузить образ реестра
+docker load < registry-image.tar.gz
+
+# 5. Запустить реестр
+docker run -d -p 5000:5000 --restart=always --name registry registry:2
+
+# 6. Загрузить образы
+docker load < images.tar.gz
+
+# 7. Тегировать и push образы в реестр
+docker tag nginx:alpine localhost:5000/nginx:alpine
+docker push localhost:5000/nginx:alpine
+
+docker tag postgres:16 localhost:5000/postgres:16
+docker push localhost:5000/postgres:16
+
+docker tag redis:7 localhost:5000/redis:7
+docker push localhost:5000/redis:7
+```
+
+### Use Case 3: Управление несколькими средами
+
+Деплой в разные среды через один реестр:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    Приватный реестр                          │
+│                                                              │
+│  ┌───────────────────────────────────────────────────────┐   │
+│  │  backend/api:v1.2.3          (релиз)                  │   │
+│  │  backend/api:v1.2.4-rc1      (релиз-кандидат)         │   │
+│  │  backend/api:main-abc1234    (CI-сборка)              │   │
+│  │  backend/api:staging         (staging-деплой)         │   │
+│  └───────────────────────────────────────────────────────┘   │
+└──────────┬─────────────────┬───────────────────┬─────────────┘
+           │                 │                   │
+           ▼                 ▼                   ▼
+    ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+    │  Разработка  │  │   Staging    │  │  Production  │
+    │              │  │              │  │              │
+    │ api:main-*   │  │ api:staging  │  │ api:v1.2.3   │
+    └──────────────┘  └──────────────┘  └──────────────┘
+```
+
+### Use Case 4: Интеграция с Kubernetes
+
+Чтобы Kubernetes-кластер мог загружать образы из приватного реестра, необходимо настроить **imagePullSecrets**:
+
+```bash
+# Создать учётные данные реестра в Kubernetes
+kubectl create secret docker-registry regcred \
+  --docker-server=registry.example.com \
+  --docker-username=admin \
+  --docker-password=S3cur3P@ssw0rd \
+  --docker-email=admin@example.com
+```
+
+```yaml filename="deployment.yaml"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: web-app
+          image: registry.example.com/backend/api:v1.2.3
+          ports:
+            - containerPort: 8080
+```
+
+---
+
+## Registry Mirror (зеркало Docker Hub)
+
+Если ваша команда часто загружает образы с Docker Hub, можно настроить реестр как **pull-through cache** (зеркало). Это:
+
+- **Увеличивает скорость** — однажды загруженный образ в следующий раз берётся из локального кеша
+- **Защищает от rate limit Docker Hub** — бесплатный план имеет ограничение 100 pull/час
+- **Снижает интернет-трафик** — особенно полезно в средах с множеством серверов
+
+### Конфигурация зеркала
+
+```yaml filename="config.yml"
+version: 0.1
+proxy:
+  remoteurl: https://registry-1.docker.io
+  username: dockerhub_user
+  password: dockerhub_token
+storage:
+  filesystem:
+    rootdirectory: /var/lib/registry
+  delete:
+    enabled: true
+http:
+  addr: :5000
+```
+
+```bash
+# Запустить зеркало реестра
+docker run -d \
+  -p 5000:5000 \
+  --restart=always \
+  --name registry-mirror \
+  -v ./config.yml:/etc/docker/registry/config.yml \
+  -v mirror-data:/var/lib/registry \
+  registry:2
+```
+
+Настроить Docker daemon для использования зеркала:
+
+```json filename="/etc/docker/daemon.json"
+{
+  "registry-mirrors": ["http://mirror.example.com:5000"]
+}
+```
+
+```bash
+sudo systemctl restart docker
+
+# Теперь docker pull nginx фактически идёт через зеркало
+docker pull nginx:alpine  # первый раз — с Docker Hub, далее — из кеша
+```
+
+---
+
+## Лучшие практики безопасности
+
+### 1. Всегда используйте TLS
+
+```
+Неправильно: http://registry:5000   (без шифрования, риск man-in-the-middle)
+Правильно:   https://registry:443   (зашифровано с TLS)
+```
+
+### 2. Пользователи с минимальными привилегиями
+
+```bash
+# Отдельные пользователи для разных ролей
+# CI/CD бот — только push/pull
+docker run --entrypoint htpasswd registry:2 -Bbn cicd-bot P@ssw0rd >> auth/htpasswd
+
+# Разработчик — только pull (требуется Harbor или Nexus)
+# htpasswd — базовая аутентификация; для ролевого управления доступом рекомендуется Harbor
+```
+
+### 3. Сканирование образов на уязвимости
+
+```bash
+# Сканирование образов с Trivy (рекомендуется)
+# Установка: https://aquasecurity.github.io/trivy/
+trivy image registry.example.com/backend/api:v1.2.3
+
+# Пример вывода:
+# Total: 2 (HIGH: 1, CRITICAL: 1)
+# ┌───────────────┬──────────────┬──────────┬─────────────────┐
+# │   Библиотека  │ Уязвимость   │ Критич.  │ Исправл. версия │
+# ├───────────────┼──────────────┼──────────┼─────────────────┤
+# │ openssl       │ CVE-2024-XXX │ CRITICAL │ 3.1.5           │
+# │ curl          │ CVE-2024-YYY │ HIGH     │ 8.5.0           │
+# └───────────────┴──────────────┴──────────┴─────────────────┘
+```
+
+### 4. Подписание образов
+
+```bash
+# Подписание образов с Cosign (проект Sigstore)
+# Установка: https://docs.sigstore.dev/cosign/installation/
+
+# Генерация пары ключей
+cosign generate-key-pair
+
+# Подписать образ
+cosign sign --key cosign.key registry.example.com/backend/api:v1.2.3
+
+# Проверить подпись
+cosign verify --key cosign.pub registry.example.com/backend/api:v1.2.3
+```
+
+### 5. Чек-лист безопасности
+
+| Проверка | Описание |
+|----------|----------|
+| TLS/SSL сертификат | Все соединения зашифрованы |
+| Аутентификация | Вход обязателен |
+| Файрвол | Открыты только необходимые порты (443) |
+| Сканирование образов | Автоматическое сканирование в CI/CD |
+| Резервное копирование | Данные реестра регулярно резервируются |
+| Мониторинг | Мониторинг диска, CPU, сети |
+| GC | Старые образы регулярно очищаются |
+| Журнал доступа | Отслеживание кто, когда и что push/pull делал |
+
+---
+
+## Мониторинг и устранение неполадок
+
+### Проверка логов реестра
+
+```bash
+# Логи Docker Compose
+docker compose logs registry
+docker compose logs -f --tail=100 registry
+
+# Поиск конкретных ошибок
+docker compose logs registry 2>&1 | grep -i error
+```
+
+### Проверка использования диска
+
+```bash
+# Размер данных реестра
+du -sh data/
+
+# Самые большие репозитории
+du -sh data/docker/registry/v2/repositories/* | sort -rh | head -10
+```
+
+### Распространённые проблемы и решения
+
+**Проблема 1:** `Get https://registry:5000/v2/: http: server gave HTTP response to HTTPS client`
+
+```bash
+# Решение: добавить insecure-registries или настроить TLS
+sudo nano /etc/docker/daemon.json
+# {"insecure-registries": ["registry:5000"]}
+sudo systemctl restart docker
+```
+
+**Проблема 2:** `unauthorized: authentication required`
+
+```bash
+# Решение: войти в реестр
+docker login registry.example.com
+
+# Или проверить правильность учётных данных
+curl -u admin:password https://registry.example.com/v2/
+```
+
+**Проблема 3:** `error parsing HTTP 413 response body: invalid character '<'`
+
+```bash
+# Решение: увеличить client_max_body_size в Nginx
+# nginx.conf: client_max_body_size 2G;
+```
+
+**Проблема 4:** `blob upload unknown` или `manifest unknown`
+
+```bash
+# Решение: запустить сборку мусора и перезапустить
+docker exec registry bin/registry garbage-collect /etc/docker/registry/config.yml
+docker restart registry
+```
+
+---
+
+## Docker Registry vs Harbor — сравнение
+
+Если вам нужно больше функциональности, чем у базового реестра, рассмотрите **Harbor**.
+
+| Возможность | Docker Registry | Harbor |
+|-------------|----------------|--------|
+| Хранение образов | ✅ | ✅ |
+| Аутентификация | htpasswd (базовая) | LDAP, OIDC, Robot accounts |
+| Управление доступом (RBAC) | ❌ | ✅ (на уровне проекта) |
+| Сканирование уязвимостей | ❌ | ✅ (интеграция Trivy) |
+| Подписание образов | ❌ | ✅ (Cosign/Notary) |
+| Репликация | ❌ | ✅ (между реестрами) |
+| Web UI | ❌ | ✅ |
+| Сборка мусора | Через CLI | Через Web UI |
+| Хранение Helm chart'ов | ❌ | ✅ |
+| Журнал аудита | Базовый | Полный |
+| Сложность установки | Простая | Средняя |
+| Требования к ресурсам | Минимальные (~50MB RAM) | Средние (~1-2GB RAM) |
+
+<Callout type="info" emoji="">
+**Рекомендация:** Если нужен только push/pull образов — **Docker Registry** достаточно. Если нужны сканирование безопасности, RBAC, Web UI и репликация — выбирайте **Harbor**. Подробнее о Harbor: [goharbor.io](https://goharbor.io/)
+</Callout>
+
+---
+
+## Заключение
+
+Docker Registry — критически важный компонент современной DevOps-инфраструктуры. В этом руководстве вы изучили:
+
+- **Архитектура реестра** — как хранятся манифесты и слои образов
+- **Типы реестров** — публичные, облачные, self-hosted варианты
+- **Production-установка** — с TLS, аутентификацией, Nginx reverse proxy
+- **Интеграция CI/CD** — с GitLab CI, GitHub Actions, Jenkins
+- **Garbage Collection** — освобождение дискового пространства
+- **Storage backend** — S3, MinIO и другие варианты
+- **Безопасность** — TLS, сканирование образов, подписание
+- **Практические use case'ы** — air-gapped среда, мультисреда, Kubernetes
+
+Следующие шаги:
+1. **[Введение в Docker](https://devops-journey.uz/guides/konteyner/dockerga-kirish)** — Изучите основы Docker
+2. **[Установка Docker на Linux-серверы](https://devops-journey.uz/guides/konteyner/docker-ornatish)** — Установите Docker
+3. **[Написание Dockerfile](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)** — Создайте свои образы
+4. **[Команды Docker](https://devops-journey.uz/guides/konteyner/docker-asoslari)** — Изучите Docker CLI
+
+## Дополнительные ресурсы
+
+<Callout type="info" emoji="">
+
+Дополнительные ресурсы
+ * [**Официальная документация Docker Registry**](https://docs.docker.com/registry/)
+ * [**Distribution (Registry) GitHub**](https://github.com/distribution/distribution)
+ * [**Harbor — CNCF Registry**](https://goharbor.io/)
+ * [**Trivy — сканер образов**](https://aquasecurity.github.io/trivy/)
+ * [**Cosign — подписание образов**](https://docs.sigstore.dev/cosign/overview/)
+ * [**Docker Hub**](https://hub.docker.com/)
+ * [**Введение в Docker**](https://devops-journey.uz/guides/konteyner/dockerga-kirish)
+ * [**Установка Docker на Linux-серверы**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+ * [**Написание Dockerfile**](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)
+
+**Дата:** 2024.01.10 (10 января 2024)
+
+**Последнее обновление:** 2026.02.12 (12 февраля 2026)
+
+**Автор: Отабек Исмоилов**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>

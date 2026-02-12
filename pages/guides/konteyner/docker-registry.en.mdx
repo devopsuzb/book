@@ -1,6 +1,1184 @@
 ---
-title: "docker registry"
+image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-registry.png
+description: "Docker Registry: Setting up and managing a private container registry"
 ---
 
-> This article has not been translated to English yet.
-> Please read the [Uzbek version](/guides/konteyner/docker-registry) or help us translate it on [GitHub](https://github.com/ismoilovdevml/devops-journey).
+import { Callout } from "nextra-theme-docs";
+
+# Docker Registry
+
+![docker-registry](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-registry.png)
+
+## Introduction
+
+In modern software development, reliably, securely, and efficiently storing and distributing Docker images is a critical infrastructure concern. **Docker Registry** is the service that handles exactly this — it allows you to store, version, and distribute Docker images.
+
+Most developers work with **Docker Hub** — the most popular public registry. However, in production environments, companies often set up a **private registry** because:
+
+- Proprietary code and configurations must not be public
+- Image pull/push speed matters (a local network registry is much faster)
+- Full control over security and access management is needed
+- Regulatory requirements (HIPAA, GDPR, PCI DSS) demand it
+
+<Callout type="info" emoji="">
+Docker Registry is an open-source project under the [Apache 2.0 license](https://en.wikipedia.org/wiki/Apache_License). Source code is available on [GitHub](https://github.com/distribution/distribution). Official docs: [docs.docker.com/registry](https://docs.docker.com/registry/)
+</Callout>
+
+---
+
+## What is a Registry and how does it work?
+
+Docker Registry is a **stateless**, **server-side** application that stores Docker images and operates according to the OCI (Open Container Initiative) Distribution Specification. Simply put — it's a **file server** for images.
+
+### Registry Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                     Docker Registry Architecture                 │
+│                                                                  │
+│  ┌──────────────┐         ┌──────────────────────────────────┐   │
+│  │   Docker     │  HTTPS  │         Docker Registry          │   │
+│  │   Client     │  API    │         (distribution)           │   │
+│  │              ┼────────►│                                  │   │
+│  │  docker push │         │  ┌────────────────────────────┐  │   │
+│  │  docker pull │         │  │     HTTP API (v2)          │  │   │
+│  │  docker tag  │         │  │     /v2/_catalog           │  │   │
+│  │              │         │  │     /v2/<name>/manifests/  │  │   │
+│  └──────────────┘         │  │     /v2/<name>/blobs/      │  │   │
+│                           │  └────────────────────────────┘  │   │
+│  ┌──────────────┐         │              │                   │   │
+│  │   CI/CD      │  HTTPS  │              ▼                   │   │
+│  │  (Jenkins,   ┼────────►│  ┌────────────────────────────┐  │   │
+│  │   GitLab CI) │         │  │     Storage Backend        │  │   │
+│  └──────────────┘         │  │  ┌──────┐ ┌──────┐         │  │   │
+│                           │  │  │ Local│ │  S3  │ ...     │  │   │
+│                           │  │  │ Disk │ │      │         │  │   │
+│                           │  │  └──────┘ └──────┘         │  │   │
+│                           │  └────────────────────────────┘  │   │
+│                           └──────────────────────────────────┘   │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │              Authentication Layer                        │    │
+│  │          (htpasswd, LDAP, OAuth2, token)                 │    │
+│  └──────────────────────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Image Storage Structure
+
+How is a Docker image stored? Inside the registry, an image consists of a **manifest** and **layers (blobs)**:
+
+```
+┌──────────────────────────────────────────────┐
+│              Docker Image                    │
+│                                              │
+│  ┌────────────────────────────────────────┐  │
+│  │           Image Manifest               │  │
+│  │  ┌──────────────────────────────────┐  │  │
+│  │  │ mediaType: application/vnd...    │  │  │
+│  │  │ config:   sha256:abc123...       │  │  │
+│  │  │ layers:                          │  │  │
+│  │  │   - sha256:layer1...             │  │  │
+│  │  │   - sha256:layer2...             │  │  │
+│  │  │   - sha256:layer3...             │  │  │
+│  │  └──────────────────────────────────┘  │  │
+│  └────────────────────────────────────────┘  │
+│                                              │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐      │
+│  │  Layer 1 │ │  Layer 2 │ │  Layer 3 │      │
+│  │  (blob)  │ │  (blob)  │ │  (blob)  │      │
+│  │ base OS  │ │ packages │ │ app code │      │
+│  └──────────┘ └──────────┘ └──────────┘      │
+│                                              │
+│  Each layer is identified by its             │
+│  SHA256 hash                                 │
+└──────────────────────────────────────────────┘
+```
+
+During a **push**, the Docker client first uploads each layer as a blob, then sends the manifest. During a **pull**, the manifest is retrieved first, then each layer is downloaded. If a layer already exists (from another image), it is not re-downloaded — this is called **content-addressable storage**.
+
+---
+
+## Types of Registries
+
+There are various registries available for storing Docker images. Each has its own advantages and disadvantages.
+
+### Public Registries
+
+| Registry | Description | Free Tier |
+|----------|-------------|-----------|
+| **Docker Hub** | Most popular, default registry. `docker pull nginx` is actually `docker.io/library/nginx` | Unlimited public images, 1 private repo |
+| **GitHub Container Registry (ghcr.io)** | GitHub integration, fast with GitHub Actions | Public images free |
+| **Quay.io** | Managed by Red Hat, security scanning | Public images free |
+
+### Cloud Provider Registries
+
+| Registry | Provider | Advantage |
+|----------|----------|-----------|
+| **Amazon ECR** | AWS | Deep integration with ECS/EKS, IAM authentication |
+| **Google Artifact Registry** | GCP | GKE integration, multi-format (Docker, npm, Maven) |
+| **Azure Container Registry** | Azure | AKS integration, geo-replication |
+| **Yandex Container Registry** | Yandex Cloud | Low latency in CIS region |
+
+### Self-hosted Registries
+
+| Registry | Description | Complexity |
+|----------|-------------|------------|
+| **Docker Registry** | Official open-source registry, minimal features | Simple |
+| **Harbor** | CNCF graduated project, vulnerability scanning, RBAC, replication | Medium |
+| **GitLab Container Registry** | Comes with GitLab, CI/CD integration | Medium |
+| **Nexus Repository** | Multi-format (Docker, Maven, npm, PyPI), enterprise | Complex |
+| **JFrog Artifactory** | Enterprise-grade, universal package manager | Complex |
+
+### Which one to choose?
+
+```
+What's your project? ──► Personal/Small project
+                         └──► Docker Hub or ghcr.io (free)
+
+                    ──► Startup/Medium company
+                         └──► Cloud provider registry (ECR, GCR, ACR)
+                         └──► Harbor (if self-hosted needed)
+
+                    ──► Enterprise/Large company
+                         └──► Harbor + Trivy (security scanning)
+                         └──► Nexus/Artifactory (if multi-format needed)
+
+                    ──► Air-gapped environment (no internet)
+                         └──► Docker Registry or Harbor (self-hosted)
+```
+
+---
+
+## Setting up Docker Registry
+
+### 1. Minimal Setup (for testing)
+
+The simplest method — launch a registry with a single command:
+
+```bash
+docker run -d \
+  -p 5000:5000 \
+  --name registry \
+  --restart=always \
+  registry:2
+```
+
+This command:
+- `registry:2` — runs version 2 of the official Docker Registry image
+- `-p 5000:5000` — maps port 5000 to the host
+- `--restart=always` — registry starts automatically on server reboot
+- `-d` — runs in background mode
+
+Verification:
+
+```bash
+# Is the registry running?
+curl http://localhost:5000/v2/
+
+# Response: {} — it's working
+```
+
+<Callout type="warning" emoji="">
+This method is only suitable for **testing**! In production, **TLS**, **authentication**, and **persistent storage (volume)** are required. Below we'll cover production-ready setup.
+</Callout>
+
+### 2. Production-ready Setup (with Docker Compose)
+
+For production, the full configuration includes 4 components:
+
+1. **Docker Registry** — image storage
+2. **Nginx** — reverse proxy, TLS termination
+3. **htpasswd** — authentication
+4. **Volume** — persistent storage
+
+#### Project Structure
+
+```bash
+mkdir -p docker-registry/{auth,certs,data,nginx}
+cd docker-registry
+```
+
+```
+docker-registry/
+├── docker-compose.yml      # Main configuration
+├── auth/
+│   └── htpasswd            # User passwords
+├── certs/
+│   ├── domain.crt          # TLS certificate
+│   └── domain.key          # TLS key
+├── data/                   # Where images are stored
+└── nginx/
+    └── nginx.conf          # Nginx configuration
+```
+
+#### Creating TLS Certificate
+
+In production, use **Let's Encrypt** or another CA certificate. For testing, you can create a self-signed certificate:
+
+```bash
+# Self-signed certificate (for testing)
+openssl req -newkey rsa:4096 -nodes -sha256 \
+  -keyout certs/domain.key \
+  -x509 -days 365 \
+  -out certs/domain.crt \
+  -subj "/CN=registry.example.com" \
+  -addext "subjectAltName=DNS:registry.example.com,IP:192.168.1.100"
+```
+
+<Callout type="info" emoji="">
+You can use **Certbot** or **Traefik** to get a free SSL certificate from **Let's Encrypt**. Do not use self-signed certificates in production!
+</Callout>
+
+#### Creating Users (htpasswd)
+
+```bash
+# Create htpasswd file (first user)
+docker run --entrypoint htpasswd registry:2 \
+  -Bbn admin S3cur3P@ssw0rd > auth/htpasswd
+
+# Add additional user
+docker run --entrypoint htpasswd registry:2 \
+  -Bbn developer DevP@ss123 >> auth/htpasswd
+
+# Separate user for CI/CD
+docker run --entrypoint htpasswd registry:2 \
+  -Bbn cicd-bot C1CdB0tP@ss >> auth/htpasswd
+```
+
+<Callout type="warning" emoji="">
+`>` overwrites the file, `>>` appends to it. After the first user, use `>>`, otherwise previous users will be deleted!
+</Callout>
+
+#### Nginx Configuration
+
+```nginx filename="nginx/nginx.conf"
+upstream docker-registry {
+    server registry:5000;
+}
+
+## HTTP -> HTTPS redirect
+server {
+    listen 80;
+    server_name registry.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name registry.example.com;
+
+    # TLS certificates
+    ssl_certificate     /etc/nginx/certs/domain.crt;
+    ssl_certificate_key /etc/nginx/certs/domain.key;
+
+    # TLS security settings
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+
+    # Increase upload limit for large images
+    client_max_body_size 2G;
+
+    # Chunked transfer encoding
+    chunked_transfer_encoding on;
+
+    location /v2/ {
+        # Docker V2 API proxy to registry only
+        if ($http_user_agent ~ "^(docker\/1\.(3|4|5(?!\.[0-9]-hierarchical))|Go ).*$" ) {
+            return 404;
+        }
+
+        proxy_pass                          http://docker-registry;
+        proxy_set_header  Host              $http_host;
+        proxy_set_header  X-Real-IP         $remote_addr;
+        proxy_set_header  X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header  X-Forwarded-Proto $scheme;
+        proxy_read_timeout                  900;
+    }
+}
+```
+
+#### Docker Compose File
+
+```yaml filename="docker-compose.yml"
+version: "3.8"
+
+services:
+  registry:
+    image: registry:2
+    restart: always
+    environment:
+      # Authentication settings
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: "Docker Registry"
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      # Storage settings
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /var/lib/registry
+      # For garbage collection
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volumes:
+      - ./auth:/auth:ro
+      - ./data:/var/lib/registry
+    networks:
+      - registry-net
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - registry
+    networks:
+      - registry-net
+
+volumes:
+  registry-data:
+
+networks:
+  registry-net:
+    driver: bridge
+```
+
+#### Starting Up
+
+```bash
+# Start the registry
+docker compose up -d
+
+# Check logs
+docker compose logs -f
+
+# Verify
+curl -u admin:S3cur3P@ssw0rd https://registry.example.com/v2/_catalog
+```
+
+---
+
+## Docker Daemon Configuration
+
+The Docker client needs to be configured to work with a private registry.
+
+### Working with Self-signed Certificates
+
+If you use a self-signed certificate, you need to tell the Docker daemon to trust it:
+
+**Method 1:** Copy the certificate to Docker's certificates directory (recommended):
+
+```bash
+# Create the certificate directory
+sudo mkdir -p /etc/docker/certs.d/registry.example.com:443
+
+# Copy the certificate
+sudo cp certs/domain.crt /etc/docker/certs.d/registry.example.com:443/ca.crt
+```
+
+**Method 2:** Add as insecure registry (for testing only!):
+
+```bash
+sudo nano /etc/docker/daemon.json
+```
+
+```json filename="/etc/docker/daemon.json"
+{
+  "insecure-registries": ["registry.example.com:5000"]
+}
+```
+
+```bash
+# Restart the Docker daemon
+sudo systemctl restart docker
+```
+
+<Callout type="warning" emoji="">
+Only use `insecure-registries` in **test environments**! This disables TLS verification and makes you vulnerable to **man-in-the-middle** attacks. Always use proper TLS certificates in production.
+</Callout>
+
+---
+
+## Working with the Registry
+
+### Login/Logout
+
+```bash
+# Log in to the registry
+docker login registry.example.com
+# Username: admin
+# Password: S3cur3P@ssw0rd
+
+# Check login status
+cat ~/.docker/config.json
+
+# Log out of the registry
+docker logout registry.example.com
+```
+
+### Pushing Images
+
+To push an image to the registry, you first need to **tag** it with the registry address:
+
+```bash
+# 1. Create or pull an image
+docker pull nginx:alpine
+
+# 2. Tag the image with the registry address
+docker tag nginx:alpine registry.example.com/web/nginx:alpine
+docker tag nginx:alpine registry.example.com/web/nginx:1.25
+docker tag nginx:alpine registry.example.com/web/nginx:latest
+
+# 3. Push
+docker push registry.example.com/web/nginx:alpine
+docker push registry.example.com/web/nginx:1.25
+docker push registry.example.com/web/nginx:latest
+```
+
+```
+Push process:
+
+┌──────────┐     tag      ┌──────────────────────────┐     push     ┌─────────────┐
+│  nginx   │────────────► │ registry.example.com/    │────────────► │  Registry   │
+│  :alpine │              │ web/nginx:alpine         │              │  Server     │
+└──────────┘              └──────────────────────────┘              │             │
+                                                                    │ Layer 1 ✓   │
+                                                                    │ Layer 2 ✓   │
+                                                                    │ Manifest ✓  │
+                                                                    └─────────────┘
+```
+
+### Pulling Images
+
+```bash
+# Pull an image from the registry
+docker pull registry.example.com/web/nginx:alpine
+
+# Pull from another server (write the full registry address)
+docker pull registry.example.com/web/nginx:1.25
+```
+
+### Tag Naming Strategy (naming convention)
+
+Consistent image tag naming is very important. A good naming strategy:
+
+```
+registry.example.com/<project>/<service>:<version>
+
+Examples:
+  registry.example.com/backend/api:v1.2.3
+  registry.example.com/backend/api:latest
+  registry.example.com/backend/api:main-abc1234
+  registry.example.com/frontend/web:v2.0.0-rc1
+  registry.example.com/infra/nginx:1.25-custom
+  registry.example.com/ml/model-server:2024.01
+```
+
+| Tag Format | Usage | Example |
+|------------|-------|---------|
+| `v1.2.3` (SemVer) | Release versions | `api:v1.2.3` |
+| `latest` | Latest stable version | `api:latest` |
+| `<branch>-<sha>` | CI/CD builds | `api:main-abc1234` |
+| `<date>` | Daily builds | `model:2024.01.15` |
+| `<env>` | Environment-based | `api:staging`, `api:production` |
+
+<Callout type="warning" emoji="">
+In production, **never** rely solely on the `latest` tag! Always use specific version numbers (`v1.2.3`). The `latest` tag can change and lead to unexpected deployments.
+</Callout>
+
+---
+
+## Registry HTTP API (v2)
+
+You can interact with Docker Registry directly via HTTP API. This is useful for monitoring, automated scripts, and CI/CD integration.
+
+### Basic API Endpoints
+
+```bash
+# Check registry version
+curl -u admin:pass https://registry.example.com/v2/
+
+# List all repositories
+curl -u admin:pass https://registry.example.com/v2/_catalog
+# Response: {"repositories":["web/nginx","backend/api","frontend/web"]}
+
+# List tags for a specific repository
+curl -u admin:pass https://registry.example.com/v2/web/nginx/tags/list
+# Response: {"name":"web/nginx","tags":["alpine","1.25","latest"]}
+
+# Get image manifest
+curl -u admin:pass \
+  -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+  https://registry.example.com/v2/web/nginx/manifests/alpine
+```
+
+### Deleting Images (via API)
+
+```bash
+# 1. Get image digest
+DIGEST=$(curl -s -u admin:pass \
+  -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+  -I https://registry.example.com/v2/web/nginx/manifests/alpine \
+  | grep -i docker-content-digest | awk '{print $2}' | tr -d '\r')
+
+# 2. Delete the manifest
+curl -u admin:pass -X DELETE \
+  https://registry.example.com/v2/web/nginx/manifests/$DIGEST
+
+# 3. Clean up deleted layers from disk (garbage collection)
+docker exec registry bin/registry garbage-collect \
+  /etc/docker/registry/config.yml
+```
+
+### Useful Script: List All Images
+
+```bash
+#!/bin/bash
+# list-images.sh — show all images and tags in the registry
+
+REGISTRY="https://registry.example.com"
+USER="admin"
+PASS="S3cur3P@ssw0rd"
+
+echo "=== Registry: $REGISTRY ==="
+echo ""
+
+# Get list of repositories
+REPOS=$(curl -s -u $USER:$PASS $REGISTRY/v2/_catalog | \
+  python3 -c "import sys,json; print('\n'.join(json.load(sys.stdin)['repositories']))")
+
+for repo in $REPOS; do
+  # Get tags for each repo
+  TAGS=$(curl -s -u $USER:$PASS $REGISTRY/v2/$repo/tags/list | \
+    python3 -c "import sys,json; tags=json.load(sys.stdin).get('tags',[]); print(' '.join(tags or ['<no tags>']))")
+  echo "  $repo"
+  echo "   Tags: $TAGS"
+  echo ""
+done
+```
+
+---
+
+## Garbage Collection
+
+Over time, old images and unused layers consume disk space. **Garbage collection (GC)** is the process of removing blobs that are no longer referenced by any manifest, freeing up disk space.
+
+### How GC Works
+
+```
+Before GC:                             After GC:
+
+┌────────────┐  ┌────────────┐         ┌────────────┐
+│ Image v1.0 │  │ Image v2.0 │         │ Image v2.0 │
+│ (deleted)  │  │ (active)   │         │ (active)   │
+├────────────┤  ├────────────┤         ├────────────┤
+│ Layer A    │  │ Layer A ───┼────┐    │ Layer A    │  Kept (used by v2.0)
+│ Layer B    │  │ Layer C    │    │    │ Layer C    │  Kept
+│ Layer C    │  └────────────┘    │    └────────────┘
+└────────────┘                    │
+      │                           │    Deleted:
+      └─── Layer B ───────────────┘    └─ Layer B  (unused by anyone)
+```
+
+### Running GC
+
+```bash
+# Dry-run (see what would be deleted without actually deleting)
+docker exec registry bin/registry garbage-collect \
+  --dry-run /etc/docker/registry/config.yml
+
+# Actual garbage collection
+docker exec registry bin/registry garbage-collect \
+  /etc/docker/registry/config.yml
+
+# Restart the registry after GC (recommended)
+docker restart registry
+```
+
+### Automated GC (with cron)
+
+```bash
+# Add to crontab: GC runs daily at 3:00 AM
+crontab -e
+```
+
+```
+# Daily garbage collection at 03:00
+0 3 * * * docker exec registry bin/registry garbage-collect /etc/docker/registry/config.yml >> /var/log/registry-gc.log 2>&1
+```
+
+<Callout type="info" emoji="">
+It is recommended to **stop write operations** to the registry before running GC. Otherwise, layers being uploaded may be incorrectly deleted. In production, schedule GC during low-traffic hours (at night).
+</Callout>
+
+---
+
+## Storage Backends
+
+Docker Registry supports various storage systems. The default is **local filesystem**, but **object storage** is recommended for production.
+
+### Available Backends
+
+| Backend | Description | Usage |
+|---------|-------------|-------|
+| **filesystem** | Local disk | Default, for small environments |
+| **s3** | Amazon S3 (or S3-compatible) | AWS environment, also works with MinIO |
+| **gcs** | Google Cloud Storage | GCP environment |
+| **azure** | Azure Blob Storage | Azure environment |
+
+### S3 Backend Configuration
+
+```yaml filename="config.yml"
+version: 0.1
+storage:
+  s3:
+    accesskey: AKIAIOSFODNN7EXAMPLE
+    secretkey: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+    region: us-east-1
+    bucket: my-docker-registry
+    rootdirectory: /registry
+  delete:
+    enabled: true
+  cache:
+    blobdescriptor: inmemory
+```
+
+### With MinIO (self-hosted S3)
+
+MinIO is a self-hosted S3-compatible object storage. Great for large volumes of images:
+
+```yaml filename="docker-compose.yml"
+version: "3.8"
+
+services:
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  registry:
+    image: registry:2
+    restart: always
+    environment:
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: "Docker Registry"
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      REGISTRY_STORAGE: s3
+      REGISTRY_STORAGE_S3_ACCESSKEY: minioadmin
+      REGISTRY_STORAGE_S3_SECRETKEY: minioadmin123
+      REGISTRY_STORAGE_S3_REGION: us-east-1
+      REGISTRY_STORAGE_S3_BUCKET: docker-registry
+      REGISTRY_STORAGE_S3_REGIONENDPOINT: http://minio:9000
+      REGISTRY_STORAGE_S3_FORCEPATHSTYLE: "true"
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volumes:
+      - ./auth:/auth:ro
+    ports:
+      - "5000:5000"
+    depends_on:
+      - minio
+
+volumes:
+  minio-data:
+```
+
+---
+
+## Practical Use Cases
+
+### Use Case 1: CI/CD Pipeline Integration
+
+The most common scenario — building images in a CI/CD pipeline, pushing them to the registry, and deploying to production.
+
+```
+┌──────────┐     ┌──────────┐     ┌──────────────┐     ┌──────────────┐
+│   Git    │────►│  CI/CD   │────►│   Private    │────►│  Production  │
+│  Push    │     │  Build   │     │   Registry   │     │   Server     │
+└──────────┘     └──────────┘     └──────────────┘     └──────────────┘
+                  docker build     docker push           docker pull
+                  docker tag                              docker run
+```
+
+#### GitLab CI Example
+
+```yaml filename=".gitlab-ci.yml"
+variables:
+  REGISTRY: registry.example.com
+  IMAGE_NAME: $REGISTRY/backend/api
+
+stages:
+  - build
+  - deploy
+
+build:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  before_script:
+    - echo "$REGISTRY_PASSWORD" | docker login $REGISTRY -u $REGISTRY_USER --password-stdin
+  script:
+    - docker build -t $IMAGE_NAME:$CI_COMMIT_SHORT_SHA .
+    - docker tag $IMAGE_NAME:$CI_COMMIT_SHORT_SHA $IMAGE_NAME:latest
+    - docker push $IMAGE_NAME:$CI_COMMIT_SHORT_SHA
+    - docker push $IMAGE_NAME:latest
+  after_script:
+    - docker logout $REGISTRY
+
+deploy:
+  stage: deploy
+  script:
+    - ssh deploy@production "docker pull $IMAGE_NAME:$CI_COMMIT_SHORT_SHA"
+    - ssh deploy@production "docker compose up -d"
+  only:
+    - main
+```
+
+#### GitHub Actions Example
+
+```yaml filename=".github/workflows/build.yml"
+name: Build and Push
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to private registry
+        run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | \
+          docker login registry.example.com -u ${{ secrets.REGISTRY_USER }} --password-stdin
+
+      - name: Build and push
+        run: |
+          IMAGE=registry.example.com/backend/api
+          docker build -t $IMAGE:${{ github.sha }} .
+          docker tag $IMAGE:${{ github.sha }} $IMAGE:latest
+          docker push $IMAGE:${{ github.sha }}
+          docker push $IMAGE:latest
+```
+
+#### Jenkins Pipeline Example
+
+```groovy filename="Jenkinsfile"
+pipeline {
+    agent any
+
+    environment {
+        REGISTRY = 'registry.example.com'
+        IMAGE = "${REGISTRY}/backend/api"
+        REGISTRY_CREDS = credentials('docker-registry-creds')
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                sh "docker build -t ${IMAGE}:${BUILD_NUMBER} ."
+                sh "docker tag ${IMAGE}:${BUILD_NUMBER} ${IMAGE}:latest"
+            }
+        }
+
+        stage('Push') {
+            steps {
+                sh "echo ${REGISTRY_CREDS_PSW} | docker login ${REGISTRY} -u ${REGISTRY_CREDS_USR} --password-stdin"
+                sh "docker push ${IMAGE}:${BUILD_NUMBER}"
+                sh "docker push ${IMAGE}:latest"
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh "ssh deploy@production 'docker pull ${IMAGE}:${BUILD_NUMBER}'"
+                sh "ssh deploy@production 'cd /opt/app && docker compose up -d'"
+            }
+        }
+    }
+
+    post {
+        always {
+            sh "docker logout ${REGISTRY}"
+        }
+    }
+}
+```
+
+### Use Case 2: Air-gapped (No Internet) Environment
+
+In some environments (military, financial, government systems) there is no internet connectivity. In such cases, a private registry becomes the sole image source.
+
+```
+Internet environment:              Air-gapped environment:
+
+┌──────────┐   pull    ┌────────┐  USB/DVD    ┌──────────────┐   pull    ┌─────────┐
+│ Docker   │─────────► │ Image  │──────────►  │   Private    │─────────► │ Server  │
+│ Hub      │           │ Export │  transfer   │   Registry   │           │ Deploy  │
+└──────────┘           └────────┘             └──────────────┘           └─────────┘
+```
+
+```bash
+# === In the internet-connected environment ===
+
+# 1. Pull required images
+docker pull nginx:alpine
+docker pull postgres:16
+docker pull redis:7
+
+# 2. Export images to a tar file
+docker save nginx:alpine postgres:16 redis:7 | gzip > images.tar.gz
+
+# 3. Also export the registry image itself
+docker save registry:2 | gzip > registry-image.tar.gz
+
+# === Transfer to air-gapped environment via USB/DVD ===
+
+# === In the air-gapped environment ===
+
+# 4. Load the registry image
+docker load < registry-image.tar.gz
+
+# 5. Start the registry
+docker run -d -p 5000:5000 --restart=always --name registry registry:2
+
+# 6. Load the images
+docker load < images.tar.gz
+
+# 7. Tag and push images to the registry
+docker tag nginx:alpine localhost:5000/nginx:alpine
+docker push localhost:5000/nginx:alpine
+
+docker tag postgres:16 localhost:5000/postgres:16
+docker push localhost:5000/postgres:16
+
+docker tag redis:7 localhost:5000/redis:7
+docker push localhost:5000/redis:7
+```
+
+### Use Case 3: Multi-environment Management
+
+Deploy to different environments through a single registry:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    Private Registry                          │
+│                                                              │
+│  ┌───────────────────────────────────────────────────────┐   │
+│  │  backend/api:v1.2.3          (release)                │   │
+│  │  backend/api:v1.2.4-rc1      (release candidate)      │   │
+│  │  backend/api:main-abc1234    (CI build)               │   │
+│  │  backend/api:staging         (staging deploy)         │   │
+│  └───────────────────────────────────────────────────────┘   │
+└──────────┬─────────────────┬───────────────────┬─────────────┘
+           │                 │                   │
+           ▼                 ▼                   ▼
+    ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+    │ Development  │  │   Staging    │  │  Production  │
+    │              │  │              │  │              │
+    │ api:main-*   │  │ api:staging  │  │ api:v1.2.3   │
+    └──────────────┘  └──────────────┘  └──────────────┘
+```
+
+### Use Case 4: Kubernetes Integration
+
+To pull images from a private registry in a Kubernetes cluster, you need to configure **imagePullSecrets**:
+
+```bash
+# Create registry credentials in Kubernetes
+kubectl create secret docker-registry regcred \
+  --docker-server=registry.example.com \
+  --docker-username=admin \
+  --docker-password=S3cur3P@ssw0rd \
+  --docker-email=admin@example.com
+```
+
+```yaml filename="deployment.yaml"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: web-app
+          image: registry.example.com/backend/api:v1.2.3
+          ports:
+            - containerPort: 8080
+```
+
+---
+
+## Registry Mirror (Docker Hub Mirror)
+
+If your team frequently pulls images from Docker Hub, you can set up the registry as a **pull-through cache** (mirror). This:
+
+- **Increases speed** — once downloaded, an image is served from local cache next time
+- **Protects from Docker Hub rate limits** — free tier has a 100 pull/hour limit
+- **Reduces internet traffic** — especially useful in multi-server environments
+
+### Mirror Configuration
+
+```yaml filename="config.yml"
+version: 0.1
+proxy:
+  remoteurl: https://registry-1.docker.io
+  username: dockerhub_user
+  password: dockerhub_token
+storage:
+  filesystem:
+    rootdirectory: /var/lib/registry
+  delete:
+    enabled: true
+http:
+  addr: :5000
+```
+
+```bash
+# Start the mirror registry
+docker run -d \
+  -p 5000:5000 \
+  --restart=always \
+  --name registry-mirror \
+  -v ./config.yml:/etc/docker/registry/config.yml \
+  -v mirror-data:/var/lib/registry \
+  registry:2
+```
+
+Configure Docker daemon to use the mirror:
+
+```json filename="/etc/docker/daemon.json"
+{
+  "registry-mirrors": ["http://mirror.example.com:5000"]
+}
+```
+
+```bash
+sudo systemctl restart docker
+
+# Now docker pull nginx actually goes through the mirror
+docker pull nginx:alpine  # first time — from Docker Hub, next time — from cache
+```
+
+---
+
+## Security Best Practices
+
+### 1. Always Use TLS
+
+```
+Wrong:   http://registry:5000   (unencrypted, man-in-the-middle risk)
+Correct: https://registry:443   (encrypted with TLS)
+```
+
+### 2. Least Privilege Users
+
+```bash
+# Separate users for different roles
+# CI/CD bot — can only push/pull
+docker run --entrypoint htpasswd registry:2 -Bbn cicd-bot P@ssw0rd >> auth/htpasswd
+
+# Developer — can only pull (requires Harbor or Nexus)
+# htpasswd is basic authentication — for role-based access control, Harbor is recommended
+```
+
+### 3. Scan Images for Security Vulnerabilities
+
+```bash
+# Scan images with Trivy (recommended)
+# Install: https://aquasecurity.github.io/trivy/
+trivy image registry.example.com/backend/api:v1.2.3
+
+# Example output:
+# Total: 2 (HIGH: 1, CRITICAL: 1)
+# ┌───────────────┬───────────────┬───────────┬─────────────────┐
+# │   Library     │ Vulnerability │ Severity  │ Fixed Version   │
+# ├───────────────┼───────────────┼───────────┼─────────────────┤
+# │ openssl       │ CVE-2024-XXX  │ CRITICA   │ 3.1.5           │
+# │ curl          │ CVE-2024-YYY  │ HIGH      │ 8.5.0           │
+# └───────────────┴───────────────┴───────────┴─────────────────┘
+```
+
+### 4. Image Signing
+
+```bash
+# Sign images with Cosign (Sigstore project)
+# Install: https://docs.sigstore.dev/cosign/installation/
+
+# Generate key pair
+cosign generate-key-pair
+
+# Sign an image
+cosign sign --key cosign.key registry.example.com/backend/api:v1.2.3
+
+# Verify signature
+cosign verify --key cosign.pub registry.example.com/backend/api:v1.2.3
+```
+
+### 5. Security Checklist
+
+| Check | Description |
+|-------|-------------|
+| TLS/SSL certificate | All connections encrypted |
+| Authentication | Login required |
+| Firewall | Only necessary ports open (443) |
+| Image scanning | Automated scanning in CI/CD |
+| Backup | Registry data regularly backed up |
+| Monitoring | Disk, CPU, network monitoring |
+| GC | Old images regularly cleaned |
+| Access log | Track who pushed/pulled what and when |
+
+---
+
+## Monitoring and Troubleshooting
+
+### Checking Registry Logs
+
+```bash
+# Docker Compose logs
+docker compose logs registry
+docker compose logs -f --tail=100 registry
+
+# Search for specific errors
+docker compose logs registry 2>&1 | grep -i error
+```
+
+### Checking Disk Usage
+
+```bash
+# Registry data size
+du -sh data/
+
+# Largest repositories
+du -sh data/docker/registry/v2/repositories/* | sort -rh | head -10
+```
+
+### Common Issues and Solutions
+
+**Issue 1:** `Get https://registry:5000/v2/: http: server gave HTTP response to HTTPS client`
+
+```bash
+# Solution: add insecure-registries or configure TLS
+sudo nano /etc/docker/daemon.json
+# {"insecure-registries": ["registry:5000"]}
+sudo systemctl restart docker
+```
+
+**Issue 2:** `unauthorized: authentication required`
+
+```bash
+# Solution: log in
+docker login registry.example.com
+
+# Or verify credentials
+curl -u admin:password https://registry.example.com/v2/
+```
+
+**Issue 3:** `error parsing HTTP 413 response body: invalid character '<'`
+
+```bash
+# Solution: increase client_max_body_size in Nginx
+# nginx.conf: client_max_body_size 2G;
+```
+
+**Issue 4:** `blob upload unknown` or `manifest unknown`
+
+```bash
+# Solution: run garbage collection and restart
+docker exec registry bin/registry garbage-collect /etc/docker/registry/config.yml
+docker restart registry
+```
+
+---
+
+## Docker Registry vs Harbor — Comparison
+
+If you need more functionality than a basic registry, consider **Harbor**.
+
+| Feature | Docker Registry | Harbor |
+|---------|----------------|--------|
+| Image storage | ✅ | ✅ |
+| Authentication | htpasswd (basic) | LDAP, OIDC, Robot accounts |
+| Access control (RBAC) | ❌ | ✅ (project level) |
+| Vulnerability scanning | ❌ | ✅ (Trivy integration) |
+| Image signing | ❌ | ✅ (Cosign/Notary) |
+| Replication | ❌ | ✅ (between registries) |
+| Web UI | ❌ | ✅ |
+| Garbage Collection | Via CLI | Via Web UI |
+| Helm chart storage | ❌ | ✅ |
+| Audit log | Basic | Full |
+| Setup complexity | Simple | Medium |
+| Resource requirements | Minimal (~50MB RAM) | Medium (~1-2GB RAM) |
+
+<Callout type="info" emoji="">
+**Recommendation:** If you only need image push/pull — **Docker Registry** is sufficient. If you need security scanning, RBAC, Web UI, and replication — choose **Harbor**. More about Harbor: [goharbor.io](https://goharbor.io/)
+</Callout>
+
+---
+
+## Conclusion
+
+Docker Registry is a critical component of modern DevOps infrastructure. In this guide, you learned:
+
+- **Registry architecture** — how image manifests and layers are stored
+- **Registry types** — public, cloud, self-hosted options
+- **Production setup** — with TLS, authentication, Nginx reverse proxy
+- **CI/CD integration** — with GitLab CI, GitHub Actions, Jenkins
+- **Garbage Collection** — freeing up disk space
+- **Storage backends** — S3, MinIO, and other options
+- **Security** — TLS, image scanning, signing
+- **Practical use cases** — air-gapped environments, multi-environment, Kubernetes
+
+Next steps:
+1. **[Introduction to Docker](https://devops-journey.uz/guides/konteyner/dockerga-kirish)** — Learn Docker basics
+2. **[Installing Docker on Linux servers](https://devops-journey.uz/guides/konteyner/docker-ornatish)** — Install Docker
+3. **[Writing Dockerfiles](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)** — Create your own images
+4. **[Docker commands](https://devops-journey.uz/guides/konteyner/docker-asoslari)** — Learn Docker CLI
+
+## Additional Resources
+
+<Callout type="info" emoji="">
+
+Additional resources
+ * [**Docker Registry official docs**](https://docs.docker.com/registry/)
+ * [**Distribution (Registry) GitHub**](https://github.com/distribution/distribution)
+ * [**Harbor — CNCF Registry**](https://goharbor.io/)
+ * [**Trivy — Image Scanner**](https://aquasecurity.github.io/trivy/)
+ * [**Cosign — Image Signing**](https://docs.sigstore.dev/cosign/overview/)
+ * [**Docker Hub**](https://hub.docker.com/)
+ * [**Introduction to Docker**](https://devops-journey.uz/guides/konteyner/dockerga-kirish)
+ * [**Installing Docker on Linux servers**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+ * [**Writing Dockerfiles**](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)
+
+**Date:** 2024.01.10 (January 10, 2024)
+
+**Last updated:** 2026.02.12 (February 12, 2026)
+
+**Author: Otabek Ismoilov**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>

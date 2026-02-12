@@ -1,109 +1,1184 @@
 ---
-description: "Docker Registry"
+image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-registry.png
+description: "Docker Registry: Xususiy konteyner registryni o'rnatish va boshqarish"
 ---
 
 import { Callout } from "nextra-theme-docs";
 
 # Docker Registry
 
+![docker-registry](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/docker-registry.png)
+
+## Kirish
+
+Zamonaviy dasturiy ta'minot ishlab chiqishda Docker image'larini ishonchli, xavfsiz va tezkor tarzda saqlash va tarqatish — muhim infratuzilma masalalardan biri. **Docker Registry** — aynan shu vazifani bajaruvchi servis bo'lib, u Docker image'larini saqlash, versiyalash va tarqatish imkonini beradi.
+
+Ko'pchilik dasturchilar **Docker Hub** bilan ishlaydi — bu eng mashhur public registry. Lekin production muhitda kompaniyalar ko'pincha **xususiy (private) registry** o'rnatadi, chunki:
+
+- Maxfiy kodlar va konfiguratsiyalar ommaviy bo'lmasligi kerak
+- Image pull/push tezligi muhim (mahalliy tarmoqdagi registry ancha tez)
+- Xavfsizlik va kirish nazorati to'liq qo'lda bo'lishi kerak
+- Regulyativ talablar (HIPAA, GDPR, PCI DSS) bunga majburlaydi
+
 <Callout type="info" emoji="">
-Ushbu sahifada [open source Docker Registry](https://github.com/distribution/distribution) yordamida o'z registryingizni joylashtirish haqida ma'lumot mavjud. Teamlar, organizatsiyalar, web hooklar, avtomatlashtirilgan buildlar va boshqalar kabi qo'shimcha funksiyalarga ega bo'lgan host qilingan registryni taklif qiluvchi [Docker Hub](https://docs.docker.com/docker-hub/) haqida ma'lumot olish uchun Docker Hub-ga qarang.
+Docker Registry — bu [Apache 2.0 litsenziyasi](https://en.wikipedia.org/wiki/Apache_License) ostidagi open-source loyiha. Manba kodi [GitHub](https://github.com/distribution/distribution)'da mavjud. Rasmiy hujjatlar: [docs.docker.com/registry](https://docs.docker.com/registry/)
 </Callout>
 
-### Bu nima
-Docker Registry - bu Docker imagelarini joylashtirish(hosting) va tarqatish(distributing) xizmati. Ishlab chiquvchilar undan o'z imagelarini push qilish uchun foydalanadilar va joylashtirishlar Docker konteynerlarini distributening izchil va tezkor usulini ta'minlab, imagelarni pull qilib olish uchun foydalanadilar. Docker Hub - bu hamma foydalanishi mumkin bo'lgan ommaviy registrdir, lekin ba'zida shaxsiy registrni joylashtirishga ehtiyoj bor.
+---
 
-Registry stateless, yuqori darajada kengaytiriladigan server side applicationi bo'lib, u Docker imagelarini saqlaydi va sizga distribute qilish imkonini beradi. Registry ruxsat etilgan [Apache litsenziyasi](https://en.wikipedia.org/wiki/Apache_License) ostida open-source hisoblanadi. Manba kodini [GitHub](https://github.com/distribution/distribution)-da topishingiz mumkin.
+## Registry nima va qanday ishlaydi?
 
-## Nima uchun xususiy Docker Registrydan foydalanish kerak?
+Docker Registry — bu **stateless**, **server-side** dastur bo'lib, Docker image'larini saqlaydi va OCI (Open Container Initiative) Distribution Specification bo'yicha ishlaydi. Sodda qilib aytganda — bu image'lar uchun **fayl serveri**.
 
-* Maxfiylik: Har bir Docker image ommaviy(public) bo'lishi kerak emas. Shaxsiy registry yordamida siz o'zingizning shaxsiy imagelaringizni maxfiy(private) saqlashingiz mumkin.
-* Latency: O'z registryngizni joylashtirish, ayniqsa, u joylashtirish muhitiga yaqin bo'lsa, imageni tezroq pull qilib olish va push qilish vaqtlariga olib kelishi mumkin.
-* Nazorat: O'zingizning registryngiz yordamida siz imagelar, ularga kim kirishi va ular qanday tarqatilishi ustidan to'liq nazoratga egasiz.
+### Registry arxitekturasi
 
-## Asosiy Docker Registryni o'rnatish
-
-1. Docker Registryni ishga tushirish
-
-```bash
-docker run -d -p 5000:5000 --name registry registry:2
 ```
-Ushbu buyruq Docker official registry imageni (2-versiya) tortib(pull) oladi va uni ishga tushiradi. Registry 5000 portni tinglaydi.
-
-## Docker registringizni asosiy autentifikatsiya bilan himoyalash
-
-1. Autentifikatsiya jildini yarating:
-
-```bash
-mkdir auth
-```
-
-2.  Asosiy autentifikatsiya faylini yarating va username va parol qo'ying. Rasmiy registr imagedan foydalanish. Quyida biz `devops` nomli user ochamiz va parolini `devops2h3dew` qo'yamiz. Dockerga user qo'shish bizga ci/cd larda kerak bo'ladi.
-
-```bash
-docker run --entrypoint htpasswd registry:2 -Bbn devops devops2h3dew > auth/htpasswd
-```
-
-Yoki Apache httpd imagedan foydalanib:
-
-```bash
-docker run \
-  --entrypoint htpasswd \
-  httpd:2 -Bbn devops devops2h3dew > auth/htpasswd
+┌──────────────────────────────────────────────────────────────────┐
+│                     Docker Registry Arxitekturasi                │
+│                                                                  │
+│  ┌──────────────┐         ┌──────────────────────────────────┐   │
+│  │   Docker     │  HTTPS  │         Docker Registry          │   │
+│  │   Client     │  API    │         (distribution)           │   │
+│  │              ┼────────►│                                  │   │
+│  │  docker push │         │  ┌────────────────────────────┐  │   │
+│  │  docker pull │         │  │     HTTP API (v2)          │  │   │
+│  │  docker tag  │         │  │     /v2/_catalog           │  │   │
+│  │              │         │  │     /v2/<name>/manifests/  │  │   │
+│  └──────────────┘         │  │     /v2/<name>/blobs/      │  │   │
+│                           │  └────────────────────────────┘  │   │
+│  ┌──────────────┐         │              │                   │   │
+│  │   CI/CD      │  HTTPS  │              ▼                   │   │
+│  │  (Jenkins,   ┼────────►│  ┌────────────────────────────┐  │   │
+│  │   GitLab CI) │         │  │     Storage Backend        │  │   │
+│  └──────────────┘         │  │  ┌──────┐ ┌──────┐         │  │   │
+│                           │  │  │ Local│ │  S3  │ ...     │  │   │
+│                           │  │  │ Disk │ │      │         │  │   │
+│                           │  │  └──────┘ └──────┘         │  │   │
+│                           │  └────────────────────────────┘  │   │
+│                           └──────────────────────────────────┘   │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │              Authentication Layer                        │    │
+│  │          (htpasswd, LDAP, OAuth2, token)                 │    │
+│  └──────────────────────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-## Docker Daemoniga xavfsiz registrga ulanishga ruxsat berish
+### Image saqlash tuzilmasi
 
-Docker konfiguratsiyasiga o'ting va Daemon konfiguratsiyasini tahrirlang:
+Docker image qanday saqlanadi? Registry ichida image **manifest** va **layer (blob)** lardan tashkil topadi:
+
+```
+┌──────────────────────────────────────────────┐
+│              Docker Image                    │
+│                                              │
+│  ┌────────────────────────────────────────┐  │
+│  │           Image Manifest               │  │
+│  │  ┌──────────────────────────────────┐  │  │
+│  │  │ mediaType: application/vnd...    │  │  │
+│  │  │ config:   sha256:abc123...       │  │  │
+│  │  │ layers:                          │  │  │
+│  │  │   - sha256:layer1...             │  │  │
+│  │  │   - sha256:layer2...             │  │  │
+│  │  │   - sha256:layer3...             │  │  │
+│  │  └──────────────────────────────────┘  │  │
+│  └────────────────────────────────────────┘  │
+│                                              │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐      │
+│  │  Layer 1 │ │  Layer 2 │ │  Layer 3 │      │
+│  │  (blob)  │ │  (blob)  │ │  (blob)  │      │
+│  │ base OS  │ │ paketlar │ │ app kodi │      │
+│  └──────────┘ └──────────┘ └──────────┘      │
+│                                              │
+│  Har bir layer SHA256 hash bilan             │
+│  identifikatsiya qilinadi                    │
+└──────────────────────────────────────────────┘
+```
+
+**Push** jarayonida Docker client avval har bir layer'ni blob sifatida yuklaydi, keyin manifest'ni yuboradi. **Pull** jarayonida esa avval manifest olinadi, keyin har bir layer yuklab olinadi. Agar layer allaqachon mavjud bo'lsa (boshqa image'dan), qayta yuklanmaydi — bu **content-addressable storage** deyiladi.
+
+---
+
+## Registry turlari
+
+Docker image'larini saqlash uchun turli xil registry'lar mavjud. Har birining o'z afzalliklari va kamchiliklari bor.
+
+### Public Registry'lar
+
+| Registry | Tavsif | Bepul rejasi |
+|----------|--------|-------------|
+| **Docker Hub** | Eng mashhur, default registry. `docker pull nginx` aslida `docker.io/library/nginx` | Public image'lar cheksiz, 1 private repo |
+| **GitHub Container Registry (ghcr.io)** | GitHub bilan integratsiya, GitHub Actions'da tez | Public image'lar bepul |
+| **Quay.io** | Red Hat tomonidan boshqariladi, xavfsizlik skanerlash | Public image'lar bepul |
+
+### Cloud Provider Registry'lari
+
+| Registry | Provider | Afzalligi |
+|----------|----------|-----------|
+| **Amazon ECR** | AWS | ECS/EKS bilan chuqur integratsiya, IAM autentifikatsiya |
+| **Google Artifact Registry** | GCP | GKE bilan integratsiya, multi-format (Docker, npm, Maven) |
+| **Azure Container Registry** | Azure | AKS bilan integratsiya, geo-replikatsiya |
+| **Yandex Container Registry** | Yandex Cloud | CIS mintaqasida past latency |
+
+### Self-hosted (o'z serveringizda) Registry'lar
+
+| Registry | Tavsif | Murakkabligi |
+|----------|--------|-------------|
+| **Docker Registry** | Rasmiy open-source registry, minimal funksional | Oddiy |
+| **Harbor** | CNCF graduated loyiha, vulnerability scanning, RBAC, replikatsiya | O'rta |
+| **GitLab Container Registry** | GitLab bilan birga keladi, CI/CD integratsiya | O'rta |
+| **Nexus Repository** | Multi-format (Docker, Maven, npm, PyPI), korporativ | Murakkab |
+| **JFrog Artifactory** | Enterprise darajada, universal paket menejeri | Murakkab |
+
+### Qaysi birini tanlash kerak?
+
+```
+Loyihangiz qanday? ──► Shaxsiy/kichik loyiha
+                        └──► Docker Hub yoki ghcr.io (bepul)
+
+                   ──► Startup/O'rta kompaniya
+                        └──► Cloud provider registry (ECR, GCR, ACR)
+                        └──► Harbor (self-hosted kerak bo'lsa)
+
+                   ──► Enterprise/Katta kompaniya
+                        └──► Harbor + Trivy (xavfsizlik skanerlash)
+                        └──► Nexus/Artifactory (multi-format kerak bo'lsa)
+
+                   ──► Air-gapped muhit (internetsiz)
+                        └──► Docker Registry yoki Harbor (self-hosted)
+```
+
+---
+
+## Docker Registry o'rnatish
+
+### 1. Minimal o'rnatish (test uchun)
+
+Eng oddiy usul — bitta buyruq bilan registry'ni ishga tushirish:
 
 ```bash
-cd /etc/docker
-nano daemon.json
+docker run -d \
+  -p 5000:5000 \
+  --name registry \
+  --restart=always \
+  registry:2
 ```
-daemon.json fayliga quyidagi konfigratsiya faylini kiriting localhost o'rniga serveringiz IP addresini yozasiz.
 
-```json filename="/etc/docker/daemon.json"
-{
-  "insecure-registries" : ["localhost:5000"]
+Bu buyruq:
+- `registry:2` — rasmiy Docker Registry image'ining 2-versiyasini ishga tushiradi
+- `-p 5000:5000` — 5000 portni host'ga map qiladi
+- `--restart=always` — server qayta ishga tushganda registry avtomatik ko'tariladi
+- `-d` — background rejimda ishlaydi
+
+Tekshirish:
+
+```bash
+# Registry ishlayaptimi?
+curl http://localhost:5000/v2/
+
+# Javob: {} — demak ishlayapti
+```
+
+<Callout type="warning" emoji="">
+Bu usul faqat **test** uchun yaroqli! Production'da **TLS**, **autentifikatsiya** va **doimiy saqlash (volume)** shart. Quyida production-ready o'rnatishni ko'ramiz.
+</Callout>
+
+### 2. Production-ready o'rnatish (Docker Compose bilan)
+
+Production muhit uchun to'liq konfiguratsiya quyidagicha bo'ladi. Biz 4 ta komponentni sozlaymiz:
+
+1. **Docker Registry** — image'larni saqlash
+2. **Nginx** — reverse proxy, TLS terminatsiya
+3. **htpasswd** — autentifikatsiya
+4. **Volume** — doimiy saqlash
+
+#### Loyiha tuzilmasi
+
+```bash
+mkdir -p docker-registry/{auth,certs,data,nginx}
+cd docker-registry
+```
+
+```
+docker-registry/
+├── docker-compose.yml      # Asosiy konfiguratsiya
+├── auth/
+│   └── htpasswd            # Foydalanuvchi parollari
+├── certs/
+│   ├── domain.crt          # TLS sertifikat
+│   └── domain.key          # TLS kalit
+├── data/                   # Image'lar saqlanadigan joy
+└── nginx/
+    └── nginx.conf          # Nginx konfiguratsiya
+```
+
+#### TLS sertifikat yaratish
+
+Production'da **Let's Encrypt** yoki boshqa CA sertifikatidan foydalaning. Test uchun self-signed sertifikat yaratish mumkin:
+
+```bash
+# Self-signed sertifikat (test uchun)
+openssl req -newkey rsa:4096 -nodes -sha256 \
+  -keyout certs/domain.key \
+  -x509 -days 365 \
+  -out certs/domain.crt \
+  -subj "/CN=registry.example.com" \
+  -addext "subjectAltName=DNS:registry.example.com,IP:192.168.1.100"
+```
+
+<Callout type="info" emoji="">
+**Let's Encrypt** bilan bepul SSL sertifikat olish uchun **Certbot** yoki **Traefik** ishlatishingiz mumkin. Production muhitda self-signed sertifikat ishlatmang!
+</Callout>
+
+#### Foydalanuvchilar yaratish (htpasswd)
+
+```bash
+# htpasswd fayl yaratish (birinchi foydalanuvchi)
+docker run --entrypoint htpasswd registry:2 \
+  -Bbn admin S3cur3P@ssw0rd > auth/htpasswd
+
+# Qo'shimcha foydalanuvchi qo'shish
+docker run --entrypoint htpasswd registry:2 \
+  -Bbn developer DevP@ss123 >> auth/htpasswd
+
+# CI/CD uchun alohida foydalanuvchi
+docker run --entrypoint htpasswd registry:2 \
+  -Bbn cicd-bot C1CdB0tP@ss >> auth/htpasswd
+```
+
+<Callout type="warning" emoji="">
+`>` belgisi faylni qaytadan yozadi, `>>` esa mavjud faylga qo'shadi. Birinchi foydalanuvchidan keyin `>>` ishlating, aks holda oldingi foydalanuvchilar o'chib ketadi!
+</Callout>
+
+#### Nginx konfiguratsiya
+
+```nginx filename="nginx/nginx.conf"
+upstream docker-registry {
+    server registry:5000;
+}
+
+## HTTP -> HTTPS redirect
+server {
+    listen 80;
+    server_name registry.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name registry.example.com;
+
+    # TLS sertifikatlar
+    ssl_certificate     /etc/nginx/certs/domain.crt;
+    ssl_certificate_key /etc/nginx/certs/domain.key;
+
+    # TLS xavfsizlik sozlamalari
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_cache shared:SSL:10m;
+
+    # Katta image'lar uchun upload limitni oshirish
+    client_max_body_size 2G;
+
+    # Chunked transfer encoding
+    chunked_transfer_encoding on;
+
+    location /v2/ {
+        # Docker V2 API faqat registry'ga proxy
+        if ($http_user_agent ~ "^(docker\/1\.(3|4|5(?!\.[0-9]-hierarchical))|Go ).*$" ) {
+            return 404;
+        }
+
+        proxy_pass                          http://docker-registry;
+        proxy_set_header  Host              $http_host;
+        proxy_set_header  X-Real-IP         $remote_addr;
+        proxy_set_header  X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header  X-Forwarded-Proto $scheme;
+        proxy_read_timeout                  900;
+    }
 }
 ```
 
-Docker servisini qaytadan ishga tushiramiz (restart).
+#### Docker Compose fayl
+
+```yaml filename="docker-compose.yml"
+version: "3.8"
+
+services:
+  registry:
+    image: registry:2
+    restart: always
+    environment:
+      # Autentifikatsiya sozlamalari
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: "Docker Registry"
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      # Saqlash sozlamalari
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /var/lib/registry
+      # Garbage collection uchun
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volumes:
+      - ./auth:/auth:ro
+      - ./data:/var/lib/registry
+    networks:
+      - registry-net
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - registry
+    networks:
+      - registry-net
+
+volumes:
+  registry-data:
+
+networks:
+  registry-net:
+    driver: bridge
+```
+
+#### Ishga tushirish
 
 ```bash
+# Registry'ni ishga tushirish
+docker compose up -d
+
+# Loglarni tekshirish
+docker compose logs -f
+
+# Tekshirish
+curl -u admin:S3cur3P@ssw0rd https://registry.example.com/v2/_catalog
+```
+
+---
+
+## Docker Daemon konfiguratsiyasi
+
+Docker client'ni xususiy registry bilan ishlashi uchun sozlash kerak.
+
+### Self-signed sertifikat bilan ishlash
+
+Agar self-signed sertifikat ishlatsangiz, Docker daemon'ga sertifikatni ishonchli deb belgilash kerak:
+
+**1-usul:** Sertifikatni Docker sertifikatlar papkasiga nusxalash (tavsiya etiladi):
+
+```bash
+# Sertifikat papkasini yarating
+sudo mkdir -p /etc/docker/certs.d/registry.example.com:443
+
+# Sertifikatni nusxalang
+sudo cp certs/domain.crt /etc/docker/certs.d/registry.example.com:443/ca.crt
+```
+
+**2-usul:** Insecure registry sifatida qo'shish (faqat test uchun!):
+
+```bash
+sudo nano /etc/docker/daemon.json
+```
+
+```json filename="/etc/docker/daemon.json"
+{
+  "insecure-registries": ["registry.example.com:5000"]
+}
+```
+
+```bash
+# Docker daemon'ni qayta ishga tushiring
 sudo systemctl restart docker
 ```
 
-## Shaxsiy registringiz bilan ishlash
+<Callout type="warning" emoji="">
+`insecure-registries` faqat **test muhitda** ishlating! Bu TLS tekshiruvini o'chiradi va **man-in-the-middle** hujumlariga zaif qiladi. Production'da har doim to'g'ri TLS sertifikat ishlating.
+</Callout>
 
+---
 
-1. Registryga kirish(login qilish)
+## Registry bilan ishlash
 
-```bash
-docker login localhost:5000
-```
-Ushbu buyruqni ishga tushurganizda sizdan `Username` so'raydi siz yuqorida ochgan useringizni yozasiz, keyin esa sizdan `Password` so'raydi shu userni parolini kiritasiz.
-
-`docker tag`
+### Login/Logout
 
 ```bash
-docker image tag ubuntu localhost:5000/birinchi-image
+# Registryga kirish
+docker login registry.example.com
+# Username: admin
+# Password: S3cur3P@ssw0rd
+
+# Kirish holatini tekshirish
+cat ~/.docker/config.json
+
+# Registrydan chiqish
+docker logout registry.example.com
 ```
 
-`docker push`
+### Image push qilish
+
+Image'ni registryga push qilish uchun avval uni registry manzili bilan **tag** qilish kerak:
 
 ```bash
-docker push localhost:5000/birinchi-image
+# 1. Image yaratish yoki mavjudini olish
+docker pull nginx:alpine
+
+# 2. Image'ni registry manzili bilan tag qilish
+docker tag nginx:alpine registry.example.com/web/nginx:alpine
+docker tag nginx:alpine registry.example.com/web/nginx:1.25
+docker tag nginx:alpine registry.example.com/web/nginx:latest
+
+# 3. Push qilish
+docker push registry.example.com/web/nginx:alpine
+docker push registry.example.com/web/nginx:1.25
+docker push registry.example.com/web/nginx:latest
 ```
 
-`docker pull`
+```
+Push jarayoni:
+
+┌──────────┐     tag      ┌──────────────────────────┐     push     ┌─────────────┐
+│  nginx   │────────────► │ registry.example.com/    │────────────► │  Registry   │
+│  :alpine │              │ web/nginx:alpine         │              │  Server     │
+└──────────┘              └──────────────────────────┘              │             │
+                                                                    │ Layer 1 ✓   │
+                                                                    │ Layer 2 ✓   │
+                                                                    │ Manifest ✓  │
+                                                                    └─────────────┘
+```
+
+### Image pull qilish
 
 ```bash
-docker pull localhost:5000/birinchi-image
+# Registrydan image pull qilish
+docker pull registry.example.com/web/nginx:alpine
+
+# Boshqa serverdan pull qilish (registry manzilini to'liq yozing)
+docker pull registry.example.com/web/nginx:1.25
 ```
-Docker Registryni to'xtatish va barcha malumotlarni o'chirish
+
+### Tag nomlash strategiyasi (naming convention)
+
+Image tag'larini tartibli nomlash juda muhim. Yaxshi nomlash strategiyasi:
+
+```
+registry.example.com/<loyiha>/<service>:<versiya>
+
+Misollar:
+  registry.example.com/backend/api:v1.2.3
+  registry.example.com/backend/api:latest
+  registry.example.com/backend/api:main-abc1234
+  registry.example.com/frontend/web:v2.0.0-rc1
+  registry.example.com/infra/nginx:1.25-custom
+  registry.example.com/ml/model-server:2024.01
+```
+
+| Tag formati | Ishlatilishi | Misol |
+|-------------|-------------|-------|
+| `v1.2.3` (SemVer) | Release versiyalari | `api:v1.2.3` |
+| `latest` | Eng so'nggi stabil versiya | `api:latest` |
+| `<branch>-<sha>` | CI/CD build'lari | `api:main-abc1234` |
+| `<date>` | Kunlik build'lar | `model:2024.01.15` |
+| `<env>` | Muhitga qarab | `api:staging`, `api:production` |
+
+<Callout type="warning" emoji="">
+Production'da **hech qachon** faqat `latest` tag'ga tayanmang! Har doim aniq versiya raqamini (`v1.2.3`) ishlating. `latest` tag o'zgarishi mumkin va bu kutilmagan deploy'larga olib keladi.
+</Callout>
+
+---
+
+## Registry HTTP API (v2)
+
+Docker Registry bilan to'g'ridan-to'g'ri HTTP API orqali ishlash mumkin. Bu monitoring, avtomatlashtirilgan skriptlar va CI/CD integratsiya uchun foydali.
+
+### Asosiy API endpoint'lari
 
 ```bash
-docker container stop registry && docker container rm -v registry
+# Registry versiyasini tekshirish
+curl -u admin:pass https://registry.example.com/v2/
+
+# Barcha repository'lar ro'yxati
+curl -u admin:pass https://registry.example.com/v2/_catalog
+# Javob: {"repositories":["web/nginx","backend/api","frontend/web"]}
+
+# Muayyan repository tag'lari
+curl -u admin:pass https://registry.example.com/v2/web/nginx/tags/list
+# Javob: {"name":"web/nginx","tags":["alpine","1.25","latest"]}
+
+# Image manifest'ini olish
+curl -u admin:pass \
+  -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+  https://registry.example.com/v2/web/nginx/manifests/alpine
 ```
 
+### Image o'chirish (API orqali)
+
+```bash
+# 1. Image digest'ini olish
+DIGEST=$(curl -s -u admin:pass \
+  -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+  -I https://registry.example.com/v2/web/nginx/manifests/alpine \
+  | grep -i docker-content-digest | awk '{print $2}' | tr -d '\r')
+
+# 2. Manifest'ni o'chirish
+curl -u admin:pass -X DELETE \
+  https://registry.example.com/v2/web/nginx/manifests/$DIGEST
+
+# 3. Diskdagi o'chirilgan layer'larni tozalash (garbage collection)
+docker exec registry bin/registry garbage-collect \
+  /etc/docker/registry/config.yml
+```
+
+### Foydali skript: barcha image'lar ro'yxatini olish
+
+```bash
+#!/bin/bash
+# list-images.sh — registrydagi barcha image va taglarni ko'rsatish
+
+REGISTRY="https://registry.example.com"
+USER="admin"
+PASS="S3cur3P@ssw0rd"
+
+echo "=== Registry: $REGISTRY ==="
+echo ""
+
+# Repository'lar ro'yxatini olish
+REPOS=$(curl -s -u $USER:$PASS $REGISTRY/v2/_catalog | \
+  python3 -c "import sys,json; print('\n'.join(json.load(sys.stdin)['repositories']))")
+
+for repo in $REPOS; do
+  # Har bir repo uchun taglarni olish
+  TAGS=$(curl -s -u $USER:$PASS $REGISTRY/v2/$repo/tags/list | \
+    python3 -c "import sys,json; tags=json.load(sys.stdin).get('tags',[]); print(' '.join(tags or ['<no tags>']))")
+  echo "  $repo"
+  echo "   Tags: $TAGS"
+  echo ""
+done
+```
+
+---
+
+## Garbage Collection (axlat yig'ish)
+
+Vaqt o'tishi bilan eski image'lar va foydalanilmagan layer'lar disk joyini egallaydi. **Garbage collection (GC)** — bu endi hech qanday manifest tomonidan referans qilinmagan blob'larni o'chirib, disk joyini bo'shatish jarayoni.
+
+### GC qanday ishlaydi?
+
+```
+GC dan oldin:                          GC dan keyin:
+
+┌──────────────┐  ┌────────────┐         ┌────────────┐
+│ Image v1.0   │  │ Image v2.0 │         │ Image v2.0 │
+│ (o'chirilgan)│  │ (aktiv)    │         │ (aktiv)    │
+├──────────────┤  ├────────────┤         ├────────────┤
+│ Layer A      │  │ Layer A ───┼────┐    │ Layer A    │  Saqlanadi (v2.0 ishlatadi)
+│ Layer B      │  │ Layer C    │    │    │ Layer C    │  Saqlanadi
+│ Layer C      │  └────────────┘    │    └────────────┘
+└──────────────┘                    │
+        │                           │    O'chiriladi:
+        └─── Layer B ───────────────┘    └─ Layer B  (hech kim ishlatmaydi)
+```
+
+### GC'ni ishga tushirish
+
+```bash
+# Dry-run (nimalar o'chirilishini ko'rish, hali o'chirmaydi)
+docker exec registry bin/registry garbage-collect \
+  --dry-run /etc/docker/registry/config.yml
+
+# Haqiqiy garbage collection
+docker exec registry bin/registry garbage-collect \
+  /etc/docker/registry/config.yml
+
+# GC dan keyin registry'ni qayta ishga tushirish (tavsiya)
+docker restart registry
+```
+
+### Avtomatik GC (cron bilan)
+
+```bash
+# Crontab'ga qo'shish: har kuni soat 3:00 da GC ishga tushadi
+crontab -e
+```
+
+```
+# Har kuni soat 03:00 da garbage collection
+0 3 * * * docker exec registry bin/registry garbage-collect /etc/docker/registry/config.yml >> /var/log/registry-gc.log 2>&1
+```
+
+<Callout type="info" emoji="">
+GC ishga tushirishdan oldin registry'ga **yozish operatsiyalarini to'xtatish** tavsiya etiladi. Aks holda, hozir yuklayotgan layer'lar noto'g'ri o'chirilishi mumkin. Production'da GC'ni kam trafik vaqtida (tunda) rejalashtiring.
+</Callout>
+
+---
+
+## Storage Backend'lari
+
+Docker Registry turli xil saqlash tizimlarini qo'llab-quvvatlaydi. Default — **mahalliy fayl tizimi**, lekin production'da **object storage** tavsiya etiladi.
+
+### Mavjud backend'lar
+
+| Backend | Tavsif | Ishlatilishi |
+|---------|--------|-------------|
+| **filesystem** | Mahalliy disk | Default, kichik muhitlar uchun |
+| **s3** | Amazon S3 (yoki S3-compatible) | AWS muhiti, MinIO bilan ham ishlaydi |
+| **gcs** | Google Cloud Storage | GCP muhiti |
+| **azure** | Azure Blob Storage | Azure muhiti |
+
+### S3 backend konfiguratsiya
+
+```yaml filename="config.yml"
+version: 0.1
+storage:
+  s3:
+    accesskey: AKIAIOSFODNN7EXAMPLE
+    secretkey: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+    region: us-east-1
+    bucket: my-docker-registry
+    rootdirectory: /registry
+  delete:
+    enabled: true
+  cache:
+    blobdescriptor: inmemory
+```
+
+### MinIO bilan (self-hosted S3)
+
+MinIO — bu self-hosted S3-compatible object storage. Katta hajmdagi image'lar uchun juda mos:
+
+```yaml filename="docker-compose.yml"
+version: "3.8"
+
+services:
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  registry:
+    image: registry:2
+    restart: always
+    environment:
+      REGISTRY_AUTH: htpasswd
+      REGISTRY_AUTH_HTPASSWD_REALM: "Docker Registry"
+      REGISTRY_AUTH_HTPASSWD_PATH: /auth/htpasswd
+      REGISTRY_STORAGE: s3
+      REGISTRY_STORAGE_S3_ACCESSKEY: minioadmin
+      REGISTRY_STORAGE_S3_SECRETKEY: minioadmin123
+      REGISTRY_STORAGE_S3_REGION: us-east-1
+      REGISTRY_STORAGE_S3_BUCKET: docker-registry
+      REGISTRY_STORAGE_S3_REGIONENDPOINT: http://minio:9000
+      REGISTRY_STORAGE_S3_FORCEPATHSTYLE: "true"
+      REGISTRY_STORAGE_DELETE_ENABLED: "true"
+    volumes:
+      - ./auth:/auth:ro
+    ports:
+      - "5000:5000"
+    depends_on:
+      - minio
+
+volumes:
+  minio-data:
+```
+
+---
+
+## Amaliy Use Case'lar
+
+### Use Case 1: CI/CD Pipeline integratsiya
+
+Eng keng tarqalgan holat — CI/CD pipeline'da image'larni build qilib, registryga push qilish va production'ga deploy qilish.
+
+```
+┌──────────┐     ┌──────────┐     ┌──────────────┐     ┌──────────────┐
+│   Git    │────►│  CI/CD   │────►│   Private    │────►│  Production  │
+│  Push    │     │  Build   │     │   Registry   │     │   Server     │
+└──────────┘     └──────────┘     └──────────────┘     └──────────────┘
+                  docker build     docker push           docker pull
+                  docker tag                              docker run
+```
+
+#### GitLab CI misol
+
+```yaml filename=".gitlab-ci.yml"
+variables:
+  REGISTRY: registry.example.com
+  IMAGE_NAME: $REGISTRY/backend/api
+
+stages:
+  - build
+  - deploy
+
+build:
+  stage: build
+  image: docker:24
+  services:
+    - docker:24-dind
+  before_script:
+    - echo "$REGISTRY_PASSWORD" | docker login $REGISTRY -u $REGISTRY_USER --password-stdin
+  script:
+    - docker build -t $IMAGE_NAME:$CI_COMMIT_SHORT_SHA .
+    - docker tag $IMAGE_NAME:$CI_COMMIT_SHORT_SHA $IMAGE_NAME:latest
+    - docker push $IMAGE_NAME:$CI_COMMIT_SHORT_SHA
+    - docker push $IMAGE_NAME:latest
+  after_script:
+    - docker logout $REGISTRY
+
+deploy:
+  stage: deploy
+  script:
+    - ssh deploy@production "docker pull $IMAGE_NAME:$CI_COMMIT_SHORT_SHA"
+    - ssh deploy@production "docker compose up -d"
+  only:
+    - main
+```
+
+#### GitHub Actions misol
+
+```yaml filename=".github/workflows/build.yml"
+name: Build and Push
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to private registry
+        run: |
+          echo "${{ secrets.REGISTRY_PASSWORD }}" | \
+          docker login registry.example.com -u ${{ secrets.REGISTRY_USER }} --password-stdin
+
+      - name: Build and push
+        run: |
+          IMAGE=registry.example.com/backend/api
+          docker build -t $IMAGE:${{ github.sha }} .
+          docker tag $IMAGE:${{ github.sha }} $IMAGE:latest
+          docker push $IMAGE:${{ github.sha }}
+          docker push $IMAGE:latest
+```
+
+#### Jenkins Pipeline misol
+
+```groovy filename="Jenkinsfile"
+pipeline {
+    agent any
+
+    environment {
+        REGISTRY = 'registry.example.com'
+        IMAGE = "${REGISTRY}/backend/api"
+        REGISTRY_CREDS = credentials('docker-registry-creds')
+    }
+
+    stages {
+        stage('Build') {
+            steps {
+                sh "docker build -t ${IMAGE}:${BUILD_NUMBER} ."
+                sh "docker tag ${IMAGE}:${BUILD_NUMBER} ${IMAGE}:latest"
+            }
+        }
+
+        stage('Push') {
+            steps {
+                sh "echo ${REGISTRY_CREDS_PSW} | docker login ${REGISTRY} -u ${REGISTRY_CREDS_USR} --password-stdin"
+                sh "docker push ${IMAGE}:${BUILD_NUMBER}"
+                sh "docker push ${IMAGE}:latest"
+            }
+        }
+
+        stage('Deploy') {
+            steps {
+                sh "ssh deploy@production 'docker pull ${IMAGE}:${BUILD_NUMBER}'"
+                sh "ssh deploy@production 'cd /opt/app && docker compose up -d'"
+            }
+        }
+    }
+
+    post {
+        always {
+            sh "docker logout ${REGISTRY}"
+        }
+    }
+}
+```
+
+### Use Case 2: Air-gapped (internetsiz) muhit
+
+Ba'zi muhitlarda (harbiy, moliyaviy, davlat tizimlar) internet bilan aloqa bo'lmaydi. Bunday holatlarda xususiy registry yagona image manbayi bo'ladi.
+
+```
+Internet bor muhit:                Air-gapped muhit:
+
+┌──────────┐   pull    ┌────────┐  USB/DVD    ┌──────────────┐   pull    ┌─────────┐
+│ Docker   │─────────► │ Image  │──────────►  │   Private    │─────────► │ Server  │
+│ Hub      │           │ Export │  transfer   │   Registry   │           │ Deploy  │
+└──────────┘           └────────┘             └──────────────┘           └─────────┘
+```
+
+```bash
+# === Internet bor muhitda ===
+
+# 1. Kerakli image'larni pull qilish
+docker pull nginx:alpine
+docker pull postgres:16
+docker pull redis:7
+
+# 2. Image'larni tar faylga eksport qilish
+docker save nginx:alpine postgres:16 redis:7 | gzip > images.tar.gz
+
+# 3. Registry image'ini ham eksport qilish
+docker save registry:2 | gzip > registry-image.tar.gz
+
+# === USB/DVD orqali air-gapped muhitga ko'chirish ===
+
+# === Air-gapped muhitda ===
+
+# 4. Registry image'ini yuklash
+docker load < registry-image.tar.gz
+
+# 5. Registryni ishga tushirish
+docker run -d -p 5000:5000 --restart=always --name registry registry:2
+
+# 6. Image'larni yuklash
+docker load < images.tar.gz
+
+# 7. Image'larni tag'lab registryga push qilish
+docker tag nginx:alpine localhost:5000/nginx:alpine
+docker push localhost:5000/nginx:alpine
+
+docker tag postgres:16 localhost:5000/postgres:16
+docker push localhost:5000/postgres:16
+
+docker tag redis:7 localhost:5000/redis:7
+docker push localhost:5000/redis:7
+```
+
+### Use Case 3: Multi-environment (ko'p muhit) boshqarish
+
+Bitta registry orqali turli muhitlarga deploy qilish:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    Private Registry                          │
+│                                                              │
+│  ┌───────────────────────────────────────────────────────┐   │
+│  │  backend/api:v1.2.3          (release)                │   │
+│  │  backend/api:v1.2.4-rc1      (release candidate)      │   │
+│  │  backend/api:main-abc1234    (CI build)               │   │
+│  │  backend/api:staging         (staging deploy)         │   │
+│  └───────────────────────────────────────────────────────┘   │
+└──────────┬─────────────────┬───────────────────┬─────────────┘
+           │                 │                   │
+           ▼                 ▼                   ▼
+    ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+    │ Development  │  │   Staging    │  │  Production  │
+    │              │  │              │  │              │
+    │ api:main-*   │  │ api:staging  │  │ api:v1.2.3   │
+    └──────────────┘  └──────────────┘  └──────────────┘
+```
+
+### Use Case 4: Kubernetes bilan integratsiya
+
+Kubernetes cluster xususiy registrydan image tortishi uchun **imagePullSecrets** sozlash kerak:
+
+```bash
+# Kubernetes'da registry credential yaratish
+kubectl create secret docker-registry regcred \
+  --docker-server=registry.example.com \
+  --docker-username=admin \
+  --docker-password=S3cur3P@ssw0rd \
+  --docker-email=admin@example.com
+```
+
+```yaml filename="deployment.yaml"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      imagePullSecrets:
+        - name: regcred
+      containers:
+        - name: web-app
+          image: registry.example.com/backend/api:v1.2.3
+          ports:
+            - containerPort: 8080
+```
+
+---
+
+## Registry Mirror (Docker Hub mirror)
+
+Agar jamoangiz tez-tez Docker Hub'dan image pull qilsa, registry'ni **pull-through cache** (mirror) sifatida sozlash mumkin. Bu:
+
+- **Tezlikni oshiradi** — bir marta yuklab olingan image keyingi safar mahalliy cache'dan olinadi
+- **Docker Hub rate limit'dan himoyalaydi** — bepul rejada soatiga 100 pull cheklovi bor
+- **Internet trafigini kamaytiradi** — ayniqsa ko'p serverli muhitlarda foydali
+
+### Mirror konfiguratsiya
+
+```yaml filename="config.yml"
+version: 0.1
+proxy:
+  remoteurl: https://registry-1.docker.io
+  username: dockerhub_user
+  password: dockerhub_token
+storage:
+  filesystem:
+    rootdirectory: /var/lib/registry
+  delete:
+    enabled: true
+http:
+  addr: :5000
+```
+
+```bash
+# Mirror registryni ishga tushirish
+docker run -d \
+  -p 5000:5000 \
+  --restart=always \
+  --name registry-mirror \
+  -v ./config.yml:/etc/docker/registry/config.yml \
+  -v mirror-data:/var/lib/registry \
+  registry:2
+```
+
+Docker daemon'ni mirror'dan foydalanishga sozlash:
+
+```json filename="/etc/docker/daemon.json"
+{
+  "registry-mirrors": ["http://mirror.example.com:5000"]
+}
+```
+
+```bash
+sudo systemctl restart docker
+
+# Endi docker pull nginx aslida mirror orqali olinadi
+docker pull nginx:alpine  # birinchi marta — Docker Hub'dan, keyingi safar — cache'dan
+```
+
+---
+
+## Xavfsizlik bo'yicha eng yaxshi amaliyotlar
+
+### 1. Har doim TLS ishlating
+
+```
+Xato:   http://registry:5000   (shifrlanmagan, man-in-the-middle xavfi)
+To'g'ri: https://registry:443   (TLS bilan shifrlangan)
+```
+
+### 2. Minimal imtiyozli foydalanuvchilar
+
+```bash
+# Turli rollar uchun alohida foydalanuvchilar
+# CI/CD bot — faqat push/pull qila oladi
+docker run --entrypoint htpasswd registry:2 -Bbn cicd-bot P@ssw0rd >> auth/htpasswd
+
+# Developer — faqat pull qila oladi (Harbor yoki Nexus kerak)
+# htpasswd oddiy autentifikatsiya — rol asosidagi nazorat uchun Harbor tavsiya etiladi
+```
+
+### 3. Image'larni xavfsizlik zaifliklariga tekshirish
+
+```bash
+# Trivy bilan image skanerlash (tavsiya etiladi)
+# O'rnatish: https://aquasecurity.github.io/trivy/
+trivy image registry.example.com/backend/api:v1.2.3
+
+# Natija misoli:
+# Total: 2 (HIGH: 1, CRITICAL: 1)
+# ┌───────────────┬───────────────┬──────────┬─────────────────┐
+# │   Library     │ Vulnerability │ Severity │ Fixed Version   │
+# ├───────────────┼───────────────┼──────────┼─────────────────┤
+# │ openssl       │ CVE-2024-XXX  │ CRITICAL │ 3.1.5           │
+# │ curl          │ CVE-2024-YYY  │ HIGH     │ 8.5.0           │
+# └───────────────┴───────────────┴──────────┴─────────────────┘
+```
+
+### 4. Image signing (imzolash)
+
+```bash
+# Cosign bilan image imzolash (Sigstore loyihasi)
+# O'rnatish: https://docs.sigstore.dev/cosign/installation/
+
+# Kalit juftini yaratish
+cosign generate-key-pair
+
+# Image'ni imzolash
+cosign sign --key cosign.key registry.example.com/backend/api:v1.2.3
+
+# Imzoni tekshirish
+cosign verify --key cosign.pub registry.example.com/backend/api:v1.2.3
+```
+
+### 5. Xavfsizlik tekshiruv ro'yxati
+
+| Tekshiruv | Tavsif |
+|-----------|--------|
+| TLS/SSL sertifikat | Barcha ulanishlar shifrlangan |
+| Autentifikatsiya | Login talab qilinadi |
+| Firewall | Faqat kerakli portlar ochiq (443) |
+| Image scanning | CI/CD'da avtomatik skanerlash |
+| Backup | Registr ma'lumotlari muntazam backup'lanadi |
+| Monitoring | Disk, CPU, tarmoq monitoringi |
+| GC | Eski image'lar muntazam tozalanadi |
+| Access log | Kim qachon nima push/pull qilganini kuzatish |
+
+---
+
+## Monitoring va troubleshooting
+
+### Registry loglarini tekshirish
+
+```bash
+# Docker Compose loglar
+docker compose logs registry
+docker compose logs -f --tail=100 registry
+
+# Muayyan xatolarni qidirish
+docker compose logs registry 2>&1 | grep -i error
+```
+
+### Disk ishlatilishini tekshirish
+
+```bash
+# Registry data hajmi
+du -sh data/
+
+# Eng katta repository'lar
+du -sh data/docker/registry/v2/repositories/* | sort -rh | head -10
+```
+
+### Ko'p uchraydigan muammolar va yechimlari
+
+**Muammo 1:** `Get https://registry:5000/v2/: http: server gave HTTP response to HTTPS client`
+
+```bash
+# Yechim: insecure-registries qo'shish yoki TLS sozlash
+sudo nano /etc/docker/daemon.json
+# {"insecure-registries": ["registry:5000"]}
+sudo systemctl restart docker
+```
+
+**Muammo 2:** `unauthorized: authentication required`
+
+```bash
+# Yechim: login qilish
+docker login registry.example.com
+
+# Yoki credential'lar to'g'riligini tekshirish
+curl -u admin:password https://registry.example.com/v2/
+```
+
+**Muammo 3:** `error parsing HTTP 413 response body: invalid character '<'`
+
+```bash
+# Yechim: Nginx'da client_max_body_size ni oshirish
+# nginx.conf: client_max_body_size 2G;
+```
+
+**Muammo 4:** `blob upload unknown` yoki `manifest unknown`
+
+```bash
+# Yechim: Garbage collection ishga tushirish va restart qilish
+docker exec registry bin/registry garbage-collect /etc/docker/registry/config.yml
+docker restart registry
+```
+
+---
+
+## Docker Registry vs Harbor — qiyoslash
+
+Agar sizga oddiy registrydan ko'proq funksionallik kerak bo'lsa, **Harbor** ni ko'rib chiqing.
+
+| Xususiyat | Docker Registry | Harbor |
+|-----------|----------------|--------|
+| Image saqlash | ✅ | ✅ |
+| Autentifikatsiya | htpasswd (oddiy) | LDAP, OIDC, Robot accounts |
+| Kirish nazorati (RBAC) | ❌ | ✅ (loyiha darajasida) |
+| Vulnerability scanning | ❌ | ✅ (Trivy integratsiya) |
+| Image signing | ❌ | ✅ (Cosign/Notary) |
+| Replikatsiya | ❌ | ✅ (ko'p registry o'rtasida) |
+| Web UI | ❌ | ✅ |
+| Garbage Collection | CLI orqali | Web UI orqali |
+| Helm chart saqlash | ❌ | ✅ |
+| Audit log | Oddiy | To'liq |
+| O'rnatish murakkabligi | Oddiy | O'rta |
+| Resurs talabi | Minimal (~50MB RAM) | O'rta (~1-2GB RAM) |
+
+<Callout type="info" emoji="">
+**Tavsiya:** Agar faqat image push/pull kerak bo'lsa — **Docker Registry** yetarli. Agar xavfsizlik skanerlash, RBAC, Web UI va replikatsiya kerak bo'lsa — **Harbor** ni tanlang. Harbor haqida batafsil: [goharbor.io](https://goharbor.io/)
+</Callout>
+
+---
+
+## Xulosa
+
+Docker Registry — zamonaviy DevOps infratuzilmasining muhim tarkibiy qismi. Bu qo'llanmada siz quyidagilarni o'rgandingiz:
+
+- **Registry arxitekturasi** — image manifest va layer'lar qanday saqlanadi
+- **Registry turlari** — public, cloud, self-hosted variantlar
+- **Production o'rnatish** — TLS, autentifikatsiya, Nginx reverse proxy bilan
+- **CI/CD integratsiya** — GitLab CI, GitHub Actions, Jenkins bilan
+- **Garbage Collection** — disk joyini bo'shatish
+- **Storage backend** — S3, MinIO va boshqa variantlar
+- **Xavfsizlik** — TLS, image scanning, signing
+- **Amaliy use case'lar** — air-gapped muhit, multi-environment, Kubernetes
+
+Keyingi qadamlar:
+1. **[Dockerga Kirish](https://devops-journey.uz/guides/konteyner/dockerga-kirish)** — Docker asoslarini o'rganing
+2. **[Linux serverlarga Docker o'rnatish](https://devops-journey.uz/guides/konteyner/docker-ornatish)** — Docker o'rnating
+3. **[Dockerfile yozish](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)** — o'z image'laringizni yarating
+4. **[Docker buyruqlari](https://devops-journey.uz/guides/konteyner/docker-asoslari)** — Docker CLI'ni o'rganing
+
+## Qo'shimcha
+
+<Callout type="info" emoji="">
+
+Qo'shimcha resurslar
+ * [**Docker Registry rasmiy hujjatlari**](https://docs.docker.com/registry/)
+ * [**Distribution (Registry) GitHub**](https://github.com/distribution/distribution)
+ * [**Harbor — CNCF Registry**](https://goharbor.io/)
+ * [**Trivy — Image Scanner**](https://aquasecurity.github.io/trivy/)
+ * [**Cosign — Image Signing**](https://docs.sigstore.dev/cosign/overview/)
+ * [**Docker Hub**](https://hub.docker.com/)
+ * [**Dockerga Kirish**](https://devops-journey.uz/guides/konteyner/dockerga-kirish)
+ * [**Linux serverlarga Docker o'rnatish**](https://devops-journey.uz/guides/konteyner/docker-ornatish)
+ * [**Dockerfile yozish**](https://devops-journey.uz/guides/konteyner/dockerfile-yozish)
+
+**Sana:** 2024.01.10(2024-yil 10-yanvar)
+
+**Oxirgi yangilanish:** 2026.02.12(2026-yil 12-fevral)
+
+**Muallif: Otabek Ismoilov**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>
