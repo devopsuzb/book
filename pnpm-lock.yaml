@@ -52,6 +52,9 @@ dependencies:
   next:
     specifier: 13.1.5
     version: 13.1.5(react-dom@18.3.1)(react@18.3.1)
+  next-mdx-remote:
+    specifier: 6.0.0
+    version: 6.0.0(@types/react@18.3.28)(react@18.3.1)
   next-themes:
     specifier: ^0.2.1
     version: 0.2.1(next@13.1.5)(react-dom@18.3.1)(react@18.3.1)
@@ -1117,7 +1120,7 @@ packages:
   /@types/hast@3.0.4:
     resolution: {integrity: sha512-WPs+bbQw5aCj+x6laNGWLH3wviHtoCv/P3+otBhbOhJgG8qtpdAMlTCxLtsTWA7LH1Oh/bFCHsBn0TPS5m30EQ==}
     dependencies:
-      '@types/unist': 2.0.11
+      '@types/unist': 3.0.3
     dev: false
 
   /@types/is-empty@1.2.3:
@@ -1147,7 +1150,7 @@ packages:
   /@types/mdast@4.0.4:
     resolution: {integrity: sha512-kGaNbPh1k7AFzgpud/gMdvIm5xuECykRR+JnWKQno9TAXVa6WIVCGTPvYGekIDL4uwCZQSYbUxNBSb1aUo79oA==}
     dependencies:
-      '@types/unist': 2.0.11
+      '@types/unist': 3.0.3
     dev: false
 
   /@types/mdx@2.0.13:

@@ -25,6 +25,7 @@
     "formidable": "^2.1.2",
     "hls.js": "^1.4.12",
     "next": "13.1.5",
+    "next-mdx-remote": "6.0.0",
     "next-themes": "^0.2.1",
     "nextra": "2.2.13",
     "nextra-theme-docs": "2.2.13",
