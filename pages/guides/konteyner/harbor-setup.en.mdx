@@ -1,6 +1,588 @@
 ---
-title: "harbor setup"
+image: https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/banner.png
+description: "Installing and Configuring Harbor Container Registry"
 ---
 
-> This article has not been translated to English yet.
-> Please read the [Uzbek version](/guides/konteyner/harbor-setup) or help us translate it on [GitHub](https://github.com/ismoilovdevml/devops-journey).
+import { Callout } from "nextra-theme-docs";
+import { Tabs, TabList, Tab, TabPanel } from 'react-tabs';
+import 'react-tabs/style/react-tabs.css';
+
+# Installing and Configuring Harbor Container Registry
+
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/banner.png)
+
+[**Harbor**](https://goharbor.io/) is an [**open-source**](https://github.com/goharbor/harbor) container registry designed for storing, managing, and securing container images. It is a project under the **C**loud **N**ative **C**omputing **F**oundation (**CNCF**). Harbor places security and compliance at the core of its design with features such as access policies and roles, vulnerability scanning, and image signing.
+
+Harbor was originally developed by **VMware** and later donated to **CNCF**. In version **2.0**, released on **May 13, 2020**, Harbor was announced as the first open-source registry compliant with **OCI (Open Container Initiative)** standards. This version expanded the ability to store various cloud-native artifacts such as container images, Helm charts, OPAs, and Singularity.
+
+With minimal configuration, Harbor integrates with tools like Docker command-line interface (CLI) and **kubectl**. Through Docker CLI, you can access Harbor registry to securely push and pull images. Kubernetes tools can also reliably authenticate with your Harbor registry and deploy containers directly from images stored in the registry.
+
+## Harbor Architecture
+
+Harbor is a complex system composed of several core components, each performing a specific function. The following diagram provides an overview of Harbor's architecture.
+
+```
++--------------------------------------------------+
+|                    HARBOR                        |
+|                                                  |
+|  +----------+    +----------+    +------------+  |
+|  |          |    |          |    |            |  |
+|  |  Nginx   |--->|   Core   |--->|  Registry  |  |
+|  | (Proxy)  |    | (API/UI) |    | (Storage)  |  |
+|  |          |    |          |    |            |  |
+|  +----------+    +-----+----+    +------------+  |
+|                        |                         |
+|          +-------------+-------------+           |
+|          |             |             |           |
+|    +-----+----+  +-----+----+  +----+------+   |
+|    |          |  |          |  |           |   |
+|    |   Redis  |  |PostgreSQL|  |Job Service|   |
+|    |  (Cache) |  |   (DB)   |  | (Tasks)   |   |
+|    |          |  |          |  |           |   |
+|    +----------+  +----------+  +-----------+   |
+|                                                  |
++--------------------------------------------------+
+```
+
+* **Nginx (Proxy)** — Accepts all HTTP/HTTPS requests and routes them to the appropriate components. Since Harbor has Nginx built-in, there is no need to install a separate reverse proxy.
+
+* **Core (API/UI)** — The main component of Harbor. It manages the REST API, web interface (UI), webhooks, token service, and other core functions.
+
+* **Registry (Storage)** — Built on Docker Distribution (registry v2), it handles the storage and distribution of container images. It is OCI-standards compliant.
+
+* **PostgreSQL (DB)** — Stores Harbor metadata: users, projects, replication policies, tag retention rules, and more.
+
+* **Redis (Cache)** — Used for session management and caching temporary data. It also manages Job Service queues.
+
+* **Job Service (Tasks)** — Executes background tasks: image replication, garbage collection, vulnerability scanning, and more.
+
+## Getting Started
+
+In this tutorial, we will install Harbor on a VM server. If you prefer, you can also install it on Kubernetes. To complete this tutorial, we need a server that meets the following minimum requirements.
+
+<Callout type="info" emoji="">
+**Minimum Server Requirements**
+
+| Host        | OS            | RAM            | CPU            | Storage      | Static IP   |
+| ----------- | ------------- | -------------- | -------------- |------------- | ----------- |
+|  harbor     | Ubuntu 20.04  | 8GB            | 4 vCPU, 2 core | 100GB        | Required    |
+
+We will cover two different methods of installing Harbor Container Registry: manual and with Ansible.
+</Callout>
+
+### DNS Configuration
+
+To install Harbor container registry, you will need a domain. You need to add the static IP address of the Harbor server to your domain in your DNS hosting.
+
+Below is an example shown for [**ahost.uz**](https://www.ahost.uz/) DNS hosting.
+
+Go to the required domain settings and navigate to the **DNS hosting** section. You should see the following window.
+
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/dns.png)
+
+From here, you need to point the domain itself or a subdomain to the Harbor server's static IP address. We have a [**helm.uz**](https://helm.uz) domain, let's add a **harbor** subdomain to it.
+
+* **Name ->** subdomain name
+* **Type ->** A
+* **TTL ->** 14400
+* **RDATA ->** Harbor server Static IP address
+
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/dns2.png)
+
+## Manual Harbor Container Registry Installation
+
+In this section, we will cover how to set up Harbor Container Registry manually.
+
+### Installing Docker and Docker Compose
+
+To run Harbor, we need to install Docker and Docker Compose on our server. You can install them by following the [**Installing Docker on Linux Servers**](https://devops-journey.uz/guides/konteyner/docker-ornatish) guide.
+
+### Obtaining an SSL Certificate
+
+Using **SSL** allows you to protect traffic going to and from the server. Since Harbor has Nginx built-in, there is no need to install and configure Nginx separately.
+
+Before a web server can accept HTTPS requests, it must have a public-key certificate signed by a trusted certificate authority. **Let's Encrypt** is one of the most widely used authorities. It operates a free automated service that distributes basic **SSL/TLS** certificates to eligible websites. Let's Encrypt uses the Automatic Certificate Management Environment (ACME) protocol to automate the certificate issuance process. More detailed technical information about domain verification is provided on the [**Let's Encrypt**](https://letsencrypt.org/how-it-works/) official website.
+
+**Certbot** was developed by the **Electronic Frontier Foundation (EFF)** with the goal of improving web security by enabling HTTPS. It is compatible with most operating systems, as well as the most popular web server software such as Apache and NGINX. Certbot is responsible for communicating with **Let's Encrypt** to request a certificate, fulfill all ACME requirements, install the certificate, and configure the web server. It can also automatically manage the certificate renewal process. For more information, you can visit the [**About Certbot**](https://certbot.eff.org/pages/about) page on the Certbot website.
+
+<Tabs>
+<TabList>
+<Tab>**Debian Based**</Tab>
+<Tab>**Red Hat Based**</Tab>
+</TabList>
+<TabPanel>
+**1->** Install **certbot** and required tools on our server.
+
+```bash
+sudo apt update
+sudo apt install certbot vim nano zip unzip wget git -y
+```
+</TabPanel>
+<TabPanel>
+**1->** Install **certbot** on our server.
+
+```bash
+sudo dnf update
+sudo dnf install certbot vim nano zip unzip wget git -y
+```
+</TabPanel>
+</Tabs>
+
+**2->** Obtain an SSL certificate for our domain. For this, our domain must be linked to our server's static IP address in DNS hosting.
+
+```bash
+sudo certbot certonly --standalone -d harbor.helm.uz
+```
+You should see a result like the one in the image.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/ssl2.png)
+
+It shows that the SSL certificate for our [**harbor.helm.uz**]() domain is located in the following directory.
+
+```bash
+Certificate: /etc/letsencrypt/live/harbor.helm.uz/fullchain.pem
+Key:  /etc/letsencrypt/live/harbor.helm.uz/privkey.pem
+```
+
+### Installing Harbor
+
+Download the latest Harbor installer package from the [releases page](https://github.com/goharbor/harbor/releases/latest). You can choose either the online or offline installer.
+
+**1->** Download the `v2.11.1` version offline Harbor installer using this command.
+
+```bash
+wget https://github.com/goharbor/harbor/releases/download/v2.11.1/harbor-offline-installer-v2.11.1.tgz
+```
+
+Keep the Harbor installer even after installation, as it contains scripts needed for making configuration changes later.
+
+**2->** Extract the downloaded offline Harbor installer from the archive.
+
+```bash
+tar xzvf harbor-offline-installer-v2.11.1.tgz
+```
+
+**3->** Navigate to the `harbor` directory and copy the `harbor.yml.tmpl` sample configuration file as `harbor.yml`. This will be our main Harbor configuration file.
+
+```bash
+cd harbor
+cp harbor.yml.tmpl harbor.yml
+```
+
+**4->** Configure the main `harbor.yml` to match our setup.
+
+```bash
+sudo nano harbor.yml
+```
+
+In this configuration, write our domain in the `hostname:` field and provide the paths to our SSL certificate and key.
+
+```bash {1,13-14}
+hostname: harbor.helm.uz
+
+# http related config
+http:
+  # port for http, default is 80. If https enabled, this port will redirect to https port
+  port: 80
+
+# https related config
+https:
+  # https port for harbor, default is 443
+  port: 443
+  # The path of cert and key files for nginx
+  certificate: /etc/letsencrypt/live/harbor.helm.uz/fullchain.pem
+  private_key: /etc/letsencrypt/live/harbor.helm.uz/privkey.pem
+  # enable strong ssl ciphers (default: false)
+  # strong_ssl_ciphers: false
+```
+
+In this section, you change the initial admin login password for Harbor. For security, change the default password and generate a strong one.
+
+```bash {4}
+# The initial password of Harbor admin
+# It only works in first time to install harbor
+# Remember Change the admin password from UI after launching Harbor.
+harbor_admin_password: Harbor12345
+```
+
+In this section, we configure Harbor DB. Change the DB password for security.
+
+```bash {4}
+# Harbor DB configuration
+database:
+  # The password for the root user of Harbor DB. Change this before any production use.
+  password: root123
+  # The maximum number of connections in the idle connection pool. If it <=0, no idle connections are retained.
+  max_idle_conns: 100
+  # The maximum number of open connections to the database. If it <= 0, then there is no limit on the number of open connections.
+  # Note: the default number of connections is 1024 for postgres of harbor.
+  max_open_conns: 900
+  # The maximum amount of time a connection may be reused. Expired connections may be closed lazily before reuse. If it <= 0, connections are not closed due to a connection's age.
+  # The value is a duration string. A duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix, such as "300ms", "-1.5h" or "2h45m". V>
+  conn_max_lifetime: 5m
+  # The maximum amount of time a connection may be idle. Expired connections may be closed lazily before reuse. If it <= 0, connections are not closed due to a connection's idle time.
+  # The value is a duration string. A duration string is a possibly signed sequence of decimal numbers, each with optional fraction and a unit suffix, such as "300ms", "-1.5h" or "2h45m". V>
+  conn_max_idle_time: 0
+
+# The default data volume
+data_volume: /data
+```
+
+**5->** After customizing the configuration, install Harbor by running the `install.sh` bash script.
+
+```bash
+sudo ./install.sh
+```
+
+If Harbor is installed successfully, you should see a result like the one in the image.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/start.png)
+
+## Installing Harbor Container Registry with Ansible
+
+In this section, we will cover how to set up Harbor Container Registry in an automated way using Ansible. We will use open-source Ansible collections, repo URL: **[github.com/ismoilovdevml/infra-as-code](https://github.com/ismoilovdevml/infra-as-code)**
+
+Download the Ansible collection repository using git clone.
+
+```bash
+git clone https://github.com/ismoilovdevml/infra-as-code.git
+```
+
+### Installing Docker and Docker Compose
+
+Navigate from the `infra-as-code` repo to the Ansible collections and then to the playbook written for Docker.
+
+```bash
+cd infra-as-code/Ansible/docker
+```
+
+Open the `inventory.ini` file in this directory and provide the credentials of the server where you want to install Docker and Docker Compose. An SSH connection from the computer or server where you are running this Ansible playbook to the server where you want to set up Harbor is required.
+
+```ini filename="inventory.ini"
+[all]
+harbor-server ansible_host=24.144.106.189 ansible_user=root
+```
+
+To run this playbook, we need to install the `community.general` Ansible collection.
+
+```bash
+ansible-galaxy collection install community.general
+```
+
+Install Docker.
+
+```bash
+ansible-playbook -i inventory.ini install_docker.yml
+```
+
+When the playbook runs successfully, you should see the following output.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/ansible1.png)
+
+Install Docker Compose.
+
+```bash
+ansible-playbook -i inventory.ini install_docker-compose.yml
+```
+
+When the playbook runs successfully, you should see the following output.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/ansible2.png)
+
+Docker and Docker Compose are installed. Now we can run the Ansible playbook for Harbor setup.
+
+### Installing Harbor
+
+Navigate to the directory containing the Ansible playbooks for Harbor setup.
+
+```bash
+cd infra-as-code/Ansible/harbor
+```
+
+As always, provide the Harbor server credentials in the `inventory.ini`.
+
+```ini filename="inventory.ini"
+[harbor_server]
+harbor-server ansible_host=24.144.106.189 ansible_user=root
+```
+
+Fill in the required variables in the `vars.yml` file.
+
+```bash filename="vars.yml"
+harbor_version: "v2.11.1"
+harbor_hostname: "harbor.helm.uz"
+harbor_admin_password: "Harbor12345"
+harbor_db_password: "root123"
+ssl_option: "certbot"  # Can be "certbot" or "self_signed"
+certbot_cert_path: "/etc/letsencrypt/live/{{ harbor_hostname }}/fullchain.pem"
+certbot_key_path: "/etc/letsencrypt/live/{{ harbor_hostname }}/privkey.pem"
+self_signed_cert_path: "/path/to/selfsigned/fullchain.pem"  # Full path for self-signed certificate
+self_signed_key_path: "/path/to/selfsigned/privkey.pem"      # Full path for self-signed key
+harbor_download_url: "https://github.com/goharbor/harbor/releases/download/{{ harbor_version }}/harbor-offline-installer-{{ harbor_version }}.tgz"
+```
+
+In the configuration above, Harbor version, domain name, admin password, and DB password variables are defined — customize them with the required version, domain, and admin password. Two options are provided for obtaining an SSL certificate: `certbot` by default, and a `self-signed` option as well. If certbot is selected, nothing needs to be changed and SSL will be obtained via certbot. If you change `ssl_option` to `self_signed`, you will need to provide paths to self-signed SSL certificates.
+
+Run the playbook to set up Harbor Container Registry.
+
+```bash
+ansible-playbook -i inventory.ini bootstrap_harbor.yml
+```
+
+When the playbook runs successfully, you should see the following output.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/ansible3.png)
+
+## Working with Harbor
+
+After successfully installing and starting Harbor, access the Harbor domain through a browser. You should see the following window.
+
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/dashboard.png)
+
+On your first login, sign in with the `admin` user. The default password is the one specified in the `harbor.yml` configuration.
+
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/harbor2.png)
+
+After setting up Harbor, we need to configure **Proxy Cache**. **Proxy Cache** caches Docker images obtained from global container registries on the internet, so that on subsequent pulls they are served locally. For example, if you have CI/CD and every time CI/CD runs, the required Docker images are pulled from Docker Hub over the internet. If **Proxy Cache** is configured for Docker Hub in Harbor, Harbor will download Docker images it doesn't have from Docker Hub for the first time and store them locally. On subsequent CI/CD runs, the required Docker images will be pulled locally from Harbor Container Registry instead of from Docker Hub over the internet — this improves efficiency and speed.
+
+To do this, delete the default **library** project.
+
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/1.png)
+
+Go to **Administration -> Registries** in the Harbor UI and click **NEW ENDPOINT**.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/2.png)
+
+Configure the Registry Endpoint as follows: set the Provider to **Docker Hub** and give it a name. The Endpoint URL is the Docker Hub URL. If you have a Docker Hub account, enter your Access ID and Access Secret. To verify everything, click **TEST CONNECTION**.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/3.png)
+
+After creating the Registry Endpoint, it should appear in the **Registries** section.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/4.png)
+
+Go to **Projects** in Harbor and create a **library** project.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/5.png)
+
+Configure the project as follows: set the Access level to **Public**, enable **Proxy Cache**, select the **dockerhub** endpoint we created above, and click **OK** to create it.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/6.png)
+
+To use Harbor from CI/CD and servers, create a **Robot Account**. Go to **Administration -> Robot Accounts** and click **NEW ROBOT ACCOUNT**.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/7.png)
+
+Give the Robot Account a name, for example a `cicd` robot account.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/8.png)
+
+Assign the required permissions to the Robot Account, for example all permissions except **Delete** and **Stop**.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/9.png)
+
+Next, select a Project and assign the necessary permissions for using the project.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/10.png)
+
+For example, all permissions except **Delete** and **Stop**.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/11.png)
+
+After creating the Robot Account, you will receive a robot account secret token. You need to save it.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/12.png)
+
+Let's test logging into our Harbor Container Registry using the robot account token provided by Harbor. Robot accounts have `robot$` prepended, so in our case the Container Registry URL is **[harbor.helm.uz](https://harbor.helm.uz/)**, the robot account user is `robot$cicd`, and the password is the secret token.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/13.png)
+
+Let's test whether Proxy Cache is working by pulling a Docker image that doesn't exist in our Harbor Container Registry. If Proxy Cache is working, it should fetch it from Docker Hub without errors and serve it to us.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/14.png)
+
+Everything worked well, Proxy Cache is functioning — because Harbor had no Docker images and I requested the `harbor.helm.uz/library/redis:latest` image. Since it didn't have it locally, it fetched the `redis:latest` image from Docker Hub via the Registry Endpoint and then served it to us. On subsequent docker pulls, the Docker image will be pulled directly from Harbor locally.
+
+To verify this, if we go to the **library** project in the Harbor UI, we should see the Docker image we pulled above.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/15.png)
+
+Proxy Cache is working, everything is fine. Now let's try pushing a Docker image to Harbor. For this, we create a separate project, similar to how we created the **library** project above but without enabling Proxy Cache.
+
+<Callout type="info" emoji="">
+You cannot push Docker images to Harbor projects with Proxy Cache enabled!
+</Callout>
+
+In our case, we had a Docker image named `nginx:latest` that needs to be re-tagged in the format: `registry-url/repo/image:tag` — `harbor.helm.uz/devops-journey/nginx:latest`.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/16.png)
+
+Everything worked for us.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/17.png)
+
+Let's verify this by going to our project in the Harbor UI.
+![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/18.png)
+
+## Vulnerability Scanning
+
+When Harbor is installed, the **Trivy** vulnerability scanner is automatically included. Trivy is an open-source vulnerability scanner developed by Aqua Security that detects vulnerabilities in container images, file systems, and Git repositories.
+
+### Configuring Automatic Scanning
+
+Go to **Administration -> Interrogation Services** in the Harbor UI. Here you can see the status of the vulnerability scanner.
+
+To automatically scan each newly pushed image, configure the following on the **Administration -> Interrogation Services** page:
+
+* **Vulnerability Scanning** — Check the "Scan images automatically when they are pushed" checkbox to enable automatic scanning.
+* **Schedule** — Set a schedule for periodic scanning of all images (for example, daily or weekly).
+
+### Manual Scanning
+
+To scan an individual image, go to **Projects**, navigate to the desired project, select the image, and click the **SCAN** button. When the scan is complete, a list of vulnerabilities will be displayed — categorized by severity: Critical, High, Medium, and Low.
+
+### Viewing Scan Results
+
+When you access the image details, you can see the following information in the **Vulnerabilities** tab:
+
+* **CVE ID** — the unique identifier of the vulnerability
+* **Severity** — the severity level (Critical, High, Medium, Low)
+* **Package** — the name of the package containing the vulnerability
+* **Current Version** — the current version
+* **Fixed Version** — the fixed version (if available)
+
+<Callout type="info" emoji="">
+**Recommendation:** In production environments, we recommend deploying only images free of Critical and High severity vulnerabilities. To enforce this, you can enable the **Prevent vulnerable images from running** option in the Harbor project settings.
+</Callout>
+
+## Garbage Collection
+
+Over time, a large number of unused images, old tags, and deleted layers can accumulate in the Harbor registry. **Garbage Collection (GC)** is the process of cleaning up unused blobs (layers) and freeing disk space.
+
+### Running GC Manually
+
+Go to **Administration -> Clean Up** in the Harbor UI. Here you will find **Garbage Collection**.
+
+To run **GC**, click the **GC NOW** button. After the GC process completes, a report will be displayed showing the amount of space reclaimed.
+
+<Callout type="warning" emoji="">
+**Warning:** Push and pull operations to the Harbor registry may slow down during the GC process. Therefore, it is recommended to run GC during low traffic periods (for example, at night).
+</Callout>
+
+### Scheduling GC
+
+To run GC automatically, you can set a schedule in the **Schedule** section:
+
+* **None** — automatic GC is disabled
+* **Hourly** — every hour
+* **Daily** — every day
+* **Weekly** — every week
+* **Custom** — custom schedule in cron format (for example: `0 2 * * *` — every day at 02:00)
+
+### Tag Retention Policies
+
+It is also recommended to configure **Tag Retention** policies alongside GC. These policies define which images and tags to keep and which to delete.
+
+You can configure the policies by going to **Projects**, navigating to the desired project, and then **Policy -> Tag Retention**:
+
+* **Retain the most recently pushed # artifacts** — keep the N most recently pushed artifacts
+* **Retain the most recently pulled # artifacts** — keep the N most recently pulled artifacts
+* **Retain always** — always retain (for important tags such as `latest`, `stable`)
+
+## Troubleshooting
+
+Common issues you may encounter when working with Harbor and their solutions.
+
+### Managing Harbor Services
+
+Harbor runs on Docker Compose. To manage services, navigate to the Harbor installation directory and use the following commands:
+
+```bash
+# Stop Harbor services
+cd /path/to/harbor
+docker compose down
+
+# Restart Harbor services
+docker compose up -d
+
+# Check service status
+docker compose ps
+
+# View all service logs
+docker compose logs
+
+# View specific service logs (e.g., core)
+docker compose logs core
+```
+
+### Common Issues
+
+**1. Docker login error: `x509: certificate signed by unknown authority`**
+
+This error occurs when using a self-signed certificate. The solution is to add the certificate to the Docker daemon:
+
+```bash
+# Copy the Harbor certificate to the Docker trust directory
+sudo mkdir -p /etc/docker/certs.d/harbor.helm.uz
+sudo cp /path/to/ca.crt /etc/docker/certs.d/harbor.helm.uz/
+
+# Restart the Docker service
+sudo systemctl restart docker
+```
+
+**2. Harbor UI doesn't open or returns 502 Bad Gateway error**
+
+```bash
+# Check all Harbor containers
+cd /path/to/harbor
+docker compose ps
+
+# If containers are not running
+docker compose down
+docker compose up -d
+
+# Check core service logs
+docker compose logs core
+docker compose logs proxy
+```
+
+**3. Disk space is full**
+
+```bash
+# Check disk space
+df -h /data
+
+# Run GC manually (via Harbor UI or API)
+# Or delete old, unused images
+
+# Clean up at Docker system level
+docker system prune -a
+```
+
+**4. Renewing SSL certificate (Let's Encrypt)**
+
+Let's Encrypt certificates are valid for 90 days. For automatic renewal:
+
+```bash
+# Manually renew the certificate
+sudo certbot renew
+
+# Restart Harbor after renewal
+cd /path/to/harbor
+docker compose down
+docker compose up -d
+```
+
+Add to crontab for automatic renewal:
+
+```bash
+# Check and renew certificate monthly
+0 3 1 * * certbot renew --quiet && cd /path/to/harbor && docker compose restart
+```
+
+**5. Image push/pull is slow**
+
+```bash
+# Check disk I/O on the Harbor registry
+iostat -x 1 5
+
+# Check Harbor container resources
+docker stats
+
+# Check Redis connection
+docker compose logs redis
+```
+
+If you've made it this far, congratulations — you've successfully completed this tutorial!
+
+<Callout type="info" emoji="">
+
+**Date:** 2024.11.15 (November 15, 2024)
+
+**Last updated:** 2026.02.12 (February 12, 2026)
+
+**Author: Otabek Ismoilov**
+
+| [Telegram](https://t.me/Otabek_Ismoilov) | [GitHub](https://github.com/ismoilovdevml) | [LinkedIn](https://www.linkedin.com/in/otabek-ismoilov/) |
+| - | - | - |
+
+</Callout>

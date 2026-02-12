@@ -11,60 +11,97 @@ import 'react-tabs/style/react-tabs.css';
 
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/banner.png)
 
-[**Harbor**](https://goharbor.io/) - bu [**open-source**](https://github.com/goharbor/harbor) konteyner registri bo'lib, konteyner imagelarini saqlash, boshqarish va xavfsizligini ta'minlash uchun mo'ljallangan
-Bu **C**loud **N**ative **C**omputing **F**oundation (**CNCF**) doirasidagi loyiha. Harbor access polisi va rollari, zaifliklarni(vulnerability) skanerlash va image signing kabi xususiyatlar bilan xavfsizlik va muvofiqlikni o'z dizayni markaziga qo'yadi.
+[**Harbor**](https://goharbor.io/) — bu [**open-source**](https://github.com/goharbor/harbor) konteyner registri bo'lib, konteyner imagelarini saqlash, boshqarish va xavfsizligini ta'minlash uchun mo'ljallangan. Bu **C**loud **N**ative **C**omputing **F**oundation (**CNCF**) doirasidagi loyiha. Harbor access polisi va rollari, zaifliklarni (vulnerability) skanerlash va image signing kabi xususiyatlar bilan xavfsizlik va muvofiqlikni o'z dizayni markaziga qo'yadi.
 
 Harbor dastlab **VMware** tomonidan ishlab chiqilgan bo'lib, keyinchalik **CNCF**ga topshirilgan. **2020-yil 13-mayda** chiqarilgan **2.0** versiyasida **Harbor OCI (Open Container Initiative)** standartlariga mos keladigan birinchi open-source registr sifatida e'lon qilindi. Bu versiya konteyner imagelari, Helm chartlari, OPAlar va Singularity kabi turli cloud-native artifactlarni saqlash imkoniyatini kengaytirdi.
 
-Minimal konfiguratsiya bilan Harbor Docker command-line interface (CLI) va **kubectl** kabi toolar bilan birlashadi. Docker CLI-dan siz imagelarni xavfsiz push qilish va pull qilib  olish uchun Harbor registryga kirishingiz mumkin. Kubernetes toollari ham sizning Harbor registringiz bilan ishonchli tarzda autentifikatsiya qilishi va registryda saqlangan imagelardan konteynerlarni to'g'ridan-to'g'ri joylashtirish imkonini beradi.
+Minimal konfiguratsiya bilan Harbor Docker command-line interface (CLI) va **kubectl** kabi toollar bilan birlashadi. Docker CLI orqali imagelarni xavfsiz push va pull qilish uchun Harbor registryga kirishingiz mumkin. Kubernetes toollari ham sizning Harbor registringiz bilan ishonchli tarzda autentifikatsiya qilishi va registryda saqlangan imagelardan konteynerlarni to'g'ridan-to'g'ri deploy qilish imkonini beradi.
 
+## Harbor Arxitekturasi
+
+Harbor bir nechta asosiy komponentlardan tashkil topgan murakkab tizim bo'lib, ularning har biri ma'lum bir vazifani bajaradi. Quyidagi diagrammada Harbor arxitekturasining umumiy ko'rinishi keltirilgan.
+
+```
++--------------------------------------------------+
+|                    HARBOR                        |
+|                                                  |
+|  +----------+    +----------+    +------------+  |
+|  |          |    |          |    |            |  |
+|  |  Nginx   |--->|   Core   |--->|  Registry  |  |
+|  | (Proxy)  |    | (API/UI) |    | (Storage)  |  |
+|  |          |    |          |    |            |  |
+|  +----------+    +-----+----+    +------------+  |
+|                        |                         |
+|          +-------------+-------------+           |
+|          |             |             |           |
+|    +-----+----+  +-----+----+  +----+------+   |
+|    |          |  |          |  |           |   |
+|    |   Redis  |  |PostgreSQL|  |Job Service|   |
+|    |  (Cache) |  |   (DB)   |  | (Tasks)   |   |
+|    |          |  |          |  |           |   |
+|    +----------+  +----------+  +-----------+   |
+|                                                  |
++--------------------------------------------------+
+```
+
+* **Nginx (Proxy)** — barcha HTTP/HTTPS so'rovlarni qabul qilib, tegishli komponentlarga yo'naltiradi. Harbor o'zida Nginx built-in bo'lgani uchun alohida reverse proxy o'rnatish shart emas.
+
+* **Core (API/UI)** — Harbording asosiy komponenti. REST API, veb-interfeys (UI), webhook, token xizmati va boshqa asosiy funksiyalarni boshqaradi.
+
+* **Registry (Storage)** — Docker Distribution (registry v2) asosida qurilgan bo'lib, konteyner imagelarini saqlash va tarqatishni boshqaradi. OCI standartlariga mos keladi.
+
+* **PostgreSQL (DB)** — Harbor metadatasini saqlaydi: foydalanuvchilar, loyihalar, replikatsiya polislari, tag retention qoidalari va boshqalar.
+
+* **Redis (Cache)** — sessiyalarni boshqarish va vaqtinchalik ma'lumotlarni keshlash uchun ishlatiladi. Job Service navbatlarini ham boshqaradi.
+
+* **Job Service (Tasks)** — fon vazifalarini (background tasks) bajaradi: image replikatsiyasi, garbage collection, vulnerability skanerlash va boshqalar.
 
 ## Ishni boshlash
-Ushbu amaliyotda biz Harborni VM serverga o'rnatamiz, agar hohlasangiz Kubernetesga ham o'rnatishingiz mumkin.
-Amaliyotni amalga oshirish uchun bizga quyidagi minimum server talablaridagi server kerak bo'ladi.
+
+Ushbu amaliyotda biz Harborni VM serverga o'rnatamiz, agar xohlasangiz Kubernetesga ham o'rnatishingiz mumkin. Amaliyotni amalga oshirish uchun bizga quyidagi minimum server talablari kerak bo'ladi.
 
 <Callout type="info" emoji="">
 **Minimum Server talabi**
 
-| Host        | OS            | RAM            | CPU           | Xotira       | Static IP   |
-| ----------- | ------------- | -------------- | ------------- |------------- | ----------- |
-|  harbor     | Ubuntu 20.04  | 8GB            | 4vCPU,2 core  | 100GB        | Ha kerak    |
+| Host        | OS            | RAM            | CPU            | Xotira       | Static IP   |
+| ----------- | ------------- | -------------- | -------------- |------------- | ----------- |
+|  harbor     | Ubuntu 20.04  | 8GB            | 4 vCPU, 2 core | 100GB        | Ha kerak    |
 
-Biz Harbor Container Registyrni ikki xil o'rnatish usulini ko'rib chiqamiz manual va ansible bilan.
+Biz Harbor Container Registryni ikki xil o'rnatish usulini ko'rib chiqamiz: manual va Ansible bilan.
 </Callout>
 
 ### DNS sozlash
 
-Harbor container registryni o'rnatishimiz uchun bizgda domen kerak bo'ladi. DNS hostingizdan domenga Harbor ishlab turgan server static IP manzilini qo'shishingiz kerak bo'ladi.
+Harbor container registryni o'rnatishimiz uchun bizga domen kerak bo'ladi. DNS hostingizdan domenga Harbor ishlab turgan server static IP manzilini qo'shishingiz kerak bo'ladi.
 
 Quyida [**ahost.uz**](https://www.ahost.uz/) DNS hostiga namuna ko'rsatilgan.
 
-Kerakli domen sozlamalariga kirib **DNS xosting** bo'limga o'ting sizda quyidagi oyna ochilishi kerak.
+Kerakli domen sozlamalariga kirib **DNS xosting** bo'limga o'ting, sizda quyidagi oyna ochilishi kerak.
 
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/dns.png)
 
-Bu yerdan siz domen o'ziga yoki subdomenga Harbor server static IP maznilini ko'rsatishingiz kerak bo'ladi. Bizda [**helm.uz**](https://helm.uz) domenimiz bor keling unga **harbor** subdomen qo'shamiz.
+Bu yerdan siz domen o'ziga yoki subdomenga Harbor server static IP manzilini ko'rsatishingiz kerak bo'ladi. Bizda [**helm.uz**](https://helm.uz) domenimiz bor, keling unga **harbor** subdomen qo'shamiz.
 
-* **Name->** subdomen nomi
-* **Type->** A
-* **TTL->** 14440
-* **RDATA->** harbor server Static IP manzili
+* **Name ->** subdomen nomi
+* **Type ->** A
+* **TTL ->** 14400
+* **RDATA ->** Harbor server Static IP manzili
 
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/dns2.png)
 
-
 ## Manual Harbor Container Registry o'rnatish
-Bu bosqichda biz Harbor Container Registryni manual(qo'lda) holda setup qilishni ko'rib chiqamiz.
 
-### Docker va Docker Compose o'rnatish.
+Bu bosqichda biz Harbor Container Registryni manual (qo'lda) holda setup qilishni ko'rib chiqamiz.
+
+### Docker va Docker Compose o'rnatish
 
 Harborni ishga tushirish uchun serverimizga Docker va Docker Compose o'rnatib olishimiz kerak bo'ladi. Docker va Docker Compose o'rnatish bo'yicha [**Linux serverlarga Docker o'rnatish**](https://devops-journey.uz/guides/konteyner/docker-ornatish) qo'llanmasi orqali o'rnatib olishingiz mumkin.
 
 ### SSL Sertifikat olish
 
-**SSL**dan foydalanish port serveriga va undan keladigan trafikni himoya qilish imkonini beradi. Harborda o'zida Nginx mavjud bo'lib Nginx o'rnatib sozlamaymiz.
+**SSL** dan foydalanish serverga va undan keladigan trafikni himoya qilish imkonini beradi. Harborda o'zida Nginx mavjud bo'lgani uchun alohida Nginx o'rnatish va sozlash shart emas.
 
-Web server HTTPS requestlarini qabul qilishidan oldin ishonchli sertifikat markazi tomonidan imzolangan public-key sertifikatiga ega bo'lishi kerak. **Let's Encrypt** - bu vakolatlarning eng keng tarqalganlaridan biri. U asosiy **SSL/TLS** sertifikatlarini tegishli veb-saytlarga tarqatuvchi bepul avtomatlashtirilgan xizmatni boshqaradi. Let's Encrypt sertifikat berish jarayonini sinovga javob berish usuli orqali avtomatlashtirish uchun Automatic Certificate Management Environment (ACME) protokolidan foydalanadi. [**Let's Encrypt**](https://letsencrypt.org/how-it-works/) rasmiy saytida domenni tekshirish haqida batafsilroq texnik ma'lumotlarni taqdim teilgan.
+Web server HTTPS requestlarini qabul qilishidan oldin ishonchli sertifikat markazi tomonidan imzolangan public-key sertifikatiga ega bo'lishi kerak. **Let's Encrypt** — bu vakolatlarning eng keng tarqalganlaridan biri. U asosiy **SSL/TLS** sertifikatlarini tegishli veb-saytlarga tarqatuvchi bepul avtomatlashtirilgan xizmatni boshqaradi. Let's Encrypt sertifikat berish jarayonini avtomatlashtirish uchun Automatic Certificate Management Environment (ACME) protokolidan foydalanadi. [**Let's Encrypt**](https://letsencrypt.org/how-it-works/) rasmiy saytida domenni tekshirish haqida batafsilroq texnik ma'lumotlar taqdim etilgan.
 
 **Certbot** HTTPS-ni yoqish orqali veb-xavfsizlikni yaxshilash maqsadida **Electronic Frontier Foundation (EFF)** tomonidan ishlab chiqilgan. U ko'pgina operatsion tizimlar, shuningdek, Apache va NGINX kabi eng mashhur veb-server dasturlari bilan mos keladi. Certbot sertifikatni so'rash, ACME bo'yicha barcha talablarni bajarish, sertifikatni o'rnatish va veb-serverni sozlash uchun **Let's Encrypt** bilan bog'lanish uchun javobgardir. Shuningdek, u sertifikatni yangilash jarayonini avtomatik ravishda boshqarishi mumkin. Qo'shimcha ma'lumot uchun Certbot veb-saytidagi [**About Certbot**](https://certbot.eff.org/pages/about) sahifasini ko'rib chiqishingiz mumkin.
 
@@ -74,7 +111,7 @@ Web server HTTPS requestlarini qabul qilishidan oldin ishonchli sertifikat marka
 <Tab>**Red Hat Based**</Tab>
 </TabList>
 <TabPanel>
-**1->** Serverimizga **certbot** va kerakli tollarni o'rnatib olamiz.
+**1->** Serverimizga **certbot** va kerakli toollarni o'rnatib olamiz.
 
 ```bash
 sudo apt update
@@ -91,7 +128,7 @@ sudo dnf install certbot vim nano zip unzip wget git -y
 </TabPanel>
 </Tabs>
 
-**2->** domenimiz uchun SSL sertifikat olamiz, buning uchun domenimiz DNS hostga serverimiz static IP manzili bog'langan bo'lishi kerak.
+**2->** Domenimiz uchun SSL sertifikat olamiz, buning uchun domenimiz DNS hostga serverimiz static IP manzili bog'langan bo'lishi kerak.
 
 ```bash
 sudo certbot certonly --standalone -d harbor.helm.uz
@@ -99,7 +136,7 @@ sudo certbot certonly --standalone -d harbor.helm.uz
 Sizda rasmdagidek natija chiqishi kerak.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/ssl2.png)
 
-[**harbor.helm.uz**]() domenimiz uchun SSL sertifikat quiyidagi papkada joylashganini ko'rsatadi.
+[**harbor.helm.uz**]() domenimiz uchun SSL sertifikat quyidagi papkada joylashganini ko'rsatadi.
 
 ```bash
 Certificate: /etc/letsencrypt/live/harbor.helm.uz/fullchain.pem
@@ -108,34 +145,37 @@ Key:  /etc/letsencrypt/live/harbor.helm.uz/privkey.pem
 
 ### Harbor o'rnatish
 
-Harbor [relizlar sahifasidan](https://github.com/goharbor/harbor/releases/latest) eng so'nggi(latest) Harbor installerini bilan paketini yuklab oling . Siz onlayn yoki oflayn installerini tanlashingiz mumkin.
+Harbor [relizlar sahifasidan](https://github.com/goharbor/harbor/releases/latest) eng so'nggi (latest) Harbor installer paketini yuklab oling. Siz onlayn yoki oflayn installerini tanlashingiz mumkin.
 
-**1->** Ushbu buyruq orqali `v2.11.1` versiyali offline harbor installerni yuklab olamiz.
+**1->** Ushbu buyruq orqali `v2.11.1` versiyali offline Harbor installerni yuklab olamiz.
 
 ```bash
 wget https://github.com/goharbor/harbor/releases/download/v2.11.1/harbor-offline-installer-v2.11.1.tgz
 ```
 
 Harbor installerini o'rnatishdan keyin ham saqlab qo'yishingiz kerak, chunki u keyinchalik konfiguratsiya o'zgarishlarini amalga oshirish uchun skriptlarni o'z ichiga oladi.
-**2->** Yuklab olgan offline harbor installerni arxivdan chiqarib olamiz.
+
+**2->** Yuklab olgan offline Harbor installerni arxivdan chiqarib olamiz.
 
 ```bash
-tar xzvf harbor-offline-installer.tgz
+tar xzvf harbor-offline-installer-v2.11.1.tgz
 ```
 
-**3->** `harbor` papakga kirib `harbor.yml.tmpl` namuna konfiguratsiya faylini `harbor.yml` o'zgartiramiz, bu bizning asosiy Harbor konfiguratsiya faylimiz bo'ladi.
+**3->** `harbor` papkaga kirib `harbor.yml.tmpl` namuna konfiguratsiya faylini `harbor.yml` nomi bilan nusxalaymiz, bu bizning asosiy Harbor konfiguratsiya faylimiz bo'ladi.
 
 ```bash
 cd harbor
 cp harbor.yml.tmpl harbor.yml
 ```
 
-**4->** Asosiy `harbor.yml` konfiguratsiyani o'zizmizga moslab konfiguratsiya qilib olamiz.
+**4->** Asosiy `harbor.yml` konfiguratsiyani o'zimizga moslab sozlab olamiz.
 
 ```bash
 sudo nano harbor.yml
 ```
-ushbu konfiguratsiyada `hostname:`ga domenimiz yozamiz va SSL sertifikatimiz va keyini pathini beramiz.
+
+Ushbu konfiguratsiyada `hostname:` ga domenimizni yozamiz va SSL sertifikatimiz hamda keyining pathini beramiz.
+
 ```bash {1,13-14}
 hostname: harbor.helm.uz
 
@@ -154,14 +194,17 @@ https:
   # enable strong ssl ciphers (default: false)
   # strong_ssl_ciphers: false
 ```
-Bu qismda Harbor uchun birinchi kirish admin parolini o'zgartirasiz. Xavfsizlik uchun default parolni o'zgartiring va parol generatsiya qilib qo'ying.
+
+Bu qismda Harbor uchun birinchi kirish admin parolini o'zgartirasiz. Xavfsizlik uchun default parolni o'zgartiring va kuchli parol generatsiya qilib qo'ying.
+
 ```bash {4}
 # The initial password of Harbor admin
 # It only works in first time to install harbor
 # Remember Change the admin password from UI after launching Harbor.
 harbor_admin_password: Harbor12345
 ```
-Bu qismda Harbor DB konfiguratsiya qilamiz DB parolini xavfsiz uchun o'zgartiring.
+
+Bu qismda Harbor DB konfiguratsiya qilamiz. Xavfsizlik uchun DB parolini o'zgartiring.
 
 ```bash {4}
 # Harbor DB configuration
@@ -189,12 +232,13 @@ data_volume: /data
 ```bash
 sudo ./install.sh
 ```
+
 Harbor muvaffaqiyatli o'rnatilsa rasmdagidek natija chiqishi kerak.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/start.png)
 
 ## Ansible bilan Harbor Container Registry o'rnatish
 
-Bu bosqichda biz Harbor Container Registryni Ansible yordamida avtomatlashtirilgan holda setup qilishni ko'rib chiqamiz. Bu bosqichda biz open-source bo'lgan Ansible kolleksiyalardan foydalanamiz repo url **[github.com/ismoilovdevml/infra-as-code](https://github.com/ismoilovdevml/infra-as-code)**
+Bu bosqichda biz Harbor Container Registryni Ansible yordamida avtomatlashtirilgan holda setup qilishni ko'rib chiqamiz. Bu bosqichda biz open-source bo'lgan Ansible kolleksiyalardan foydalanamiz, repo URL: **[github.com/ismoilovdevml/infra-as-code](https://github.com/ismoilovdevml/infra-as-code)**
 
 Ansible kolleksiya repositoriyani git clone qilib yuklab olamiz.
 
@@ -204,53 +248,61 @@ git clone https://github.com/ismoilovdevml/infra-as-code.git
 
 ### Docker va Docker Compose o'rnatish
 
-`infra-as-code` repodan Ansible kolleksiyaalrga o'tib docker uchun yozilgan playbookga o'tamiz.
+`infra-as-code` repodan Ansible kolleksiyalarga o'tib Docker uchun yozilgan playbookga o'tamiz.
 
 ```bash
 cd infra-as-code/Ansible/docker
 ```
-Bu directoriyadan `inventory.ini` faylini ochib docker va docker-compose o'rnatmoqchi bo'lgan serverimiz credentialslarini beramiz. ushbu ansible playbookni yurgizmoqchi bo'lgan kompyuter yoki serverda siz Harbor setup qilmqochi bo'lgan serveringizga ssh connectrion bo'lishi talab qilinadi.
+
+Bu directoriyadan `inventory.ini` faylini ochib Docker va Docker Compose o'rnatmoqchi bo'lgan serverimiz credentialslarini beramiz. Ushbu Ansible playbookni yurgizmoqchi bo'lgan kompyuter yoki serverda siz Harbor setup qilmoqchi bo'lgan serveringizga SSH connection bo'lishi talab qilinadi.
 
 ```ini filename="inventory.ini"
 [all]
 harbor-server ansible_host=24.144.106.189 ansible_user=root
 ```
 
-Ushbu playbookni yurgizish uchun `community.general` ansible collectionnini o'rnatishimiz kerak bo'ladi
+Ushbu playbookni yurgizish uchun `community.general` Ansible collectionni o'rnatishimiz kerak bo'ladi.
+
 ```bash
 ansible-galaxy collection install community.general
 ```
+
 Docker o'rnatamiz.
 
 ```bash
 ansible-playbook -i inventory.ini install_docker.yml
 ```
-Playbook muvaffaqiyatli ishga tushganida sizga quyidagi info chiqishi kerak
+
+Playbook muvaffaqiyatli ishga tushganida sizga quyidagi info chiqishi kerak.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/ansible1.png)
+
 Docker Compose o'rnatamiz.
 
 ```bash
-ansible-playbook -i inventory.ini nstall_docker-compose.yml
+ansible-playbook -i inventory.ini install_docker-compose.yml
 ```
-Playbook muvaffaqiyatli ishga tushganida sizga quyidagi info chiqishi kerak
+
+Playbook muvaffaqiyatli ishga tushganida sizga quyidagi info chiqishi kerak.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/ansible2.png)
 
-Okey yaxshi Docker va Docker Compose o'rnatib oldik endi esa Harbor setup qiladigan ansible playbookni ishga tushirsak bo'ladi.
+Docker va Docker Compose o'rnatib oldik, endi esa Harbor setup qiladigan Ansible playbookni ishga tushirsak bo'ladi.
 
 ### Harbor o'rnatish
-Harbor setup qiladigan ansible playbooklar directoriyasiga kiramiz.
+
+Harbor setup qiladigan Ansible playbooklar directoriyasiga kiramiz.
 
 ```bash
 cd infra-as-code/Ansible/harbor
 ```
+
 Har doimgidek `inventory.ini` da Harbor serverimiz credentialslarini beramiz.
 
-```ini filename="invnetory.ini"
+```ini filename="inventory.ini"
 [harbor_server]
 harbor-server ansible_host=24.144.106.189 ansible_user=root
 ```
 
-`vars.yml` fileda esa kerak variablelarni yozib to'ldiramiz.
+`vars.yml` faylda esa kerakli variablelarni yozib to'ldiramiz.
 
 ```bash filename="vars.yml"
 harbor_version: "v2.11.1"
@@ -265,14 +317,15 @@ self_signed_key_path: "/path/to/selfsigned/privkey.pem"      # Self-signed kalit
 harbor_download_url: "https://github.com/goharbor/harbor/releases/download/{{ harbor_version }}/harbor-offline-installer-{{ harbor_version }}.tgz"
 ```
 
-Yuqorida konfiguratsiyada Harbor versiyasi, domen nomi, admin parol va db parol o'zgaruvchilar kiritilgan ularni o'zinmgizga moslab kerakli versiya, domen va admin parol kiritasiz. SSL sertifikat olishda ikkita option qo'yilgan default holda `certbot` va `self-signed` optioni ham bor, agar certbot tanlanganda hech narsa o'zgartirilmaydi va certbot orqali SSL olib ishlanadi agar siz `ssl_option`ni `self_signed`ga o'zgartirsangiz self-siogned SSL sertifikatlarga path berishingiz kerak bo'ladi.
+Yuqoridagi konfiguratsiyada Harbor versiyasi, domen nomi, admin parol va DB parol o'zgaruvchilari kiritilgan — ularni o'zingizga moslab kerakli versiya, domen va admin parolni kiritasiz. SSL sertifikat olishda ikkita option qo'yilgan: default holda `certbot` va `self-signed` optioni ham bor. Agar certbot tanlansa hech narsa o'zgartirilmaydi va certbot orqali SSL olib ishlanadi. Agar siz `ssl_option`ni `self_signed`ga o'zgartirsangiz, self-signed SSL sertifikatlarga path berishingiz kerak bo'ladi.
 
-Harborni Container Registryni setup qilish uchun playbokni ishga tushiramiz.
+Harbor Container Registryni setup qilish uchun playbookni ishga tushiramiz.
 
 ```bash
 ansible-playbook -i inventory.ini bootstrap_harbor.yml
 ```
-Playbook muvaffaqiyatli ishga tushganida sizga quyidagi info chiqishi kerak
+
+Playbook muvaffaqiyatli ishga tushganida sizga quyidagi info chiqishi kerak.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/ansible3.png)
 
 ## Harbor bilan ishlash
@@ -281,69 +334,251 @@ Harborni muvaffaqiyatli o'rnatib ishga tushirganimizdan keyin, Harbor domenimizg
 
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/dashboard.png)
 
-Birinchi krishingzida `admin` user bilan kirasiz default parol esa `harbor.yml` konfiguratsiyadagi parolimiz.
+Birinchi kirishingizda `admin` user bilan kirasiz, default parol esa `harbor.yml` konfiguratsiyadagi parolimiz.
 
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/harbor2.png)
 
-Harbor setup qilganimzidan keyin **Proxy Cache** sozlashimiz kerak bo'ladi, **Proxy Cache** iternetdagi global container registrylardan olingan docker imagelarni o'zini cacheda saqlab keyin marta pul qilinganda localni ishlatish uchun kerak bo'ladi. Masalan sizda CI/CD bor va har safar CI/CD run bo'lganida Dockerhubdan kerakli docker imagelarni internet orqali pull qilinadi agar Harborda **Proxy Cache** Docker Hubga config qilinganida harbor o'zida yo'q docker imagelarni birinchi marta Docker Hubdan yuklab olib o'zida saqlaydi va keyingi CI/CD run qilganizda kerakli docker imagelarni Docker Hubdan internet orqali emas Harbor Container Registrydan local pull qiladi bu samaradorlikni va tezlikni oshiradi.
+Harbor setup qilganimizdan keyin **Proxy Cache** sozlashimiz kerak bo'ladi. **Proxy Cache** internetdagi global container registrylardan olingan docker imagelarni o'zida cacheda saqlab, keyingi safar pull qilinganda lokaldan ishlatish uchun kerak bo'ladi. Masalan sizda CI/CD bor va har safar CI/CD run bo'lganida Docker Hub dan kerakli docker imagelarni internet orqali pull qilinadi. Agar Harborda **Proxy Cache** Docker Hub ga config qilingan bo'lsa, Harbor o'zida yo'q docker imagelarni birinchi marta Docker Hub dan yuklab olib o'zida saqlaydi va keyingi CI/CD run qilganizda kerakli docker imagelarni Docker Hub dan internet orqali emas, Harbor Container Registrydan lokal pull qiladi — bu samaradorlikni va tezlikni oshiradi.
 
 Buning uchun default **library** projectni o'chiramiz.
 
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/1.png)
 
-Harbor UI'dan **Administration -> Registries** ga o'tamiz va **NEW ENDPOINT** bosamiz.
+Harbor UI dan **Administration -> Registries** ga o'tamiz va **NEW ENDPOINT** bosamiz.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/2.png)
-Registry Endpointni quyidagicha sozlaymiz: Providerga **Docker Hub** va nom beramiz, Endpoint URL esa Docker Hub URL agar Docker Hub useringiz bo'lsa Accsess ID va Accsess Secretga yozasiz, hammasini tekshirish uchun esa **TEST CONNECTION** bosib tekshirib olasiz.
+
+Registry Endpointni quyidagicha sozlaymiz: Providerga **Docker Hub** va nom beramiz, Endpoint URL esa Docker Hub URL. Agar Docker Hub useringiz bo'lsa Access ID va Access Secretga yozasiz, hammasini tekshirish uchun esa **TEST CONNECTION** bosib tekshirib olasiz.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/3.png)
-Registry Endpoint yaratib olganimizdan keyin **Registries** bo'limda yaartganimiz chiqishi kerak
+
+Registry Endpoint yaratib olganimizdan keyin **Registries** bo'limda yaratganimiz chiqishi kerak.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/4.png)
 
-Harborda **-> Projects** ga o'tib **library** project yaratib olamiz.
+Harborda **Projects** ga o'tib **library** project yaratib olamiz.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/5.png)
-Projectni quyidagicha config qilamiz: Accsess levelni **Public** qilamiz va **Proxy Cache**ni enable qilib yuqorida yartagan **dockerhub** endpointni belgilaymiz va **OK** bosib yaratib olamiz.
+
+Projectni quyidagicha config qilamiz: Access levelni **Public** qilamiz va **Proxy Cache**ni enable qilib yuqorida yaratgan **dockerhub** endpointni belgilaymiz va **OK** bosib yaratib olamiz.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/6.png)
 
 Harbordan CI/CD va serverlardan foydalanish uchun **Robot Account** yaratib olamiz. **Administration -> Robot Accounts** ga o'tamiz va **NEW ROBOT ACCOUNT** bosamiz.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/7.png)
-Robot Accountga nom beramiz masalan `cicd` nomli robot account.
+
+Robot Accountga nom beramiz, masalan `cicd` nomli robot account.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/8.png)
-Robot Accountga kerakli Permissionlarni beramiz masalan **Delete** va **Stop** dan boshqa barcha permissionlar.
+
+Robot Accountga kerakli permissionlarni beramiz, masalan **Delete** va **Stop** dan boshqa barcha permissionlar.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/9.png)
-undan keyin esa Project tallanib projectdan foydalanish uchun yana kerakli permissionlarni beramiz.
+
+Undan keyin esa Project tanlanib, projectdan foydalanish uchun yana kerakli permissionlarni beramiz.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/10.png)
+
 Masalan **Delete** va **Stop** dan boshqa barcha permissionlar.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/11.png)
-Robot Account yaratganimizdan keyin bizga robot account secret tokenini beradi biz uni saqlab qo'yishimiz kerak bo'ladi.
+
+Robot Account yaratganimizdan keyin bizga robot account secret tokenini beradi, biz uni saqlab qo'yishimiz kerak bo'ladi.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/12.png)
-Harbor tomonidan berilgan robor account token bilan Harbor Container Registrimizga docker login qilib kirib tekshirib ko'ramiz.
-Robot accountlar boshida `robot$` qo'shiladi shunda bizning holatda Container Registri URL **[harbor.helm.uz](https://harbor.helm.uz/)** va robot account user `robot$cicd` password esa secret token bo'ladi.
+
+Harbor tomonidan berilgan robot account token bilan Harbor Container Registrimizga docker login qilib kirib tekshirib ko'ramiz. Robot accountlar boshida `robot$` qo'shiladi, shunda bizning holatda Container Registry URL **[harbor.helm.uz](https://harbor.helm.uz/)** va robot account user `robot$cicd`, password esa secret token bo'ladi.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/13.png)
 
-Keling endi Proxy Cacheni ishlayotganini tekshirib ko'rish uchun Harbor Container Registrimizda yo'q bo'lgan docker imageni pull qilib ko'ramiz agar Proxy Cache ishlayotgan bo'lsa xatolik bermasdan o'zida bo'lmasa dockerhubdan o'ziga olib bizga berishi kerak
+Keling endi Proxy Cache ishlayotganini tekshirib ko'rish uchun Harbor Container Registrimizda yo'q bo'lgan docker imageni pull qilib ko'ramiz. Agar Proxy Cache ishlayotgan bo'lsa, xatolik bermasdan o'zida bo'lmasa Docker Hub dan o'ziga olib bizga berishi kerak.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/14.png)
-Okey hammasi yaxshi ishladi Proxy Cache ishamoqda chunki Harborda hech qanday docker image yo'q edi va men `harbor.helm.uz/library/redis:latest` imageni so'radim u esa o'zida bo'lmagani uchun Registrie Endpoint orqali Dockerhubdan `redis:latest` imagheni o'ziga olib keyin bizga yo'naltirdi, keyingi docker pullda esa docker image to'gridan to'gri localni harbordan pull qilinadi.
 
-Buni tekshirib ko'rish uchun Harbor UIdan **library** projectga kirsak bizada yuqorida pull qilga docker imagemiz turgan bo'lishi kerak.
+Hammasi yaxshi ishladi, Proxy Cache ishlamoqda — chunki Harborda hech qanday docker image yo'q edi va men `harbor.helm.uz/library/redis:latest` imageni so'radim, u esa o'zida bo'lmagani uchun Registry Endpoint orqali Docker Hub dan `redis:latest` imageni o'ziga olib keyin bizga yo'naltirdi. Keyingi docker pull da esa docker image to'g'ridan-to'g'ri lokaldan Harbordan pull qilinadi.
+
+Buni tekshirib ko'rish uchun Harbor UI dan **library** projectga kirsak, bizda yuqorida pull qilgan docker imagemiz turgan bo'lishi kerak.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/15.png)
 
-Proxy Cache ishlamoqda hammasi yaxshi keling endi Harborga birortda docker image push qilib ko'ramiz. Buning uchun alohia bitta project yaratib olamiz yuqorida **library** project yaratgandek faqat proxy cache yoqmasdan.
+Proxy Cache ishlamoqda, hammasi yaxshi. Keling endi Harborga birorta docker image push qilib ko'ramiz. Buning uchun alohida bitta project yaratib olamiz, yuqorida **library** project yaratgandek faqat Proxy Cache yoqmasdan.
+
 <Callout type="info" emoji="">
-Proxy Cache yoqilgan Harbor projectlarga docker image push qilib bo'maydi!!!
+Proxy Cache yoqilgan Harbor projectlarga docker image push qilib bo'maydi!
 </Callout>
-Bizning holatimizda `nginx:latest` nomli docker image bor edi uni qayta teglash kerak bo'ladi: `registry-url/repo/image:tag` bunda `harbor.helm.uz/devops-journey/nginx:latest`.
+
+Bizning holatimizda `nginx:latest` nomli docker image bor edi, uni qayta teglash kerak bo'ladi: `registry-url/repo/image:tag` formatida — `harbor.helm.uz/devops-journey/nginx:latest`.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/16.png)
-Okey bizda hammasi ishladi.
+
+Bizda hammasi ishladi.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/17.png)
-Keling buni Harbor UIdan projectimizga kirib ko'rishimiz mumkin.
+
+Keling buni Harbor UI dan projectimizga kirib ko'rishimiz mumkin.
 ![harbor](https://raw.githubusercontent.com/devops-journey-uz/assets/main/images/tutorials/container/harbor-setup/18.png)
 
-Siz shu qimsgacha yetib kelgan bo'lsangiz tabriklayman siz buni muvaffaqiyatli uddaladingiz. Men ham bu postim orqali yordam berdim umid qilaman.
+## Vulnerability Scanning (Zaifliklarni skanerlash)
+
+Harbor o'rnatilganda **Trivy** vulnerability scanner avtomatik ravishda o'rnatiladi. Trivy — Aqua Security tomonidan ishlab chiqilgan open-source vulnerability scanner bo'lib, konteyner imagelari, fayl tizimlari va Git repositoriyalaridagi zaifliklarni aniqlaydi.
+
+### Avtomatik skanerlash sozlash
+
+Harbor UI dan **Administration -> Interrogation Services** ga o'ting. Bu yerda vulnerability scannerning holatini ko'rishingiz mumkin.
+
+Har bir yangi push qilingan imageni avtomatik skanerlash uchun **Administration -> Interrogation Services** sahifasida quyidagilarni sozlang:
+
+* **Vulnerability Scanning** — avtomatik skanerlashni yoqish uchun "Scan images automatically when they are pushed" checkboxini belgilang.
+* **Schedule** — barcha imagelarni davriy skanerlash uchun jadval sozlang (masalan, har kuni yoki har hafta).
+
+### Qo'lda skanerlash
+
+Alohida imageni skanerlash uchun **Projects** dan kerakli projectga kiring, imageni tanlang va **SCAN** tugmasini bosing. Skanerlash yakunlanganda zaifliklar ro'yxati — kritik (Critical), yuqori (High), o'rta (Medium), past (Low) darajalar bo'yicha ko'rsatiladi.
+
+### Scan natijalarini ko'rish
+
+Image tafsilotlariga kirganingizda **Vulnerabilities** tabida quyidagi ma'lumotlarni ko'rishingiz mumkin:
+
+* **CVE ID** — zaiflikning noyob identifikatori
+* **Severity** — zaiflik darajasi (Critical, High, Medium, Low)
+* **Package** — zaiflik mavjud bo'lgan paket nomi
+* **Current Version** — hozirgi versiya
+* **Fixed Version** — tuzatilgan versiya (agar mavjud bo'lsa)
+
+<Callout type="info" emoji="">
+**Tavsiya:** Production muhitda faqat Critical va High darajadagi zaifliklardan xoli bo'lgan imagelarni deploy qilishni tavsiya etamiz. Buning uchun Harbor project sozlamalarida **Prevent vulnerable images from running** opsiyasini yoqishingiz mumkin.
+</Callout>
+
+## Garbage Collection (Axlat yig'ish)
+
+Vaqt o'tishi bilan Harbor registryda ko'p miqdorda ishlatilmagan imagelar, eski taglar va o'chirilgan layerlar to'planishi mumkin. **Garbage Collection (GC)** — bu foydalanilmagan blob (layer) larni tozalash va disk maydonini bo'shatish jarayoni.
+
+### GC ni qo'lda ishga tushirish
+
+Harbor UI dan **Administration -> Clean Up** bo'limiga o'ting. Bu yerda siz **Garbage Collection** ni topasiz.
+
+**GC** ni ishga tushirish uchun **GC NOW** tugmasini bosing. GC jarayoni tugaganidan keyin tozalangan maydon haqida hisobot ko'rsatiladi.
+
+<Callout type="warning" emoji="">
+**Diqqat:** GC jarayonida Harbor registryga push va pull operatsiyalari sekinlashishi mumkin. Shuning uchun GC ni kam trafik vaqtida (masalan, tunda) ishga tushirish tavsiya etiladi.
+</Callout>
+
+### GC ni jadval bo'yicha sozlash
+
+GC ni avtomatik ravishda ishga tushirish uchun **Schedule** bo'limida jadval sozlashingiz mumkin:
+
+* **None** — avtomatik GC o'chirilgan
+* **Hourly** — har soatda
+* **Daily** — har kuni
+* **Weekly** — har haftada
+* **Custom** — cron formatida maxsus jadval (masalan: `0 2 * * *` — har kuni soat 02:00 da)
+
+### Tag Retention qoidalari
+
+GC bilan birga **Tag Retention** qoidalarini ham sozlash tavsiya etiladi. Bu qoidalar qaysi imagelar va taglarni saqlash, qaysilarini o'chirishni belgilaydi.
+
+**Projects** dan kerakli projectga kirib **Policy -> Tag Retention** bo'limida qoidalarni sozlashingiz mumkin:
+
+* **Retain the most recently pushed # artifacts** — eng oxirgi push qilingan N ta artifactni saqlash
+* **Retain the most recently pulled # artifacts** — eng oxirgi pull qilingan N ta artifactni saqlash
+* **Retain always** — doim saqlash (muhim taglar uchun, masalan `latest`, `stable`)
+
+## Muammolarni bartaraf etish (Troubleshooting)
+
+Harbor bilan ishlashda duch kelishi mumkin bo'lgan keng tarqalgan muammolar va ularning yechimlari.
+
+### Harbor xizmatlarini boshqarish
+
+Harbor Docker Compose asosida ishlaydi. Xizmatlarni boshqarish uchun Harbor o'rnatilgan papkaga kirib quyidagi buyruqlarni ishlating:
+
+```bash
+# Harbor xizmatlarini to'xtatish
+cd /path/to/harbor
+docker compose down
+
+# Harbor xizmatlarini qayta ishga tushirish
+docker compose up -d
+
+# Xizmatlar holatini tekshirish
+docker compose ps
+
+# Barcha xizmatlar loglarini ko'rish
+docker compose logs
+
+# Ma'lum bir xizmat loglarini ko'rish (masalan core)
+docker compose logs core
+```
+
+### Keng tarqalgan muammolar
+
+**1. Docker login xatosi: `x509: certificate signed by unknown authority`**
+
+Bu xato self-signed sertifikat ishlatganda yuzaga keladi. Yechim — Docker daemon ga sertifikatni qo'shish:
+
+```bash
+# Harbor sertifikatini Docker trust papkasiga nusxalash
+sudo mkdir -p /etc/docker/certs.d/harbor.helm.uz
+sudo cp /path/to/ca.crt /etc/docker/certs.d/harbor.helm.uz/
+
+# Docker xizmatini qayta ishga tushirish
+sudo systemctl restart docker
+```
+
+**2. Harbor UI ochilmaydi yoki 502 Bad Gateway xatosi**
+
+```bash
+# Barcha Harbor konteynerlarini tekshirish
+cd /path/to/harbor
+docker compose ps
+
+# Agar konteynerlar ishlamayotgan bo'lsa
+docker compose down
+docker compose up -d
+
+# Core xizmat loglarini tekshirish
+docker compose logs core
+docker compose logs proxy
+```
+
+**3. Disk maydoni to'lib qoldi**
+
+```bash
+# Disk maydonini tekshirish
+df -h /data
+
+# GC ni qo'lda ishga tushirish (Harbor UI dan yoki API orqali)
+# Yoki eski, ishlatilmagan imagelarni o'chirish
+
+# Docker tizim darajasida tozalash
+docker system prune -a
+```
+
+**4. SSL sertifikatni yangilash (Let's Encrypt)**
+
+Let's Encrypt sertifikatlari 90 kun amal qiladi. Avtomatik yangilash uchun:
+
+```bash
+# Sertifikatni qo'lda yangilash
+sudo certbot renew
+
+# Yangilangandan keyin Harborni qayta ishga tushirish
+cd /path/to/harbor
+docker compose down
+docker compose up -d
+```
+
+Avtomatik yangilash uchun crontab ga qo'shing:
+
+```bash
+# Har oyda sertifikatni tekshirish va yangilash
+0 3 1 * * certbot renew --quiet && cd /path/to/harbor && docker compose restart
+```
+
+**5. Image push/pull sekin ishlayapti**
+
+```bash
+# Harbor registryning disk I/O ni tekshirish
+iostat -x 1 5
+
+# Harbor konteynerlar resurslarini tekshirish
+docker stats
+
+# Redis ulanishini tekshirish
+docker compose logs redis
+```
+
+Siz shu qismgacha yetib kelgan bo'lsangiz tabriklayman, siz buni muvaffaqiyatli uddaladingiz!
 
 <Callout type="info" emoji="">
 
-**Sana:** 2024.11.5(2024-yil 15-noyabr)
+**Sana:** 2024.11.15 (2024-yil 15-noyabr)
 
-**Oxirgi yangilanish:** 2024.11.15(2024-yil 15-noyabr)
+**Oxirgi yangilanish:** 2026.02.12 (2026-yil 12-fevral)
 
 **Muallif: Otabek Ismoilov**
 
